@@ -59,6 +59,8 @@ object BankSmsParser {
     private val GENERIC_REF = Regex("""(?:UPI\s+Ref(?:erence)?(?:\s+No)?|Ref\s+No)[:.]?\s*([A-Za-z0-9]+)""", RegexOption.IGNORE_CASE)
     private val DEBIT_WORDS = Regex("""\b(debited|sent|paid|spent|withdrawn|purchase)\b""", RegexOption.IGNORE_CASE)
     private val CREDIT_WORDS = Regex("""\b(credited|received|deposited|refund(?:ed)?|reversed)\b""", RegexOption.IGNORE_CASE)
+    // "-BOI" signature or "Bank of India", but not "State Bank of India" / "Central Bank of India".
+    private val BOI_MARKER = Regex("""-\s*BOI\b|(?<!State |Central )\bBank of India\b""", RegexOption.IGNORE_CASE)
     private val ACCOUNT_HINT = Regex("""A/c|\bUPI\b|\bcard\b|\baccount\b""", RegexOption.IGNORE_CASE)
 
     // Messages that mention money but did not move it.
@@ -105,7 +107,7 @@ object BankSmsParser {
         }
         val bank = when {
             text.contains("Kotak", ignoreCase = true) -> SmsBank.KOTAK
-            Regex("""-\s*BOI\b|Bank of India""", RegexOption.IGNORE_CASE).containsMatchIn(text) -> SmsBank.BOI
+            BOI_MARKER.containsMatchIn(text) -> SmsBank.BOI
             else -> SmsBank.UNKNOWN
         }
         return ParsedBankSms(

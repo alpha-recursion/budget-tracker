@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "merchant_rules")
 data class MerchantRuleEntity(
     @PrimaryKey
-    val counterpartyKey: String, // normalised payee name, see SmsImportPlanner.counterpartyKey
+    val counterpartyKey: String, // direction + normalised payee, see SmsImportPlanner.ruleKey
     val category: String,
     val isSelfTransfer: Boolean
 )
