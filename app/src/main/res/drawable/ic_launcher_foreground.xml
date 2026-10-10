@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54">
+        <!-- Coin outer circle -->
+        <path
+            android:fillColor="#10B981"
+            android:pathData="M54,26 C38.54,26 26,38.54 26,54 C26,69.46 38.54,82 54,82 C69.46,82 82,69.46 82,54 C82,38.54 69.46,26 54,26 Z" />
+        <!-- Inner ring -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2.5"
+            android:fillColor="#00000000"
+            android:pathData="M54,30 C40.75,30 30,40.75 30,54 C30,67.25 40.75,78 54,78 C67.25,78 78,67.25 78,54 C78,40.75 67.25,30 54,30 Z" />
+        <!-- Centered stylized 'P' / Dollar finance glyph -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M48,39 L57,39 C61.42,39 65,42.58 65,47 C65,51.42 61.42,55 57,55 L52,55 L52,69 L48,69 Z M52,43 L52,51 L57,51 C59.21,51 61,49.21 61,47 C61,44.79 59.21,43 57,43 Z" />
+        <!-- Sparkle accent -->
+        <path
+            android:fillColor="#FBBF24"
+            android:pathData="M69,33 L71,38 L76,40 L71,42 L69,47 L67,42 L62,40 L67,38 Z" />
+    </group>
+</vector>

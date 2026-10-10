@@ -1,0 +1,6 @@
+{
+  "name": "Pennywise",
+  "description": "Smart personal finance and expense tracker with budget analytics and Room persistence",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,209 @@
+package com.example.ui.screens
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.example.data.local.TransactionEntity
+import com.example.data.model.TransactionType
+import com.example.domain.CategoryBreakdown
+import com.example.domain.FinancialSummary
+import com.example.ui.components.BalanceCard
+import com.example.ui.components.SpendingDonutChart
+import com.example.ui.components.TransactionItemRow
+import com.example.ui.theme.ExpenseRed
+import com.example.ui.theme.IncomeGreen
+import com.example.ui.theme.PennywisePrimary
+
+@Composable
+fun DashboardScreen(
+    summary: FinancialSummary,
+    breakdowns: List<CategoryBreakdown>,
+    recentTransactions: List<TransactionEntity>,
+    onAddExpense: () -> Unit,
+    onAddIncome: () -> Unit,
+    onViewAllTransactions: () -> Unit,
+    onTransactionClick: (TransactionEntity) -> Unit,
+    onTransactionDelete: (TransactionEntity) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("dashboard_screen"),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Hero Balance Card
+        item {
+            BalanceCard(summary = summary)
+        }
+
+        // Quick Actions Row
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onAddExpense,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("quick_add_expense_button"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = ExpenseRed
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.TrendingDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Add Expense", fontWeight = FontWeight.SemiBold)
+                }
+
+                Button(
+                    onClick = onAddIncome,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("quick_add_income_button"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = IncomeGreen
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Add Income", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // Spending Breakdown Donut Chart
+        item {
+            SpendingDonutChart(
+                breakdowns = breakdowns,
+                totalExpense = summary.totalExpense
+            )
+        }
+
+        // Recent Transactions Header
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recent Transactions",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                TextButton(
+                    onClick = onViewAllTransactions,
+                    modifier = Modifier.testTag("view_all_transactions_button")
+                ) {
+                    Text(
+                        text = "View All",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = PennywisePrimary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = PennywisePrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
+        // Recent Transaction Items
+        if (recentTransactions.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "No transactions yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onAddExpense,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PennywisePrimary)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Create your first transaction")
+                        }
+                    }
+                }
+            }
+        } else {
+            items(
+                items = recentTransactions.take(5),
+                key = { it.id }
+            ) { transaction ->
+                TransactionItemRow(
+                    transaction = transaction,
+                    onClick = { onTransactionClick(transaction) },
+                    onDelete = { onTransactionDelete(transaction) }
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(60.dp)) // Padding for FAB / navigation bar
+        }
+    }
+}
