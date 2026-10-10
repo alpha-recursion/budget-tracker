@@ -37,6 +37,23 @@ data class ImportCandidate(
     val selectedByDefault: Boolean get() = !needsReview && !possibleDuplicate
 }
 
+/** The transaction an imported SMS becomes; shared by the review screen and live capture. */
+fun ImportCandidate.toTransaction(category: String): TransactionEntity {
+    val bank = when (parsed.bank) {
+        SmsBank.KOTAK -> "Kotak"
+        SmsBank.BOI -> "BOI"
+        SmsBank.UNKNOWN -> "bank"
+    }
+    return TransactionEntity(
+        title = title.take(60), // same limit as the manual form
+        amount = parsed.amount,
+        type = parsed.type.name,
+        category = category,
+        date = dateMs,
+        note = "From $bank SMS" + (parsed.upiRef?.let { " · UPI Ref $it" } ?: "")
+    )
+}
+
 /** Candidates for one payee and direction; the user picks a category (or self transfer) once. */
 data class ImportGroup(
     val key: String,
@@ -48,7 +65,9 @@ data class ImportGroup(
     val suggestedCategory: String,
     val suggestedSelfTransfer: Boolean,
     /** Other spellings of the same vendor merged into this group (e.g. truncated names). */
-    val nameVariants: List<String> = emptyList()
+    val nameVariants: List<String> = emptyList(),
+    /** The owner already chose a (still existing) category or "self transfer" for this payee. */
+    val hasRememberedChoice: Boolean = false
 )
 
 /** What a scan saw, so the user can tell why messages were or were not found. */
@@ -235,7 +254,8 @@ object SmsImportPlanner {
                     items = items,
                     suggestedCategory = category,
                     suggestedSelfTransfer = rule?.isSelfTransfer == true || items.all { it.looksLikeSelfTransfer },
-                    nameVariants = items.map { it.title }.distinct().filter { it != canonical }
+                    nameVariants = items.map { it.title }.distinct().filter { it != canonical },
+                    hasRememberedChoice = rule != null && (rule.isSelfTransfer || rule.category in validCategories)
                 )
             }
             .sortedByDescending { group -> group.items.maxOf { it.dateMs } }
