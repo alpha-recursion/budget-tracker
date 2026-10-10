@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 enum class SortOption(val label: String) {
     NEWEST("Newest"),
@@ -191,6 +192,10 @@ class PennywiseViewModel @JvmOverloads constructor(
     private val _categoryError = MutableStateFlow<String?>(null)
     val categoryError: StateFlow<String?> = _categoryError
 
+    // True while a save is being written, so a double tap cannot insert the transaction twice.
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving
+
     // Delete Confirmation
     private val _transactionToDelete = MutableStateFlow<TransactionEntity?>(null)
     val transactionToDelete: StateFlow<TransactionEntity?> = _transactionToDelete
@@ -238,7 +243,8 @@ class PennywiseViewModel @JvmOverloads constructor(
         } else {
             TransactionType.EXPENSE
         }
-        _formAmount.value = String.format("%.2f", transaction.amount)
+        // Locale.US: in comma-decimal locales "%.2f" produced "12,50", which the parser read as 1250.
+        _formAmount.value = String.format(Locale.US, "%.2f", transaction.amount)
         _formTitle.value = transaction.title
         _formCategory.value = transaction.category
         _formDate.value = transaction.date
@@ -291,6 +297,8 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     fun saveTransaction(): Boolean {
+        if (_isSaving.value) return false
+
         val amountVal = FormValidation.validateAmount(_formAmount.value)
         val titleVal = FormValidation.validateTitle(_formTitle.value)
         val catVal = FormValidation.validateCategory(_formCategory.value)
@@ -306,29 +314,34 @@ class PennywiseViewModel @JvmOverloads constructor(
         val parsedAmount = FormValidation.parseAmount(_formAmount.value) ?: return false
         val currentEditing = _editingTransaction.value
 
+        val entity = currentEditing?.copy(
+            title = _formTitle.value.trim(),
+            amount = parsedAmount,
+            type = _formType.value.name,
+            category = _formCategory.value,
+            date = _formDate.value,
+            note = _formNote.value.trim()
+        ) ?: TransactionEntity(
+            title = _formTitle.value.trim(),
+            amount = parsedAmount,
+            type = _formType.value.name,
+            category = _formCategory.value,
+            date = _formDate.value,
+            note = _formNote.value.trim()
+        )
+
+        _isSaving.value = true
         viewModelScope.launch {
-            if (currentEditing != null) {
-                val updated = currentEditing.copy(
-                    title = _formTitle.value.trim(),
-                    amount = parsedAmount,
-                    type = _formType.value.name,
-                    category = _formCategory.value,
-                    date = _formDate.value,
-                    note = _formNote.value.trim()
-                )
-                repository.updateTransaction(updated)
-            } else {
-                val newTx = TransactionEntity(
-                    title = _formTitle.value.trim(),
-                    amount = parsedAmount,
-                    type = _formType.value.name,
-                    category = _formCategory.value,
-                    date = _formDate.value,
-                    note = _formNote.value.trim()
-                )
-                repository.insertTransaction(newTx)
+            try {
+                if (currentEditing != null) {
+                    repository.updateTransaction(entity)
+                } else {
+                    repository.insertTransaction(entity)
+                }
+                dismissAddEditDialog()
+            } finally {
+                _isSaving.value = false
             }
-            dismissAddEditDialog()
         }
         return true
     }

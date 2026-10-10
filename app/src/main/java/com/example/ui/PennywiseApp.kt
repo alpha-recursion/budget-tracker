@@ -290,6 +290,7 @@ private fun AddEditTransactionHost(viewModel: PennywiseViewModel) {
     val amountError by viewModel.amountError.collectAsStateWithLifecycle()
     val titleError by viewModel.titleError.collectAsStateWithLifecycle()
     val categoryError by viewModel.categoryError.collectAsStateWithLifecycle()
+    val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
 
     AddEditTransactionDialog(
         isOpen = true,
@@ -303,6 +304,7 @@ private fun AddEditTransactionHost(viewModel: PennywiseViewModel) {
         amountError = amountError,
         titleError = titleError,
         categoryError = categoryError,
+        isSaving = isSaving,
         onTypeChange = { viewModel.updateFormType(it) },
         onAmountChange = { viewModel.updateFormAmount(it) },
         onTitleChange = { viewModel.updateFormTitle(it) },
