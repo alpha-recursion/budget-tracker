@@ -221,8 +221,11 @@ object SmsImportPlanner {
                 val first = items.first()
                 val type = first.parsed.type
                 val canonical = first.parsed.counterparty?.let { canonicalByType.getValue(type)[it] ?: it }
-                val ruleKey = canonical?.let { ruleKey(type, it) }
-                val rule = canonical?.let { findRule(type, it, ruleKey, rulesByKey) }
+                val canonicalKey = canonical?.let { ruleKey(type, it) }
+                val rule = canonical?.let { findRule(type, it, canonicalKey, rulesByKey) }
+                // Update the existing rule for this vendor rather than adding a second spelling:
+                // two rules for one vendor would make the next spelling ambiguous.
+                val ruleKey = rule?.counterpartyKey ?: canonicalKey
                 val category = rule?.category?.takeIf { it in validCategories } ?: Category.OTHER.displayName
                 ImportGroup(
                     key = key,

@@ -16,6 +16,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY date DESC, id DESC")
     suspend fun getAllTransactionsOnce(): List<TransactionEntity>
 
+    @Query("UPDATE transactions SET category = :category WHERE id IN (:ids)")
+    suspend fun setCategory(ids: List<Long>, category: String)
+
     @Query("UPDATE transactions SET category = :to WHERE category = :from")
     suspend fun reassignCategory(from: String, to: String)
 

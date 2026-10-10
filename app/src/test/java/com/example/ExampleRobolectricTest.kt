@@ -226,6 +226,30 @@ class ExampleRobolectricTest {
     }
 
     @Test
+    fun `remembering a vendor category updates the existing rule for that vendor`() = runBlocking {
+        repository.importFromSms(
+            items = emptyList(),
+            rules = listOf(com.example.data.local.MerchantRuleEntity("expense:some other t c", "Other", false))
+        )
+        repository.rememberCategory(TransactionType.EXPENSE, "Some Other T Center", Category.FOOD_DINING.displayName)
+
+        val rules = repository.merchantRules()
+        assertEquals(1, rules.size) // no second spelling added
+        assertEquals("expense:some other t c", rules.single().counterpartyKey)
+        assertEquals(Category.FOOD_DINING.displayName, rules.single().category)
+    }
+
+    @Test
+    fun `setCategory updates only the chosen transactions`() = runBlocking {
+        val dao = database.transactionDao()
+        val a = dao.insert(TransactionEntity(title = "A", amount = 1.0, type = "EXPENSE", category = "Other", date = 1L))
+        val b = dao.insert(TransactionEntity(title = "B", amount = 1.0, type = "EXPENSE", category = "Other", date = 2L))
+        repository.setCategory(listOf(a), Category.FOOD_DINING.displayName)
+        assertEquals(Category.FOOD_DINING.displayName, dao.getTransactionById(a)?.category)
+        assertEquals("Other", dao.getTransactionById(b)?.category)
+    }
+
+    @Test
     fun `budget limits are validated before saving`() {
         assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, ""))
         assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, "-100"))

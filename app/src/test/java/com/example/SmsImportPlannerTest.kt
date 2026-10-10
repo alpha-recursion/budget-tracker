@@ -191,7 +191,8 @@ class SmsImportPlannerTest {
         assertEquals(3, tea.items.size)
         assertEquals(setOf("Some Other T C", "Some Other T Cen"), tea.nameVariants.toSet())
         assertEquals("Food & Dining", tea.suggestedCategory)
-        assertEquals("expense:some other t center", tea.ruleKey)
+        // The existing rule is updated rather than a second spelling added.
+        assertEquals("expense:some other t c", tea.ruleKey)
         // Imported titles keep the bank's own spelling; only the category is shared.
         assertTrue(tea.items.any { it.title == "Some Other T C" })
         assertEquals(1, groups.getValue("Zepto").items.size)
