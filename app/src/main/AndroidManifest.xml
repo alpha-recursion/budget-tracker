@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Read bank transaction SMS when the user asks to scan (Settings / Dashboard > Import from SMS). -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- READ_SMS implies telephony; keep the app installable on devices without it. -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
