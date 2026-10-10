@@ -148,6 +148,33 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun testFilterToMonth_keepsOnlyReferenceMonth() {
+        val zone = TimeZone.getTimeZone("America/New_York")
+        fun at(month: Int, day: Int, hour: Int = 12): Long = Calendar.getInstance(zone).apply {
+            clear()
+            set(2026, month, day, hour, 0, 0)
+        }.timeInMillis
+        fun tx(id: Long, date: Long) = TransactionEntity(
+            id = id,
+            title = "t$id",
+            amount = 10.0,
+            type = TransactionType.EXPENSE.name,
+            category = Category.FOOD_DINING.displayName,
+            date = date
+        )
+
+        val transactions = listOf(
+            tx(1, at(Calendar.SEPTEMBER, 30, 23)), // last month
+            tx(2, at(Calendar.OCTOBER, 1, 0)),     // first moment-ish of the month
+            tx(3, at(Calendar.OCTOBER, 31, 23)),   // end of the month
+            tx(4, at(Calendar.NOVEMBER, 1, 0))     // next month
+        )
+
+        val result = FinancialCalculations.filterToMonth(transactions, at(Calendar.OCTOBER, 10), zone)
+        assertEquals(listOf(2L, 3L), result.map { it.id })
+    }
+
+    @Test
     fun testFormValidation_amount() {
         assertTrue(FormValidation.validateAmount("12.50").isValid)
         assertTrue(FormValidation.validateAmount("$45.00").isValid)

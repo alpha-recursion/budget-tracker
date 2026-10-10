@@ -117,12 +117,14 @@ class PennywiseViewModel @JvmOverloads constructor(
             initialValue = emptyList()
         )
 
-    // Category Budget Statuses
+    // Category Budget Statuses. Budgets are monthly limits, so only this month's spending counts;
+    // comparing against all-time spending pushed every budget over its limit over time.
     val budgetStatuses: StateFlow<List<CategoryBudgetStatus>> = combine(
         allBudgets,
         allTransactions
     ) { budgets, txs ->
-        FinancialCalculations.calculateBudgetStatuses(budgets, txs)
+        val thisMonth = FinancialCalculations.filterToMonth(txs, System.currentTimeMillis())
+        FinancialCalculations.calculateBudgetStatuses(budgets, thisMonth)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
