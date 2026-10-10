@@ -1,8 +1,10 @@
 package com.example
 
 import android.app.Application
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +20,13 @@ import com.example.ui.theme.PennywiseTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The app always renders the light violet theme, so the system bars must use dark icons
+        // regardless of the device's dark-mode setting. The default (auto) style follows the
+        // system theme and would draw white status bar icons on our white top bar.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(LightNavScrim, DarkNavScrim)
+        )
         setContent {
             PennywiseTheme {
                 Surface(
@@ -33,5 +41,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private companion object {
+        // Same scrims androidx.activity uses by default for 3-button navigation.
+        val LightNavScrim = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
+        val DarkNavScrim = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
     }
 }
