@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.FinancialSummary
@@ -86,6 +87,8 @@ fun BalanceCard(
                         letterSpacing = (-0.5).sp
                     ),
                     color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("net_balance_text")
                 )
 
@@ -129,7 +132,9 @@ fun BalanceCard(
                             Text(
                                 text = Formatters.formatCurrency(summary.totalIncome),
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -170,7 +175,9 @@ fun BalanceCard(
                             Text(
                                 text = Formatters.formatCurrency(summary.totalExpense),
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

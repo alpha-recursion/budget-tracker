@@ -20,8 +20,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 enum class SortOption(val label: String) {
     NEWEST("Newest"),
@@ -65,8 +67,25 @@ class PennywiseViewModel @JvmOverloads constructor(
     private val _sortOption = MutableStateFlow(SortOption.NEWEST)
     val sortOption: StateFlow<SortOption> = _sortOption
 
-    // Transactions from Room
-    val allTransactions: StateFlow<List<TransactionEntity>> = repository.allTransactions
+    // Transactions from Room. Null until the first query result arrives so the UI can tell
+    // "still loading" apart from "no transactions" and avoid flashing empty states.
+    private val loadedTransactions: StateFlow<List<TransactionEntity>?> = repository.allTransactions
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val isDataLoaded: StateFlow<Boolean> = loadedTransactions
+        .map { it != null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    val allTransactions: StateFlow<List<TransactionEntity>> = loadedTransactions
+        .map { it.orEmpty() }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -82,9 +101,8 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     // Derived Financial Summary directly from Room
     val financialSummary: StateFlow<FinancialSummary> = allTransactions
-        .combine(MutableStateFlow(Unit)) { txs, _ ->
-            FinancialCalculations.calculateSummary(txs)
-        }.stateIn(
+        .map { txs -> FinancialCalculations.calculateSummary(txs) }
+        .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = FinancialSummary()
@@ -92,20 +110,21 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     // Category Spending Breakdown
     val categoryBreakdowns: StateFlow<List<CategoryBreakdown>> = allTransactions
-        .combine(MutableStateFlow(Unit)) { txs, _ ->
-            FinancialCalculations.calculateCategoryBreakdown(txs)
-        }.stateIn(
+        .map { txs -> FinancialCalculations.calculateCategoryBreakdown(txs) }
+        .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
 
-    // Category Budget Statuses
+    // Category Budget Statuses. Budgets are monthly limits, so only this month's spending counts;
+    // comparing against all-time spending pushed every budget over its limit over time.
     val budgetStatuses: StateFlow<List<CategoryBudgetStatus>> = combine(
         allBudgets,
         allTransactions
     ) { budgets, txs ->
-        FinancialCalculations.calculateBudgetStatuses(budgets, txs)
+        val thisMonth = FinancialCalculations.filterToMonth(txs, System.currentTimeMillis())
+        FinancialCalculations.calculateBudgetStatuses(budgets, thisMonth)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -175,6 +194,10 @@ class PennywiseViewModel @JvmOverloads constructor(
     private val _categoryError = MutableStateFlow<String?>(null)
     val categoryError: StateFlow<String?> = _categoryError
 
+    // True while a save is being written, so a double tap cannot insert the transaction twice.
+    private val _isSaving = MutableStateFlow(false)
+    val isSaving: StateFlow<Boolean> = _isSaving
+
     // Delete Confirmation
     private val _transactionToDelete = MutableStateFlow<TransactionEntity?>(null)
     val transactionToDelete: StateFlow<TransactionEntity?> = _transactionToDelete
@@ -201,12 +224,12 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     // Dialog & Form Handlers
-    fun openAddDialog() {
+    fun openAddDialog(type: TransactionType = TransactionType.EXPENSE) {
         _editingTransaction.value = null
-        _formType.value = TransactionType.EXPENSE
+        _formType.value = type
         _formAmount.value = ""
         _formTitle.value = ""
-        _formCategory.value = Category.FOOD_DINING.displayName
+        _formCategory.value = Category.getCategoriesForType(type).first().displayName
         _formDate.value = System.currentTimeMillis()
         _formNote.value = ""
         _amountError.value = null
@@ -222,7 +245,8 @@ class PennywiseViewModel @JvmOverloads constructor(
         } else {
             TransactionType.EXPENSE
         }
-        _formAmount.value = String.format("%.2f", transaction.amount)
+        // Locale.US: in comma-decimal locales "%.2f" produced "12,50", which the parser read as 1250.
+        _formAmount.value = String.format(Locale.US, "%.2f", transaction.amount)
         _formTitle.value = transaction.title
         _formCategory.value = transaction.category
         _formDate.value = transaction.date
@@ -275,6 +299,8 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     fun saveTransaction(): Boolean {
+        if (_isSaving.value) return false
+
         val amountVal = FormValidation.validateAmount(_formAmount.value)
         val titleVal = FormValidation.validateTitle(_formTitle.value)
         val catVal = FormValidation.validateCategory(_formCategory.value)
@@ -290,29 +316,34 @@ class PennywiseViewModel @JvmOverloads constructor(
         val parsedAmount = FormValidation.parseAmount(_formAmount.value) ?: return false
         val currentEditing = _editingTransaction.value
 
+        val entity = currentEditing?.copy(
+            title = _formTitle.value.trim(),
+            amount = parsedAmount,
+            type = _formType.value.name,
+            category = _formCategory.value,
+            date = _formDate.value,
+            note = _formNote.value.trim()
+        ) ?: TransactionEntity(
+            title = _formTitle.value.trim(),
+            amount = parsedAmount,
+            type = _formType.value.name,
+            category = _formCategory.value,
+            date = _formDate.value,
+            note = _formNote.value.trim()
+        )
+
+        _isSaving.value = true
         viewModelScope.launch {
-            if (currentEditing != null) {
-                val updated = currentEditing.copy(
-                    title = _formTitle.value.trim(),
-                    amount = parsedAmount,
-                    type = _formType.value.name,
-                    category = _formCategory.value,
-                    date = _formDate.value,
-                    note = _formNote.value.trim()
-                )
-                repository.updateTransaction(updated)
-            } else {
-                val newTx = TransactionEntity(
-                    title = _formTitle.value.trim(),
-                    amount = parsedAmount,
-                    type = _formType.value.name,
-                    category = _formCategory.value,
-                    date = _formDate.value,
-                    note = _formNote.value.trim()
-                )
-                repository.insertTransaction(newTx)
+            try {
+                if (currentEditing != null) {
+                    repository.updateTransaction(entity)
+                } else {
+                    repository.insertTransaction(entity)
+                }
+                dismissAddEditDialog()
+            } finally {
+                _isSaving.value = false
             }
-            dismissAddEditDialog()
         }
         return true
     }

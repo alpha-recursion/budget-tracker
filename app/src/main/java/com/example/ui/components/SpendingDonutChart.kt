@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.CategoryBreakdown
@@ -109,27 +110,37 @@ fun SpendingDonutChart(
                                         useCenter = false,
                                         topLeft = topLeft,
                                         size = arcSize,
-                                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                                        // Butt caps: round caps extend half a stroke width past
+                                        // each arc, so segments overlapped their neighbours.
+                                        style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
                                     )
                                     currentStartAngle += sweep
                                 }
                             }
                         }
 
-                        // Center content
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        // Center content, kept inside the ring's hole (130dp - 2 x 22dp stroke).
+                        val totalText = Formatters.formatCurrency(totalExpense)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.width(80.dp)
+                        ) {
                             Text(
                                 text = "Total Spent",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
                             )
                             Text(
-                                text = Formatters.formatCurrency(totalExpense),
+                                text = totalText,
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = VioletPrimary
+                                    color = VioletPrimary,
+                                    // Shrink long totals rather than spilling over the ring.
+                                    fontSize = if (totalText.length > 9) 11.sp else 14.sp
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -163,9 +174,11 @@ fun SpendingDonutChart(
                                         text = item.categoryName,
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = Formatters.formatPercentage(item.percentage),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),

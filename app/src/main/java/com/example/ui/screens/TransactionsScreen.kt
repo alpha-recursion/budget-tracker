@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Clear
@@ -39,8 +42,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.TransactionEntity
@@ -68,6 +73,7 @@ fun TransactionsScreen(
     modifier: Modifier = Modifier
 ) {
     val tabTitles = listOf("All", "Expenses", "Income")
+    val focusManager = LocalFocusManager.current
     val selectedTabIndex = when (selectedFilterType) {
         TransactionType.EXPENSE.name -> 1
         TransactionType.INCOME.name -> 2
@@ -108,6 +114,9 @@ fun TransactionsScreen(
             },
             shape = RoundedCornerShape(14.dp),
             singleLine = true,
+            // Let the keyboard's search key dismiss the keyboard so results are visible.
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -222,15 +231,18 @@ fun TransactionsScreen(
         }
 
         // Count Indicator & Clear Filters
+        // Fixed min height: the TextButton is taller than the label, so the list used to jump
+        // down/up whenever "Clear filters" appeared or disappeared.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .heightIn(min = 40.dp)
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${transactions.size} transactions",
+                text = if (transactions.size == 1) "1 transaction" else "${transactions.size} transactions",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -238,10 +250,12 @@ fun TransactionsScreen(
             if (searchQuery.isNotEmpty() || selectedFilterType != null || selectedCategory != null) {
                 TextButton(
                     onClick = {
+                        focusManager.clearFocus()
                         onSearchChange("")
                         onFilterTypeChange(null)
                         onCategoryChange(null)
-                    }
+                    },
+                    modifier = Modifier.testTag("clear_filters_button")
                 ) {
                     Text("Clear filters", style = MaterialTheme.typography.labelSmall, color = VioletPrimary)
                 }
@@ -291,7 +305,9 @@ fun TransactionsScreen(
                     TransactionItemRow(
                         transaction = transaction,
                         onClick = { onTransactionClick(transaction) },
-                        onDelete = { onTransactionDelete(transaction) }
+                        onDelete = { onTransactionDelete(transaction) },
+                        // Animate inserts, removals and re-ordering instead of snapping rows around.
+                        modifier = Modifier.animateItem()
                     )
                 }
 

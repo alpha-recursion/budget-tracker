@@ -26,6 +26,12 @@ object Formatters {
         minimumFractionDigits = 2
     }
 
+    // Formatting only happens on the main thread, so these can be shared instead of
+    // allocating a SimpleDateFormat for every transaction row on every recomposition.
+    private val fullDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    private val shortDateFormat = SimpleDateFormat("MMM d", Locale.US)
+    private val monthYearFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+
     fun formatCurrency(amount: Double): String {
         return currencyFormat.format(amount)
     }
@@ -58,13 +64,15 @@ object Formatters {
 
         if (isYesterday) return "Yesterday"
 
-        val sdf = SimpleDateFormat("MMM d, yyyy", Locale.US)
-        return sdf.format(Date(timestampMs))
+        return fullDateFormat.format(Date(timestampMs))
     }
 
     fun formatShortDate(timestampMs: Long): String {
-        val sdf = SimpleDateFormat("MMM d", Locale.US)
-        return sdf.format(Date(timestampMs))
+        return shortDateFormat.format(Date(timestampMs))
+    }
+
+    fun formatMonthYear(timestampMs: Long): String {
+        return monthYearFormat.format(Date(timestampMs))
     }
 }
 

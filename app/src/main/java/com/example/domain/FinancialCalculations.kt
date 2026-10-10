@@ -4,6 +4,8 @@ import com.example.data.local.BudgetEntity
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
 import com.example.data.model.TransactionType
+import java.util.Calendar
+import java.util.TimeZone
 
 data class FinancialSummary(
     val totalIncome: Double = 0.0,
@@ -96,6 +98,26 @@ object FinancialCalculations {
                 transactionCount = items.size
             )
         }.sortedByDescending { it.amount }
+    }
+
+    /** Transactions dated in the same calendar month as [referenceMs] (local time). */
+    fun filterToMonth(
+        transactions: List<TransactionEntity>,
+        referenceMs: Long,
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): List<TransactionEntity> {
+        val start = Calendar.getInstance(timeZone).apply {
+            timeInMillis = referenceMs
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val end = (start.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+        val startMs = start.timeInMillis
+        val endMs = end.timeInMillis
+        return transactions.filter { it.date in startMs until endMs }
     }
 
     fun calculateBudgetStatuses(

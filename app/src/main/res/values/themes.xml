@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar" />
+    <!--
+        Light parent + app background as the window background so there is no dark flash
+        before the first Compose frame when the device is in dark mode.
+    -->
+    <style name="Theme.MyApplication" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/pennywise_background</item>
+    </style>
 </resources>

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -35,6 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -63,6 +67,7 @@ import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.VioletOutlineLight
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.util.DateConversions
 import com.example.ui.util.Formatters
 import com.example.ui.util.getCategoryIcon
 
@@ -80,6 +85,7 @@ fun AddEditTransactionDialog(
     amountError: String?,
     titleError: String?,
     categoryError: String?,
+    isSaving: Boolean = false,
     onTypeChange: (TransactionType) -> Unit,
     onAmountChange: (String) -> Unit,
     onTitleChange: (String) -> Unit,
@@ -102,8 +108,9 @@ fun AddEditTransactionDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.94f)
-                .testTag("add_edit_dialog")
-                .clip(RoundedCornerShape(28.dp)),
+                .widthIn(max = 560.dp)
+                .testTag("add_edit_dialog"),
+            shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp
         ) {
@@ -320,52 +327,51 @@ fun AddEditTransactionDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // Date Quick Selector + Calendar Picker
+                // The label and the quick-pick buttons used to share one row, which overflowed
+                // on phone-width dialogs; they now sit on separate rows.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showDatePicker = true }
+                        .padding(vertical = 6.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showDatePicker = true }
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarToday,
-                            contentDescription = "Date",
-                            tint = VioletPrimary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Date: " + Formatters.formatDate(dateMs),
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = "Date",
+                        tint = VioletPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Date: " + Formatters.formatDate(dateMs),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(
-                            onClick = { onDateChange(System.currentTimeMillis()) },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp)
-                        ) {
-                            Text("Today", fontSize = 12.sp, color = VioletPrimary)
-                        }
-                        TextButton(
-                            onClick = { onDateChange(System.currentTimeMillis() - 86_400_000L) },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp)
-                        ) {
-                            Text("Yesterday", fontSize = 12.sp, color = VioletPrimary)
-                        }
-                        TextButton(
-                            onClick = { showDatePicker = true },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
-                            modifier = Modifier.testTag("pick_custom_date_button")
-                        ) {
-                            Text("Pick", fontSize = 12.sp, color = VioletPrimary, fontWeight = FontWeight.Bold)
-                        }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(
+                        onClick = { onDateChange(System.currentTimeMillis()) },
+                        contentPadding = PaddingValues(horizontal = 10.dp)
+                    ) {
+                        Text("Today", fontSize = 12.sp, color = VioletPrimary)
+                    }
+                    TextButton(
+                        onClick = { onDateChange(System.currentTimeMillis() - 86_400_000L) },
+                        contentPadding = PaddingValues(horizontal = 10.dp)
+                    ) {
+                        Text("Yesterday", fontSize = 12.sp, color = VioletPrimary)
+                    }
+                    TextButton(
+                        onClick = { showDatePicker = true },
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        modifier = Modifier.testTag("pick_custom_date_button")
+                    ) {
+                        Text("Pick date", fontSize = 12.sp, color = VioletPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -406,6 +412,7 @@ fun AddEditTransactionDialog(
 
                     Button(
                         onClick = onSave,
+                        enabled = !isSaving,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("save_transaction_button"),
@@ -420,13 +427,23 @@ fun AddEditTransactionDialog(
 
         // Calendar Date Picker Dialog
         if (showDatePicker) {
-            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMs)
+            // DatePicker works in UTC-midnight millis; convert so the picker shows (and returns)
+            // the same calendar day the user sees in the form, and block future dates.
+            val todayUtc = remember { DateConversions.localToUtcDay(System.currentTimeMillis()) }
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = DateConversions.localToUtcDay(dateMs),
+                selectableDates = object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= todayUtc
+                }
+            )
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            datePickerState.selectedDateMillis?.let { onDateChange(it) }
+                            datePickerState.selectedDateMillis?.let {
+                                onDateChange(DateConversions.utcDayToLocal(it, keepTimeOfMs = dateMs))
+                            }
                             showDatePicker = false
                         }
                     ) {

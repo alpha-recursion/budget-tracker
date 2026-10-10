@@ -6,6 +6,9 @@ import com.example.data.model.Category
 import com.example.data.model.TransactionType
 import com.example.domain.FinancialCalculations
 import com.example.domain.FormValidation
+import com.example.ui.util.DateConversions
+import java.util.Calendar
+import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -145,6 +148,33 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun testFilterToMonth_keepsOnlyReferenceMonth() {
+        val zone = TimeZone.getTimeZone("America/New_York")
+        fun at(month: Int, day: Int, hour: Int = 12): Long = Calendar.getInstance(zone).apply {
+            clear()
+            set(2026, month, day, hour, 0, 0)
+        }.timeInMillis
+        fun tx(id: Long, date: Long) = TransactionEntity(
+            id = id,
+            title = "t$id",
+            amount = 10.0,
+            type = TransactionType.EXPENSE.name,
+            category = Category.FOOD_DINING.displayName,
+            date = date
+        )
+
+        val transactions = listOf(
+            tx(1, at(Calendar.SEPTEMBER, 30, 23)), // last month
+            tx(2, at(Calendar.OCTOBER, 1, 0)),     // first moment-ish of the month
+            tx(3, at(Calendar.OCTOBER, 31, 23)),   // end of the month
+            tx(4, at(Calendar.NOVEMBER, 1, 0))     // next month
+        )
+
+        val result = FinancialCalculations.filterToMonth(transactions, at(Calendar.OCTOBER, 10), zone)
+        assertEquals(listOf(2L, 3L), result.map { it.id })
+    }
+
+    @Test
     fun testFormValidation_amount() {
         assertTrue(FormValidation.validateAmount("12.50").isValid)
         assertTrue(FormValidation.validateAmount("$45.00").isValid)
@@ -155,6 +185,48 @@ class ExampleUnitTest {
         assertFalse(FormValidation.validateAmount("-5.00").isValid)
         assertFalse(FormValidation.validateAmount("abc").isValid)
         assertFalse(FormValidation.validateAmount("12.999").isValid) // More than 2 decimals
+    }
+
+    @Test
+    fun testFormValidation_rejectsNonDecimalNumberSyntax() {
+        // All of these parse with toDoubleOrNull() but are not amounts a user should save.
+        assertFalse(FormValidation.validateAmount("NaN").isValid)
+        assertFalse(FormValidation.validateAmount("Infinity").isValid)
+        assertFalse(FormValidation.validateAmount("1e3").isValid)
+        assertFalse(FormValidation.validateAmount("0x1p3").isValid)
+        assertEquals(null, FormValidation.parseAmount("NaN"))
+
+        assertTrue(FormValidation.validateAmount(".5").isValid)
+        assertEquals(0.5, FormValidation.parseAmount(".5")!!, 0.0001)
+    }
+
+    @Test
+    fun testDateConversions_roundTripKeepsCalendarDayAcrossTimeZones() {
+        for (zoneId in listOf("America/Los_Angeles", "Asia/Kolkata", "Pacific/Auckland", "UTC")) {
+            val zone = TimeZone.getTimeZone(zoneId)
+            // 23:30 local on Mar 15 2026 - a time that lands on a different UTC day in most zones.
+            val local = Calendar.getInstance(zone).apply {
+                clear()
+                set(2026, Calendar.MARCH, 15, 23, 30, 0)
+            }.timeInMillis
+
+            val utcDay = DateConversions.localToUtcDay(local, zone)
+            val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = utcDay }
+            assertEquals(zoneId, 15, utc.get(Calendar.DAY_OF_MONTH))
+            assertEquals(zoneId, 0, utc.get(Calendar.HOUR_OF_DAY))
+
+            // Picking Mar 10 in the picker keeps the original time of day on Mar 10 local.
+            val pickedUtc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                clear()
+                set(2026, Calendar.MARCH, 10)
+            }.timeInMillis
+            val back = Calendar.getInstance(zone).apply {
+                timeInMillis = DateConversions.utcDayToLocal(pickedUtc, keepTimeOfMs = local, timeZone = zone)
+            }
+            assertEquals(zoneId, 10, back.get(Calendar.DAY_OF_MONTH))
+            assertEquals(zoneId, 23, back.get(Calendar.HOUR_OF_DAY))
+            assertEquals(zoneId, 30, back.get(Calendar.MINUTE))
+        }
     }
 
     @Test

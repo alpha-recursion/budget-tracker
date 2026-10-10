@@ -146,6 +146,38 @@ class ExampleRobolectricTest {
     }
 
     @Test
+    fun `quick add income opens the dialog as income with an income category`() {
+        viewModel.openAddDialog(TransactionType.INCOME)
+        assertEquals(TransactionType.INCOME, viewModel.formType.value)
+        assertTrue(
+            Category.getCategoriesForType(TransactionType.INCOME)
+                .any { it.displayName == viewModel.formCategory.value }
+        )
+    }
+
+    @Test
+    fun `edit dialog amount is locale independent`() {
+        val previous = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.GERMANY)
+            viewModel.openEditDialog(
+                TransactionEntity(
+                    id = 7L,
+                    title = "Lunch",
+                    amount = 12.5,
+                    type = TransactionType.EXPENSE.name,
+                    category = Category.FOOD_DINING.displayName,
+                    date = 1000L
+                )
+            )
+            assertEquals("12.50", viewModel.formAmount.value)
+            assertEquals(12.5, com.example.domain.FormValidation.parseAmount(viewModel.formAmount.value)!!, 0.001)
+        } finally {
+            java.util.Locale.setDefault(previous)
+        }
+    }
+
+    @Test
     fun `test edit transaction dialog population`() {
         val testEntity = TransactionEntity(
             id = 42L,

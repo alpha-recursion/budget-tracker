@@ -32,8 +32,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.CategoryBreakdown
@@ -99,7 +101,8 @@ fun AnalyticsScreen(
 
                     Column {
                         Text(
-                            text = "Monthly Savings Rate",
+                            // Computed from all recorded transactions, like the cash flow card.
+                            text = "Savings Rate",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -111,12 +114,11 @@ fun AnalyticsScreen(
                             )
                         )
                         Text(
-                            text = if (summary.savingsRate >= 20.0) {
-                                "Excellent! You are saving over 20% of your income."
-                            } else if (summary.savingsRate > 0.0) {
-                                "Good start! Aim for 20% savings for financial resilience."
-                            } else {
-                                "Expenses currently exceed or match income."
+                            text = when {
+                                summary.totalIncome <= 0.0 -> "Add income to see how much you are saving."
+                                summary.savingsRate >= 20.0 -> "Excellent! You are saving over 20% of your income."
+                                summary.savingsRate > 0.0 -> "Good start! Aim for 20% savings for financial resilience."
+                                else -> "Expenses currently exceed or match income."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -148,36 +150,32 @@ fun AnalyticsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
+                    // Equal-width columns so large amounts cannot push into each other.
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column {
-                            Text("Total Inflow", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                Formatters.formatCurrency(summary.totalIncome),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = IncomeGreen
-                            )
-                        }
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Total Outflow", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                Formatters.formatCurrency(summary.totalExpense),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = ExpenseRed
-                            )
-                        }
-
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Net Surplus", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                Formatters.formatCurrency(summary.netBalance),
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = if (summary.netBalance >= 0.0) VioletPrimary else ExpenseRed
-                            )
-                        }
+                        CashFlowStat(
+                            label = "Total Inflow",
+                            amount = summary.totalIncome,
+                            color = IncomeGreen,
+                            alignment = Alignment.Start,
+                            modifier = Modifier.weight(1f)
+                        )
+                        CashFlowStat(
+                            label = "Total Outflow",
+                            amount = summary.totalExpense,
+                            color = ExpenseRed,
+                            alignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        )
+                        CashFlowStat(
+                            label = if (summary.netBalance >= 0.0) "Net Surplus" else "Net Deficit",
+                            amount = summary.netBalance,
+                            color = if (summary.netBalance >= 0.0) VioletPrimary else ExpenseRed,
+                            alignment = Alignment.End,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -185,11 +183,18 @@ fun AnalyticsScreen(
 
         // Monthly Category Budgets Header
         item {
-            Text(
-                text = "Category Budgets & Limits",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Column {
+                Text(
+                    text = "Category Budgets & Limits",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Spending in " + Formatters.formatMonthYear(System.currentTimeMillis()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         // Budget Progress Items
@@ -245,7 +250,10 @@ fun AnalyticsScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
                                         Box(
                                             modifier = Modifier
                                                 .size(10.dp)
@@ -256,9 +264,12 @@ fun AnalyticsScreen(
                                         Text(
                                             text = item.categoryName,
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
+                                    Spacer(modifier = Modifier.width(8.dp))
 
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
@@ -284,7 +295,12 @@ fun AnalyticsScreen(
                                         .height(6.dp)
                                         .clip(RoundedCornerShape(3.dp)),
                                     color = Color(item.category.colorHex),
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    strokeCap = StrokeCap.Round,
+                                    // Material3 1.3 adds a gap and an end "stop" dot by default,
+                                    // which looked like a rendering glitch on these thin bars.
+                                    gapSize = 0.dp,
+                                    drawStopIndicator = {}
                                 )
                             }
                         }
@@ -328,5 +344,30 @@ fun AnalyticsScreen(
         item {
             Spacer(modifier = Modifier.height(72.dp))
         }
+    }
+}
+
+@Composable
+private fun CashFlowStat(
+    label: String,
+    amount: Double,
+    color: Color,
+    alignment: Alignment.Horizontal,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, horizontalAlignment = alignment) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        Text(
+            text = Formatters.formatCurrency(amount),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

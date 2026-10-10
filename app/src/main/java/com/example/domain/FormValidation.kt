@@ -10,17 +10,30 @@ sealed class ValidationResult {
 
 object FormValidation {
 
+    // Plain decimal numbers only. toDoubleOrNull() alone also accepts "NaN", "Infinity",
+    // exponents like "1e5" and hex floats, which must not be saved as amounts.
+    private val PLAIN_DECIMAL = Regex("""^(\d+(\.\d*)?|\.\d+)$""")
+
+    private fun normalize(rawInput: String): String =
+        rawInput.trim().replace("$", "").replace(",", "")
+
     fun validateAmount(rawInput: String): ValidationResult {
-        val trimmed = rawInput.trim().replace("$", "").replace(",", "")
+        val trimmed = normalize(rawInput)
         if (trimmed.isEmpty()) {
             return ValidationResult.Invalid("Please enter an amount")
         }
 
         val amount = trimmed.toDoubleOrNull()
-            ?: return ValidationResult.Invalid("Please enter a valid numeric amount")
+        if (amount == null || amount.isNaN()) {
+            return ValidationResult.Invalid("Please enter a valid numeric amount")
+        }
 
         if (amount <= 0.0) {
             return ValidationResult.Invalid("Amount must be greater than $0.00")
+        }
+
+        if (!PLAIN_DECIMAL.matches(trimmed)) {
+            return ValidationResult.Invalid("Please enter a valid numeric amount")
         }
 
         if (amount > 10_000_000.0) {
@@ -55,7 +68,8 @@ object FormValidation {
     }
 
     fun parseAmount(rawInput: String): Double? {
-        val trimmed = rawInput.trim().replace("$", "").replace(",", "")
+        val trimmed = normalize(rawInput)
+        if (!PLAIN_DECIMAL.matches(trimmed)) return null
         return trimmed.toDoubleOrNull()
     }
 }
