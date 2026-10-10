@@ -41,21 +41,21 @@ lent to others, and use light game mechanics so it gets opened every day.
 | Phase | Status |
 |---|---|
 | 0. Foundation | **Built** — ₹ currency, demo data removed, safe DB migrations (v2), custom categories, editable budgets, JSON backup / restore / erase. Needs on-device check. |
-| 2. Auto-capture | **Started** — `BankSmsParser` handles the real Kotak and BOI debit formats (unit-tested); SMS receiver and review inbox not built yet. |
+| 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). Live capture (1.5) and verified credit formats (1.8) pending. Needs on-device check. |
 | 1, 3, 4, 5 | Not started |
 
 ## To-do list
 
 ### 1. SMS scanning (in progress)
-- [ ] 1.1 Permission screen: why SMS access is needed, grant button, help for Android's
+- [x] 1.1 Permission screen: why SMS access is needed, grant button, help for Android's
       "Allow restricted settings"
-- [ ] 1.2 History scan: last 7 / 14 / 30 days or since a chosen date, with preview summary
-- [ ] 1.3 Review preview: grouped by payee, tick/untick items, import selected
-- [ ] 1.4 De-duplication: never import the same SMS twice (bank + direction + UPI ref, or
+- [x] 1.2 History scan: last 7 / 14 / 30 days or since a chosen date, with preview summary
+- [x] 1.3 Review preview: grouped by payee, tick/untick items, import selected
+- [x] 1.4 De-duplication: never import the same SMS twice (bank + direction + UPI ref, or
       message fingerprint); flag likely manual duplicates (same amount, same day)
 - [ ] 1.5 Live capture of new SMS into a review inbox + notification
-- [ ] 1.6 Payee memory: category (or "self transfer") remembered per payee
-- [ ] 1.7 Database v3: `sms_imports` and `merchant_rules` tables (+ backup/restore/erase)
+- [x] 1.6 Payee memory: category (or "self transfer") remembered per payee
+- [x] 1.7 Database v3: `sms_imports` and `merchant_rules` tables (+ backup/restore/erase)
 - [ ] 1.8 Exact credit formats once Kotak/BOI "money received" samples arrive
 
 ### 2. Lending tracker
