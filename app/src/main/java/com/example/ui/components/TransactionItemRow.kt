@@ -33,12 +33,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.TransactionEntity
-import com.example.data.model.Category
+import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.VioletOutlineLight
 import com.example.ui.util.Formatters
+import com.example.ui.util.LocalCategories
 import com.example.ui.util.getCategoryIcon
 
 @Composable
@@ -48,7 +49,7 @@ fun TransactionItemRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val category = Category.fromDisplayName(transaction.category)
+    val category = CategoryInfo.resolve(transaction.category, LocalCategories.current)
     val isIncome = transaction.type.equals(TransactionType.INCOME.name, ignoreCase = true)
     val amountColor = if (isIncome) IncomeGreen else ExpenseRed
 
@@ -81,7 +82,7 @@ fun TransactionItemRow(
             ) {
                 Icon(
                     imageVector = getCategoryIcon(category.iconKey),
-                    contentDescription = category.displayName,
+                    contentDescription = category.name,
                     tint = Color(category.colorHex),
                     modifier = Modifier.size(22.dp)
                 )

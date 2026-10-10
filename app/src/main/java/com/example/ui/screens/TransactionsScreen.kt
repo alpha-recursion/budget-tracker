@@ -49,13 +49,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.TransactionEntity
-import com.example.data.model.Category
 import com.example.data.model.TransactionType
 import com.example.ui.SortOption
 import com.example.ui.components.TransactionItemRow
 import com.example.ui.theme.VioletOutlineLight
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.util.LocalCategories
 
 @Composable
 fun TransactionsScreen(
@@ -180,14 +180,14 @@ fun TransactionsScreen(
                 modifier = Modifier.testTag("category_chip_all")
             )
 
-            Category.entries.forEach { cat ->
+            LocalCategories.current.forEach { cat ->
                 FilterChip(
-                    selected = selectedCategory == cat.displayName,
+                    selected = selectedCategory == cat.name,
                     onClick = {
-                        if (selectedCategory == cat.displayName) onCategoryChange(null)
-                        else onCategoryChange(cat.displayName)
+                        if (selectedCategory == cat.name) onCategoryChange(null)
+                        else onCategoryChange(cat.name)
                     },
-                    label = { Text(cat.displayName) },
+                    label = { Text(cat.name) },
                     shape = RoundedCornerShape(12.dp),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(cat.colorHex).copy(alpha = 0.15f),

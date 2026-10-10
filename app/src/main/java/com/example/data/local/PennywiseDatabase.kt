@@ -6,13 +6,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [TransactionEntity::class, BudgetEntity::class],
-    version = 1,
+    entities = [TransactionEntity::class, BudgetEntity::class, CustomCategoryEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class PennywiseDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun budgetDao(): BudgetDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         @Volatile
@@ -28,6 +29,7 @@ abstract class PennywiseDatabase : RoomDatabase() {
                 // Never wipe the user's data on a schema change: every version bump must ship
                 // an explicit Migration (see PennywiseMigrations). Only a downgrade, which
                 // cannot be migrated, falls back to recreating the database.
+                .addMigrations(*PennywiseMigrations.ALL)
                 .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
                 INSTANCE = instance

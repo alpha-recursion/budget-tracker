@@ -12,6 +12,21 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.LocalGasStation
+import androidx.compose.material.icons.filled.LocalGroceryStore
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -94,6 +109,21 @@ fun getCategoryIcon(iconKey: String): ImageVector {
         "work" -> Icons.Default.Work
         "laptop" -> Icons.Default.Laptop
         "trending_up" -> Icons.AutoMirrored.Filled.TrendingUp
+        "two_wheeler" -> Icons.Default.TwoWheeler
+        "local_gas_station" -> Icons.Default.LocalGasStation
+        "local_grocery_store" -> Icons.Default.LocalGroceryStore
+        "local_cafe" -> Icons.Default.LocalCafe
+        "checkroom" -> Icons.Default.Checkroom
+        "phone_android" -> Icons.Default.PhoneAndroid
+        "school" -> Icons.Default.School
+        "fitness_center" -> Icons.Default.FitnessCenter
+        "spa" -> Icons.Default.Spa
+        "sports_esports" -> Icons.Default.SportsEsports
+        "flight" -> Icons.Default.Flight
+        "pets" -> Icons.Default.Pets
+        "card_giftcard" -> Icons.Default.CardGiftcard
+        "people" -> Icons.Default.People
+        "savings" -> Icons.Default.Savings
         else -> Icons.Default.MoreHoriz
     }
 }

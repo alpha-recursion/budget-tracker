@@ -6,9 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.BudgetEntity
+import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.PennywiseDatabase
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
+import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import com.example.data.repository.PennywiseRepository
 import com.example.domain.CategoryBreakdown
@@ -35,8 +37,7 @@ enum class SortOption(val label: String) {
 class PennywiseViewModel @JvmOverloads constructor(
     application: Application,
     private val repository: PennywiseRepository = PennywiseRepository(
-        PennywiseDatabase.getDatabase(application).transactionDao(),
-        PennywiseDatabase.getDatabase(application).budgetDao()
+        PennywiseDatabase.getDatabase(application)
     )
 ) : AndroidViewModel(application) {
 
@@ -53,6 +54,30 @@ class PennywiseViewModel @JvmOverloads constructor(
     // Tab Navigation: 0 = Dashboard, 1 = Transactions, 2 = Analytics
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab
+
+    // Settings is a full screen shown on top of the tabs.
+    private val _isSettingsOpen = MutableStateFlow(false)
+    val isSettingsOpen: StateFlow<Boolean> = _isSettingsOpen
+
+    // Built-in categories followed by the user's own. Eager so the list is ready for the form
+    // the first time it opens.
+    val categories: StateFlow<List<CategoryInfo>> = repository.customCategories
+        .map { custom ->
+            CategoryInfo.builtIns + custom.map { entity ->
+                CategoryInfo(
+                    name = entity.name,
+                    iconKey = entity.iconKey,
+                    colorHex = entity.colorHex,
+                    type = if (entity.type == TransactionType.INCOME.name) TransactionType.INCOME else TransactionType.EXPENSE,
+                    isCustom = true
+                )
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = CategoryInfo.builtIns
+        )
 
     // Filter & Search
     private val _filterType = MutableStateFlow<String?>(null) // null = All, "EXPENSE", "INCOME"
@@ -109,8 +134,9 @@ class PennywiseViewModel @JvmOverloads constructor(
         )
 
     // Category Spending Breakdown
-    val categoryBreakdowns: StateFlow<List<CategoryBreakdown>> = allTransactions
-        .map { txs -> FinancialCalculations.calculateCategoryBreakdown(txs) }
+    val categoryBreakdowns: StateFlow<List<CategoryBreakdown>> = combine(allTransactions, categories) { txs, cats ->
+        FinancialCalculations.calculateCategoryBreakdown(txs) { CategoryInfo.resolve(it, cats) }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -121,10 +147,11 @@ class PennywiseViewModel @JvmOverloads constructor(
     // comparing against all-time spending pushed every budget over its limit over time.
     val budgetStatuses: StateFlow<List<CategoryBudgetStatus>> = combine(
         allBudgets,
-        allTransactions
-    ) { budgets, txs ->
+        allTransactions,
+        categories
+    ) { budgets, txs, cats ->
         val thisMonth = FinancialCalculations.filterToMonth(txs, System.currentTimeMillis())
-        FinancialCalculations.calculateBudgetStatuses(budgets, thisMonth)
+        FinancialCalculations.calculateBudgetStatuses(budgets, thisMonth) { CategoryInfo.resolve(it, cats) }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -204,7 +231,47 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     // Navigation and Filters
     fun setTab(index: Int) {
+        _isSettingsOpen.value = false
         _selectedTab.value = index
+    }
+
+    fun openSettings() {
+        _isSettingsOpen.value = true
+    }
+
+    fun closeSettings() {
+        _isSettingsOpen.value = false
+    }
+
+    /**
+     * Validates and creates a custom category. Returns an error message for the user, or null
+     * when the category was accepted (it is written to the database asynchronously).
+     */
+    fun addCustomCategory(name: String, type: TransactionType, iconKey: String, colorHex: Long): String? {
+        val trimmed = name.trim().replace(Regex("\\s+"), " ")
+        when {
+            trimmed.isEmpty() -> return "Please enter a name"
+            trimmed.length > 30 -> return "Name must be 30 characters or fewer"
+            categories.value.any { it.name.equals(trimmed, ignoreCase = true) } ->
+                return "A category with this name already exists"
+        }
+        viewModelScope.launch {
+            repository.saveCustomCategory(
+                CustomCategoryEntity(name = trimmed, iconKey = iconKey, colorHex = colorHex, type = type.name)
+            )
+        }
+        // When created from the transaction form, select the new category straight away.
+        if (_isAddEditOpen.value && _formType.value == type) {
+            _formCategory.value = trimmed
+            _categoryError.value = null
+        }
+        return null
+    }
+
+    fun deleteCustomCategory(name: String) {
+        viewModelScope.launch {
+            repository.deleteCustomCategory(name)
+        }
     }
 
     fun setFilterType(type: String?) {
@@ -229,7 +296,7 @@ class PennywiseViewModel @JvmOverloads constructor(
         _formType.value = type
         _formAmount.value = ""
         _formTitle.value = ""
-        _formCategory.value = Category.getCategoriesForType(type).first().displayName
+        _formCategory.value = CategoryInfo.forType(categories.value, type).first().name
         _formDate.value = System.currentTimeMillis()
         _formNote.value = ""
         _amountError.value = null
@@ -265,9 +332,9 @@ class PennywiseViewModel @JvmOverloads constructor(
     fun updateFormType(type: TransactionType) {
         _formType.value = type
         // Reset category to appropriate default if current isn't in type
-        val available = Category.getCategoriesForType(type)
-        if (available.none { it.displayName.equals(_formCategory.value, ignoreCase = true) }) {
-            _formCategory.value = available.firstOrNull()?.displayName ?: Category.OTHER.displayName
+        val available = CategoryInfo.forType(categories.value, type)
+        if (available.none { it.name.equals(_formCategory.value, ignoreCase = true) }) {
+            _formCategory.value = available.firstOrNull()?.name ?: Category.OTHER.displayName
         }
     }
 
