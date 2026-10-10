@@ -60,6 +60,13 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 1.9 Scan details: what was read / recognised, unrecognised examples, and
       "Scan since <date>" when the latest bank SMS is older than the period
 - [x] 1.10 Teach by example: save a new SMS format from one sample (DB v4)
+- [x] 1.11 Similar vendors: truncated payee names grouped in the SMS preview; changing a
+      category offers to update the same vendor's other transactions; remembered per vendor
+
+### 1b. Category & vendor UX (done)
+- [x] Category grid picker (4 per row, most-used first) in form, budget editor and SMS preview
+- [x] Auto-category while typing a known vendor in the Add form
+- [x] Top vendors card in Analytics (this month, similar names combined)
 
 ### 2. Lending tracker
 - [ ] 2.1 People + lent/borrowed ledger
