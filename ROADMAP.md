@@ -15,6 +15,17 @@ lent to others, and use light game mechanics so it gets opened every day.
 
 ---
 
+## Owner decisions (Oct 2026)
+
+- **Banks for SMS parsing:** Bank of India (BOI), Kotak Mahindra Bank
+- **Data import:** all four — bank SMS auto-read, bank statement CSV/Excel,
+  PhonePe/Paytm PDF, and manual quick-add
+- **Priorities after Phase 0:** lending tracker, then goals & gamification
+  (subscriptions and vehicle tracking follow later)
+- **Next step:** owner shares masked BOI and Kotak SMS samples before Phase 0 starts
+
+---
+
 ## 1. Current state vs target
 
 ```
