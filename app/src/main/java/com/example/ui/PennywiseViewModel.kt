@@ -46,7 +46,9 @@ enum class SortOption(val label: String) {
     LOWEST_AMOUNT("Lowest ₹")
 }
 
-enum class Overlay { SETTINGS, SMS_IMPORT }
+enum class Overlay { SMS_IMPORT }
+
+const val SETTINGS_TAB = 3
 
 /** Offer to give other transactions from the same vendor the category just chosen. */
 data class SimilarCategoryPrompt(
@@ -72,7 +74,7 @@ class PennywiseViewModel @JvmOverloads constructor(
             }
     }
 
-    // Tab Navigation: 0 = Dashboard, 1 = Transactions, 2 = Analytics
+    // Tab Navigation: 0 = Home, 1 = Transactions, 2 = Insights, 3 = Settings
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab
 
@@ -276,8 +278,9 @@ class PennywiseViewModel @JvmOverloads constructor(
         _selectedTab.value = index
     }
 
+    /** Settings is the fourth tab. */
     fun openSettings() {
-        _overlay.value = Overlay.SETTINGS
+        setTab(SETTINGS_TAB)
     }
 
     fun openSmsImport() {

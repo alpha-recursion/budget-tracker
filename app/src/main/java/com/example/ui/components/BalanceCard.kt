@@ -33,11 +33,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.FinancialSummary
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryDark
-import com.example.ui.theme.VioletSecondary
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Accent
+import com.example.ui.theme.Ink
 import com.example.ui.util.Formatters
 
 @Composable
@@ -60,9 +59,9 @@ fun BalanceCard(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            VioletPrimary,
-                            VioletSecondary,
-                            VioletPrimaryDark
+                            Accent,
+                            Accent,
+                            Ink
                         )
                     )
                 )

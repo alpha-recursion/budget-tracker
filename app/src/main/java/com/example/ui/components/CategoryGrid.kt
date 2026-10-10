@@ -37,8 +37,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.model.CategoryInfo
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.util.LocalCategoryUsage
 import com.example.ui.util.getCategoryIcon
 import com.example.ui.util.orderByUsage
@@ -156,16 +156,16 @@ private fun NewTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier
             .heightIn(min = 76.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(VioletPrimaryContainer)
+            .background(AccentSoft)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp)
             .testTag("new_category_chip"),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(24.dp))
+            Icon(Icons.Default.Add, contentDescription = null, tint = Accent, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(6.dp))
-            Text("New", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = VioletPrimary)
+            Text("New", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Accent)
         }
     }
 }

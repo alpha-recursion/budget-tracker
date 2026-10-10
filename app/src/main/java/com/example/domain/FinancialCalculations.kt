@@ -138,6 +138,42 @@ object FinancialCalculations {
         }.sortedByDescending { it.amount }
     }
 
+    /** Local midnight of the Monday of the week containing [referenceMs]. */
+    fun startOfWeek(referenceMs: Long, timeZone: TimeZone = TimeZone.getDefault()): Long =
+        Calendar.getInstance(timeZone).apply {
+            timeInMillis = referenceMs
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            // Calendar.MONDAY = 2 ... SUNDAY = 1; step back to Monday.
+            val daysSinceMonday = (get(Calendar.DAY_OF_WEEK) + 5) % 7
+            add(Calendar.DAY_OF_YEAR, -daysSinceMonday)
+        }.timeInMillis
+
+    /** [days] + 1 local-midnight boundaries starting at [startMs] (DST-safe). */
+    fun dayStarts(startMs: Long, days: Int, timeZone: TimeZone = TimeZone.getDefault()): List<Long> {
+        val cal = Calendar.getInstance(timeZone).apply { timeInMillis = startMs }
+        return List(days + 1) { index ->
+            if (index > 0) cal.add(Calendar.DAY_OF_YEAR, 1)
+            cal.timeInMillis
+        }
+    }
+
+    /** Total expense per day for [days] days from [startMs] (local days). */
+    fun dailyExpenseTotals(
+        transactions: List<TransactionEntity>,
+        startMs: Long,
+        days: Int = 7,
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): List<Double> {
+        val bounds = dayStarts(startMs, days, timeZone) // days + 1 boundaries
+        val expenses = transactions.filter { it.type == TransactionType.EXPENSE.name }
+        return List(days) { i ->
+            expenses.filter { it.date >= bounds[i] && it.date < bounds[i + 1] }.sumOf { it.amount }
+        }
+    }
+
     /** Transactions dated in the same calendar month as [referenceMs] (local time). */
     fun filterToMonth(
         transactions: List<TransactionEntity>,

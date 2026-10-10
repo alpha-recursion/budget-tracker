@@ -48,6 +48,7 @@ object Formatters {
     private val fullDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
     private val shortDateFormat = SimpleDateFormat("MMM d", Locale.US)
     private val monthYearFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+    private val longDateFormat = SimpleDateFormat("EEEE, d MMMM", Locale.US)
 
     fun formatCurrency(amount: Double): String {
         return if (amount < 0) {
@@ -90,6 +91,11 @@ object Formatters {
 
     fun formatShortDate(timestampMs: Long): String {
         return shortDateFormat.format(Date(timestampMs))
+    }
+
+    /** "Friday, 10 October" for page headers. */
+    fun formatLongDate(timestampMs: Long): String {
+        return longDateFormat.format(Date(timestampMs))
     }
 
     fun formatMonthYear(timestampMs: Long): String {

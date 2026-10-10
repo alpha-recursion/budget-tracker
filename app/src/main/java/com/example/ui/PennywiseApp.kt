@@ -2,7 +2,32 @@ package com.example.ui
 
 import android.app.Application
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.InsertChart
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.InsertChart
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.ui.components.PwHeaderIconButton
+import com.example.ui.components.Space
+import com.example.ui.components.softShadow
+import com.example.ui.theme.Ink
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.SurfaceWhite
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -82,20 +107,20 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SmsImportScreen
 import com.example.ui.screens.TeachFormatDialog
 import com.example.ui.screens.TransactionsScreen
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Negative
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.util.LocalCategories
 import com.example.ui.util.LocalCategoryUsage
 import com.example.ui.util.Formatters
 
-// Screen keys for the main content area: the three tabs plus full screens shown on top of them.
-private const val SETTINGS_SCREEN = 3
+// Screen keys for the main content area: the four tabs plus full screens shown on top of them.
+private const val SETTINGS_SCREEN = SETTINGS_TAB
 private const val SMS_IMPORT_SCREEN = 4
 
 private fun tabTitle(tab: Int): String = when (tab) {
     1 -> "Transactions"
-    2 -> "Analytics & Budget"
+    2 -> "Insights"
     SETTINGS_SCREEN -> "Settings"
     SMS_IMPORT_SCREEN -> "Import from SMS"
     else -> "Pennywise"
@@ -122,8 +147,8 @@ fun PennywiseApp(
             snackbarHostState.showSnackbar(it)
         }
     }
+    // Tab 3 is Settings, which is also SETTINGS_SCREEN.
     val currentScreen = when (overlay) {
-        Overlay.SETTINGS -> SETTINGS_SCREEN
         Overlay.SMS_IMPORT -> SMS_IMPORT_SCREEN
         null -> selectedTab
     }
@@ -170,127 +195,24 @@ fun PennywiseApp(
         LocalCategories provides categories,
         LocalCategoryUsage provides categoryUsage
     ) {
+        Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
-            modifier = modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        AnimatedContent(
-                            targetState = currentScreen,
-                            transitionSpec = {
-                                fadeIn(tween(TAB_FADE_IN_MS, delayMillis = TAB_FADE_OUT_MS))
-                                    .togetherWith(fadeOut(tween(TAB_FADE_OUT_MS)))
-                            },
-                            label = "top_bar_title"
-                        ) { tab ->
-                            Text(
-                                text = tabTitle(tab),
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        if (isOverlayOpen) {
-                            IconButton(onClick = { viewModel.closeOverlay() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                            }
-                        }
-                    },
-                    actions = {
-                        if (!isOverlayOpen) {
-                            IconButton(
-                                onClick = { viewModel.openSettings() },
-                                modifier = Modifier.testTag("open_settings_button")
-                            ) {
-                                Icon(Icons.Outlined.Settings, contentDescription = "Settings")
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                PageHeader(
+                    screen = currentScreen,
+                    showBack = isOverlayOpen,
+                    onBack = { viewModel.closeOverlay() }
                 )
             },
             bottomBar = {
-                NavigationBar(
-                    // NavigationBar already applies the navigation-bar insets itself; adding
-                    // windowInsetsPadding here doubled the empty gap below the tabs.
-                    modifier = Modifier.testTag("bottom_navigation_bar"),
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 4.dp
-                ) {
-                    // Tab 0: Dashboard
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        onClick = { viewModel.setTab(0) },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 0) Icons.Filled.Dashboard else Icons.Outlined.Dashboard,
-                                contentDescription = "Dashboard"
-                            )
-                        },
-                        label = { Text("Dashboard") },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VioletPrimary,
-                            selectedTextColor = VioletPrimary,
-                            indicatorColor = VioletPrimaryContainer
-                        ),
-                        modifier = Modifier.testTag("nav_tab_dashboard")
-                    )
-
-                    // Tab 1: Transactions
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        onClick = { viewModel.setTab(1) },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 1) Icons.AutoMirrored.Filled.ReceiptLong else Icons.AutoMirrored.Outlined.ReceiptLong,
-                                contentDescription = "Transactions"
-                            )
-                        },
-                        label = { Text("Transactions") },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VioletPrimary,
-                            selectedTextColor = VioletPrimary,
-                            indicatorColor = VioletPrimaryContainer
-                        ),
-                        modifier = Modifier.testTag("nav_tab_transactions")
-                    )
-
-                    // Tab 2: Analytics
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = { viewModel.setTab(2) },
-                        icon = {
-                            Icon(
-                                imageVector = if (selectedTab == 2) Icons.Filled.PieChart else Icons.Outlined.PieChart,
-                                contentDescription = "Analytics"
-                            )
-                        },
-                        label = { Text("Analytics") },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VioletPrimary,
-                            selectedTextColor = VioletPrimary,
-                            indicatorColor = VioletPrimaryContainer
-                        ),
-                        modifier = Modifier.testTag("nav_tab_analytics")
-                    )
-                }
-            },
-            floatingActionButton = {
-                if (!isOverlayOpen) FloatingActionButton(
-                    onClick = { viewModel.openAddDialog() },
-                    containerColor = VioletPrimary,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
-                    modifier = Modifier.testTag("fab_add_transaction")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add Transaction",
-                        modifier = Modifier.size(26.dp)
+                // Full-screen pages (SMS import) hide the tab bar so the task has the whole screen.
+                if (!isOverlayOpen) {
+                    PwBottomBar(
+                        selectedTab = selectedTab,
+                        onSelectTab = { viewModel.setTab(it) },
+                        onAdd = { viewModel.openAddDialog() }
                     )
                 }
             }
@@ -303,7 +225,7 @@ fun PennywiseApp(
                 if (!isDataLoaded) {
                     // Avoid flashing "No transactions" empty states before Room's first result.
                     CircularProgressIndicator(
-                        color = VioletPrimary,
+                        color = Accent,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -333,7 +255,9 @@ fun PennywiseApp(
                                     onViewAllTransactions = { viewModel.setTab(1) },
                                     onTransactionClick = { tx -> viewModel.openEditDialog(tx) },
                                     onTransactionDelete = { tx -> viewModel.promptDelete(tx) },
-                                    onImportSms = openSmsImport
+                                    onImportSms = openSmsImport,
+                                    budgetStatuses = budgetStatuses,
+                                    onOpenBudgets = { viewModel.setTab(2) }
                                 )
 
                                 1 -> TransactionsScreen(
@@ -402,7 +326,6 @@ fun PennywiseApp(
             }
 
             // Dialogs read their own state so typing in the form does not recompose the whole app.
-            AddEditTransactionHost(viewModel = viewModel)
             DeleteConfirmationHost(viewModel = viewModel)
             SimilarCategoryHost(viewModel = viewModel)
 
@@ -422,6 +345,10 @@ fun PennywiseApp(
                 )
             }
         }
+
+        // Full-screen form drawn above the Scaffold so the header and tab bar never cover it.
+        AddEditTransactionHost(viewModel = viewModel)
+        }
     }
 }
 
@@ -431,7 +358,17 @@ private const val TAB_FADE_IN_MS = 210
 @Composable
 private fun AddEditTransactionHost(viewModel: PennywiseViewModel) {
     val isAddEditOpen by viewModel.isAddEditOpen.collectAsStateWithLifecycle()
-    if (!isAddEditOpen) return
+    AnimatedVisibility(
+        visible = isAddEditOpen,
+        enter = slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(200)),
+        exit = slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180))
+    ) {
+        AddEditTransactionContent(viewModel)
+    }
+}
+
+@Composable
+private fun AddEditTransactionContent(viewModel: PennywiseViewModel) {
 
     val editingTransaction by viewModel.editingTransaction.collectAsStateWithLifecycle()
     val formType by viewModel.formType.collectAsStateWithLifecycle()
@@ -467,7 +404,13 @@ private fun AddEditTransactionHost(viewModel: PennywiseViewModel) {
         onDateChange = { viewModel.updateFormDate(it) },
         onNoteChange = { viewModel.updateFormNote(it) },
         onSave = { viewModel.saveTransaction() },
-        onDismiss = { viewModel.dismissAddEditDialog() }
+        onDismiss = { viewModel.dismissAddEditDialog() },
+        onDelete = editingTransaction?.let { tx ->
+            {
+                viewModel.dismissAddEditDialog()
+                viewModel.promptDelete(tx)
+            }
+        }
     )
 }
 
@@ -486,7 +429,7 @@ private fun DeleteConfirmationHost(viewModel: PennywiseViewModel) {
         confirmButton = {
             Button(
                 onClick = { viewModel.confirmDelete() },
-                colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
+                colors = ButtonDefaults.buttonColors(containerColor = Negative),
                 modifier = Modifier.testTag("confirm_delete_button")
             ) {
                 Text("Delete", fontWeight = FontWeight.Bold)
@@ -541,7 +484,7 @@ private fun SimilarCategoryHost(viewModel: PennywiseViewModel) {
                             Checkbox(
                                 checked = tx.id in ticked,
                                 onCheckedChange = { on -> ticked = if (on) ticked + tx.id else ticked - tx.id },
-                                colors = CheckboxDefaults.colors(checkedColor = VioletPrimary)
+                                colors = CheckboxDefaults.colors(checkedColor = Accent)
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(tx.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -566,7 +509,7 @@ private fun SimilarCategoryHost(viewModel: PennywiseViewModel) {
             Button(
                 onClick = { viewModel.applySimilarCategory(ticked) },
                 enabled = ticked.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier.testTag("apply_similar_button")
             ) { Text("Update ${ticked.size}", fontWeight = FontWeight.Bold) }
         },
@@ -574,4 +517,141 @@ private fun SimilarCategoryHost(viewModel: PennywiseViewModel) {
             TextButton(onClick = { viewModel.dismissSimilarPrompt() }) { Text("Not now") }
         }
     )
+}
+
+/** Large left-aligned page title; Home shows a greeting and today's date (reference style). */
+@Composable
+private fun PageHeader(screen: Int, showBack: Boolean, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(start = Space.screen, end = Space.screen, top = Space.m, bottom = Space.s),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showBack) {
+            PwHeaderIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
+            Spacer(modifier = Modifier.width(Space.m))
+        }
+        AnimatedContent(
+            targetState = screen,
+            transitionSpec = {
+                fadeIn(tween(TAB_FADE_IN_MS, delayMillis = TAB_FADE_OUT_MS)).togetherWith(fadeOut(tween(TAB_FADE_OUT_MS)))
+            },
+            label = "page_header",
+            modifier = Modifier.weight(1f)
+        ) { target ->
+            Column {
+                Text(
+                    text = if (target == 0) greeting() else tabTitle(target),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Ink,
+                    maxLines = 1
+                )
+                if (target == 0) {
+                    Text(
+                        text = Formatters.formatLongDate(System.currentTimeMillis()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun greeting(): String = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+    in 5..11 -> "Good morning"
+    in 12..16 -> "Good afternoon"
+    else -> "Good evening"
+}
+
+private data class TabItem(val label: String, val icon: ImageVector, val selectedIcon: ImageVector, val tag: String)
+
+private val TAB_ITEMS = listOf(
+    TabItem("Home", Icons.Outlined.Home, Icons.Filled.Home, "nav_tab_dashboard"),
+    TabItem("Transactions", Icons.AutoMirrored.Outlined.ReceiptLong, Icons.AutoMirrored.Filled.ReceiptLong, "nav_tab_transactions"),
+    TabItem("Insights", Icons.Outlined.InsertChart, Icons.Filled.InsertChart, "nav_tab_analytics"),
+    TabItem("Settings", Icons.Outlined.Settings, Icons.Filled.Settings, "nav_tab_settings")
+)
+
+/**
+ * Bottom bar from the references: outline icons, the selected tab in a blue rounded square,
+ * and a raised dark "+" in the middle for adding a transaction.
+ */
+@Composable
+private fun PwBottomBar(selectedTab: Int, onSelectTab: (Int) -> Unit, onAdd: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("bottom_navigation_bar"),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(top = 20.dp) // room for the raised + button
+                .fillMaxWidth()
+                .softShadow(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), 8.dp)
+                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .background(SurfaceWhite)
+                .navigationBarsPadding()
+                .height(64.dp)
+                .padding(horizontal = Space.s),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TAB_ITEMS.forEachIndexed { index, item ->
+                if (index == 2) Spacer(modifier = Modifier.weight(1f)) // centre slot for +
+                BottomTab(
+                    item = item,
+                    selected = selectedTab == index,
+                    onClick = { onSelectTab(index) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .softShadow(CircleShape, 10.dp)
+                .clip(CircleShape)
+                .background(Ink)
+                .clickable(onClick = onAdd)
+                .testTag("fab_add_transaction"),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add transaction", tint = SurfaceWhite, modifier = Modifier.size(28.dp))
+        }
+    }
+}
+
+@Composable
+private fun BottomTab(item: TabItem, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val background by animateColorAsState(if (selected) Accent else Color.Transparent, label = "tab_bg")
+    val tint by animateColorAsState(if (selected) SurfaceWhite else Ink, label = "tab_tint")
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .testTag(item.tag),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(background),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (selected) item.selectedIcon else item.icon,
+                contentDescription = item.label,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
 }

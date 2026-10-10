@@ -68,6 +68,15 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] Auto-category while typing a known vendor in the Add form
 - [x] Top vendors card in Analytics (this month, similar names combined)
 
+### 1c. Premium UI redesign (done)
+- [x] Design foundations: reference palette (ink #021720, blue #0B51D9, green #51D200 on a
+      light grey canvas), Plus Jakarta Sans (has ₹ and tabular figures), one type scale,
+      contrast-checked text colours, soft ink-tinted shadows
+- [x] Shared components (cards, chips, segmented control, buttons, fields, list rows)
+- [x] App shell: large page titles, bottom bar with centre + and Settings as a tab
+- [x] Home: dark balance hero, budget gauge, smooth weekly spending chart, rounded donut
+- [x] Transactions grouped by day; full-screen Add/Edit page; Insights and Settings restyled
+
 ### 2. Lending tracker
 - [ ] 2.1 People + lent/borrowed ledger
 - [ ] 2.2 Partial repayments, mark as paid, due-date reminder

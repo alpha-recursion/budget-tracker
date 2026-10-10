@@ -2,60 +2,30 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Violet Theme Palette
-val VioletPrimary = Color(0xFF6C5CE7)
-val VioletPrimaryDark = Color(0xFF5843E0)
-val VioletOnPrimary = Color(0xFFFFFFFF)
-val VioletPrimaryContainer = Color(0xFFEDE9FE)
-val VioletOnPrimaryContainer = Color(0xFF2E1065)
+// Pennywise design tokens. Palette from the reference designs: light grey canvas, white cards,
+// near-black ink, one blue for actions, green for good/income. Text colours were chosen for
+// at least 4.5:1 contrast on white (WCAG AA); bright fills are only used as fills.
 
-val VioletSecondary = Color(0xFF8B5CF6)
-val VioletOnSecondary = Color(0xFFFFFFFF)
-val VioletSecondaryContainer = Color(0xFFF3E8FF)
-val VioletOnSecondaryContainer = Color(0xFF3B0764)
+// Ink (text and dark surfaces)
+val Ink = Color(0xFF021720)            // primary text, selected chips, hero card (18.3:1)
+val InkSecondary = Color(0xFF5E6A73)   // secondary text (5.6:1)
+val InkTertiary = Color(0xFF98A2AA)    // hints/placeholders only, not body text
 
-val VioletTertiary = Color(0xFFEC4899) // Coral/Pink vibrant accent
-val VioletOnTertiary = Color(0xFFFFFFFF)
-val VioletTertiaryContainer = Color(0xFFFCE7F3)
-val VioletOnTertiaryContainer = Color(0xFF700B3E)
+// Surfaces
+val Canvas = Color(0xFFF2F3F5)         // app background
+val SurfaceWhite = Color(0xFFFFFFFF)   // cards
+val SurfaceMuted = Color(0xFFF4F5F7)   // fields, unselected chips, tracks
+val Hairline = Color(0xFFE6E8EB)       // dividers and quiet borders
 
-// Functional Financial Colors
-val IncomeGreen = Color(0xFF10B981)
-val IncomeGreenContainer = Color(0xFFD1FAE5)
-val IncomeGreenText = Color(0xFF047857)
+// Action
+val Accent = Color(0xFF0B51D9)         // buttons, links, selected icons (6.6:1)
+val AccentSoft = Color(0xFFE8EFFC)     // tinted backgrounds for accent elements
 
-val ExpenseRed = Color(0xFFEF4444)
-val ExpenseRedContainer = Color(0xFFFEE2E2)
-val ExpenseRedText = Color(0xFFB91C1C)
-
-val WarningAmber = Color(0xFFF59E0B)
-val WarningAmberContainer = Color(0xFFFEF3C7)
-
-// Neutral / Surfaces - Clean Violet Light Theme
-val VioletBackgroundLight = Color(0xFFF8F7FC)
-val VioletSurfaceLight = Color(0xFFFFFFFF)
-val VioletSurfaceVariantLight = Color(0xFFF1EEF8)
-val VioletOnSurfaceLight = Color(0xFF1E1B26)
-val VioletOnSurfaceVariantLight = Color(0xFF6A6478)
-val VioletOutlineLight = Color(0xFFE2DCF0)
-
-// Surfaces - Dark Theme Support
-val VioletBackgroundDark = Color(0xFF121019)
-val VioletSurfaceDark = Color(0xFF1A1724)
-val VioletSurfaceVariantDark = Color(0xFF282338)
-val VioletOnSurfaceDark = Color(0xFFEDE9F6)
-val VioletOnSurfaceVariantDark = Color(0xFFBFB8D0)
-val VioletOutlineDark = Color(0xFF4C4460)
-
-// Harmonious Category Colors tailored for Violet Theme
-val CategoryFoodColor = Color(0xFFFF7675) // Coral Peach
-val CategoryShoppingColor = Color(0xFF6C5CE7) // Primary Violet
-val CategoryHousingColor = Color(0xFF4834D4) // Deep Indigo
-val CategoryTransportColor = Color(0xFF0984E3) // Cerulean
-val CategoryEntertainmentColor = Color(0xFFFD79A8) // Flamingo Pink
-val CategoryHealthcareColor = Color(0xFFE84393) // Rose
-val CategoryUtilitiesColor = Color(0xFF00B894) // Mint Teal
-val CategorySalaryColor = Color(0xFF00CEC9) // Turquoise
-val CategoryFreelanceColor = Color(0xFFA29BFE) // Lavender
-val CategoryInvestmentColor = Color(0xFFFDCB6E) // Warm Gold
-val CategoryOtherColor = Color(0xFF636E72) // Slate Grey
+// Financial states
+val Positive = Color(0xFF51D200)       // fills: progress, chart, income dots (not for text on white)
+val PositiveText = Color(0xFF2B7F00)   // income amounts and good-state text (5.1:1)
+val PositiveSoft = Color(0xFFE9F8DD)
+val Negative = Color(0xFFD92D33)       // overspend and errors (4.8:1)
+val NegativeSoft = Color(0xFFFCE9EA)
+val Warning = Color(0xFFF5A524)        // near-limit fills
+val WarningText = Color(0xFFA35F00)    // near-limit text (5.0:1)
