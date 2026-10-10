@@ -71,6 +71,22 @@ object BankSmsParser {
 
     private val MONTHS = listOf("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
 
+    private val TRANSACTION_WORDS = Regex(
+        """\b(debited|credited|sent|received|paid|spent|withdrawn|deposited)\b""",
+        RegexOption.IGNORE_CASE
+    )
+
+    /**
+     * Rough check used for scan diagnostics: does this text look like a money movement alert
+     * (amount + transaction word, and not an OTP/request/failure)? It does not extract anything.
+     */
+    fun looksLikeTransaction(body: String): Boolean {
+        val text = body.replace(Regex("""\s+"""), " ")
+        return GENERIC_AMOUNT.containsMatchIn(text) &&
+            TRANSACTION_WORDS.containsMatchIn(text) &&
+            !NOT_A_TRANSACTION.containsMatchIn(text)
+    }
+
     fun parse(body: String, timeZone: TimeZone = TimeZone.getDefault()): ParsedBankSms? {
         val text = body.replace(Regex("""\s+"""), " ").trim()
         if (NOT_A_TRANSACTION.containsMatchIn(text)) return null

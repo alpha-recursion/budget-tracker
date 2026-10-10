@@ -139,4 +139,34 @@ class SmsImportPlannerTest {
         val group = plan(listOf(boiFood, again)).groups.single()
         assertEquals(2, group.items.size)
     }
+
+    // Real messages from the owner's phone (Aug 2026).
+    private val ownerSamples = listOf(
+        RawSms(11, "JD-KOTAKB-S", "Sent Rs.453.00 from Kotak Bank A/c X0271 to Zepto on 31-08-26. UPI Ref 128822061819. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(31, 20)),
+        RawSms(12, "JD-KOTAKB-S", "Sent Rs.30.00 from Kotak Bank A/c X0271 to PAILWAN PANSHOP on 31-08-26. UPI Ref 128768974416. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(31, 18)),
+        RawSms(13, "JD-KOTAKB-S", "Sent Rs.53.00 from Kotak Bank A/c X0271 to DEV TEA on 29-08-26. UPI Ref 660773555755. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(29, 8)),
+        RawSms(14, "VM-BOIIND", "Rs.250.00 debited A/cXX5781 and credited to NEW MINAL KHANAWAL via UPI Ref No 659106464444 on 13Aug26. Call 18001031906, if not done by you. -BOI", at(13, 13))
+    )
+
+    @Test
+    fun ownerSamplesAreAllRecognised() {
+        val result = plan(ownerSamples)
+        assertEquals(4, result.candidateCount)
+        assertEquals(setOf("Zepto", "Pailwan Panshop", "Dev Tea", "New Minal Khanawal"), result.groups.map { it.title }.toSet())
+        assertEquals(453.0 + 30.0 + 53.0 + 250.0, result.groups.sumOf { g -> g.items.sumOf { it.parsed.amount } }, 0.001)
+        assertTrue(ownerSamples.all { SmsImportPlanner.isSupportedTransaction(it, ist) })
+    }
+
+    @Test
+    fun scanStatsExplainWhatWasSeen() {
+        val unknownFormat = RawSms(20, "AX-KOTAKB", "Rs.120.00 spent at CAFE COFFEE DAY on 30-08-26 via Kotak.", at(30, 10))
+        val otp = RawSms(21, "AX-KOTAKB", "123456 is your OTP for Rs.500.00 txn. Do not share.", at(30, 11))
+        val friend = RawSms(22, "+919876543210", "Sent you Rs.100 for lunch", at(30, 12))
+        val stats = plan(ownerSamples + unknownFormat + otp + friend).stats
+        assertEquals(7, stats.messagesRead)
+        assertEquals(6, stats.fromBankSenders)
+        assertEquals(4, stats.recognised)
+        // The card alert is shown for teaching; the OTP and the personal message are not.
+        assertEquals(listOf(unknownFormat), stats.unrecognised)
+    }
 }

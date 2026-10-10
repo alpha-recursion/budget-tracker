@@ -48,10 +48,22 @@ data class ImportGroup(
     val suggestedSelfTransfer: Boolean
 )
 
+/** What a scan saw, so the user can tell why messages were or were not found. */
+data class ScanStats(
+    val messagesRead: Int,
+    /** Messages from alphanumeric (bank-style) senders. */
+    val fromBankSenders: Int,
+    /** Kotak/BOI transaction alerts understood, including already-imported ones. */
+    val recognised: Int,
+    /** Newest few bank-sender messages that look like transactions but were not understood. */
+    val unrecognised: List<RawSms>
+)
+
 data class ImportPlan(
     val groups: List<ImportGroup>,
     /** Bank transaction messages skipped because they were imported in an earlier scan. */
-    val alreadyImportedCount: Int
+    val alreadyImportedCount: Int,
+    val stats: ScanStats = ScanStats(0, 0, 0, emptyList())
 ) {
     val candidateCount: Int get() = groups.sumOf { it.items.size }
 }
@@ -69,6 +81,16 @@ object SmsImportPlanner {
      * phone numbers are ignored so a forwarded or spoofed text cannot add transactions.
      */
     fun isBankSender(sender: String): Boolean = sender.any { it.isLetter() }
+
+    /** Max unrecognised examples kept for the scan-details panel. */
+    private const val UNRECOGNISED_EXAMPLES = 5
+
+    /** True when [sms] is a Kotak/BOI transaction alert this app can import. */
+    fun isSupportedTransaction(sms: RawSms, timeZone: TimeZone = TimeZone.getDefault()): Boolean {
+        if (!isBankSender(sms.sender)) return false
+        val parsed = BankSmsParser.parse(sms.body, timeZone) ?: return false
+        return parsed.bank in SUPPORTED_BANKS
+    }
 
     /**
      * Stable identity of an SMS transaction. The UPI reference is shared by both sides of a
@@ -105,12 +127,26 @@ object SmsImportPlanner {
 
         data class Found(val sms: RawSms, val parsed: ParsedBankSms, val key: String)
 
+        var fromBankSenders = 0
+        var recognised = 0
+        val unrecognised = ArrayList<RawSms>()
+
         val found = messages
             .sortedByDescending { it.receivedAt }
             .mapNotNull { sms ->
                 if (!isBankSender(sms.sender)) return@mapNotNull null
-                val parsed = BankSmsParser.parse(sms.body, timeZone) ?: return@mapNotNull null
-                if (parsed.bank !in SUPPORTED_BANKS) return@mapNotNull null
+                fromBankSenders++
+                val parsed = BankSmsParser.parse(sms.body, timeZone)?.takeIf { it.bank in SUPPORTED_BANKS }
+                if (parsed == null) {
+                    if (unrecognised.size < UNRECOGNISED_EXAMPLES &&
+                        BankSmsParser.looksLikeTransaction(sms.body) &&
+                        unrecognised.none { it.body == sms.body }
+                    ) {
+                        unrecognised += sms
+                    }
+                    return@mapNotNull null
+                }
+                recognised++
                 val key = dedupeKey(sms, parsed)
                 when {
                     key in alreadyImportedKeys -> {
@@ -176,7 +212,16 @@ object SmsImportPlanner {
             }
             .sortedByDescending { group -> group.items.maxOf { it.dateMs } }
 
-        return ImportPlan(groups = groups, alreadyImportedCount = alreadyImported.size)
+        return ImportPlan(
+            groups = groups,
+            alreadyImportedCount = alreadyImported.size,
+            stats = ScanStats(
+                messagesRead = messages.size,
+                fromBankSenders = fromBankSenders,
+                recognised = recognised,
+                unrecognised = unrecognised
+            )
+        )
     }
 
     private fun fallbackTitle(parsed: ParsedBankSms): String {

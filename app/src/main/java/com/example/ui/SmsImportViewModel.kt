@@ -33,7 +33,9 @@ data class SmsImportState(
     val selected: Set<String> = emptySet(),
     val categoryByGroup: Map<String, String> = emptyMap(),
     val selfTransferGroups: Set<String> = emptySet(),
-    val error: String? = null
+    val error: String? = null,
+    /** When nothing new was found: arrival time of the newest Kotak/BOI alert before the period. */
+    val newestOlderAlertAt: Long? = null
 ) {
     private fun ImportGroup.selectedItems(): List<ImportCandidate> = items.filter { it.dedupeKey in selected }
 
@@ -58,6 +60,9 @@ class SmsImportViewModel(
 ) : AndroidViewModel(application) {
 
     companion object {
+        /** How many older messages to look through for the newest bank alert. */
+        private const val OLDER_SEARCH_LIMIT = 5000
+
         fun Factory(application: Application): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -88,12 +93,22 @@ class SmsImportViewModel(
                         validCategories = validCategories
                     )
                 }
+                // Nothing in the period: find when the latest bank alert actually arrived, so the
+                // user can widen the scan instead of seeing an unexplained empty result.
+                val newestOlder = if (plan.stats.recognised == 0) {
+                    reader.findNewestBefore(sinceMs, limit = OLDER_SEARCH_LIMIT) {
+                        SmsImportPlanner.isSupportedTransaction(it)
+                    }?.receivedAt
+                } else {
+                    null
+                }
                 _state.value = SmsImportState(
                     phase = SmsImportPhase.REVIEW,
                     plan = plan,
                     selected = plan.groups.flatMap { g -> g.items.filter { it.selectedByDefault }.map { it.dedupeKey } }.toSet(),
                     categoryByGroup = plan.groups.associate { it.key to it.suggestedCategory },
-                    selfTransferGroups = plan.groups.filter { it.suggestedSelfTransfer }.map { it.key }.toSet()
+                    selfTransferGroups = plan.groups.filter { it.suggestedSelfTransfer }.map { it.key }.toSet(),
+                    newestOlderAlertAt = newestOlder
                 )
             } catch (e: SecurityException) {
                 _state.value = SmsImportState(error = "SMS access was not granted.")

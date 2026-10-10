@@ -101,7 +101,9 @@ fun SmsImportScreen(
     onSetSelfTransfer: (groupKey: String, Boolean) -> Unit,
     onImport: () -> Unit,
     onStartOver: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Opens "Teach this format" with the given SMS text; null hides the button. */
+    onTeach: ((String) -> Unit)? = null
 ) {
     var granted by remember { mutableStateOf(hasPermission()) }
     // The user may grant access from system settings and come back.
@@ -130,7 +132,9 @@ fun SmsImportScreen(
                 onSetCategory = onSetCategory,
                 onSetSelfTransfer = onSetSelfTransfer,
                 onImport = onImport,
-                onStartOver = onStartOver
+                onStartOver = onStartOver,
+                onScan = onScan,
+                onTeach = onTeach
             )
         }
     }
@@ -328,7 +332,9 @@ private fun ReviewStep(
     onSetCategory: (String, String) -> Unit,
     onSetSelfTransfer: (String, Boolean) -> Unit,
     onImport: () -> Unit,
-    onStartOver: () -> Unit
+    onStartOver: () -> Unit,
+    onScan: (Long) -> Unit,
+    onTeach: ((String) -> Unit)?
 ) {
     val plan = state.plan ?: return
     val importing = state.phase == SmsImportPhase.IMPORTING
@@ -351,7 +357,12 @@ private fun ReviewStep(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                state.newestOlderAlertAt?.let { newest ->
+                    item { OlderAlertHint(newestAt = newest, onScan = onScan) }
+                }
             }
+
+            item { ScanDetailsCard(plan = plan, onTeach = onTeach) }
 
             items(plan.groups, key = { it.key }) { group ->
                 GroupCard(
@@ -623,3 +634,102 @@ private fun CategoryDropdown(
         }
     }
 }
+
+@Composable
+private fun OlderAlertHint(newestAt: Long, onScan: (Long) -> Unit) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("older_alert_hint")
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Your newest Kotak/BOI transaction SMS is from ${Formatters.formatDate(newestAt)}, before this period.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = { onScan(startOfDay(newestAt)) },
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
+            ) { Text("Scan since ${Formatters.formatShortDate(newestAt)}") }
+        }
+    }
+}
+
+@Composable
+private fun ScanDetailsCard(plan: com.example.domain.sms.ImportPlan, onTeach: ((String) -> Unit)?) {
+    val stats = plan.stats
+    // Open automatically when something was not understood, since that is what needs attention.
+    var expanded by rememberSaveable { mutableStateOf(stats.unrecognised.isNotEmpty() && plan.candidateCount == 0) }
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("scan_details_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+            ) {
+                Text(
+                    "Scan details",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.weight(1f)
+                )
+                Text(if (expanded) "Hide" else "Show", color = VioletPrimary, style = MaterialTheme.typography.labelLarge)
+            }
+            if (expanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                StatLine("SMS read in this period", stats.messagesRead)
+                StatLine("From bank-style senders", stats.fromBankSenders)
+                StatLine("Kotak / BOI transactions recognised", stats.recognised)
+                StatLine("Already imported earlier", plan.alreadyImportedCount)
+                if (stats.unrecognised.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        "Looks like a transaction but wasn't understood:",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    stats.unrecognised.forEach { sms ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "${sms.sender} · ${Formatters.formatDate(sms.receivedAt)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(sms.body, style = MaterialTheme.typography.bodySmall, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                        if (onTeach != null) {
+                            TextButton(onClick = { onTeach(sms.body) }) {
+                                Text("Teach this format", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatLine(label: String, value: Int) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+        Text(value.toString(), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+    }
+}
+
+private fun startOfDay(ms: Long): Long = Calendar.getInstance().apply {
+    timeInMillis = ms
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis
