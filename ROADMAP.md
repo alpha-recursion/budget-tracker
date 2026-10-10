@@ -22,7 +22,15 @@ lent to others, and use light game mechanics so it gets opened every day.
   PhonePe/Paytm PDF, and manual quick-add
 - **Priorities after Phase 0:** lending tracker, then goals & gamification
   (subscriptions and vehicle tracking follow later)
-- **Next step:** owner shares masked BOI and Kotak SMS samples before Phase 0 starts
+- **SMS samples received:** Kotak UPI debit and BOI UPI debit (credit samples still needed)
+
+## Progress
+
+| Phase | Status |
+|---|---|
+| 0. Foundation | **Built** — ₹ currency, demo data removed, safe DB migrations (v2), custom categories, editable budgets, JSON backup / restore / erase. Needs on-device check. |
+| 2. Auto-capture | **Started** — `BankSmsParser` handles the real Kotak and BOI debit formats (unit-tested); SMS receiver and review inbox not built yet. |
+| 1, 3, 4, 5 | Not started |
 
 ---
 
