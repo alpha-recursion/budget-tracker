@@ -1,6 +1,10 @@
 package com.example.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +20,9 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.PieChart
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -27,6 +34,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,7 +49,9 @@ import com.example.ui.screens.AddEditTransactionDialog
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.TransactionsScreen
-import com.example.ui.theme.PennywisePrimary
+import com.example.ui.theme.ExpenseRed
+import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.VioletPrimaryContainer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +69,7 @@ fun PennywiseApp(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filterType by viewModel.filterType.collectAsStateWithLifecycle()
     val selectedCategoryFilter by viewModel.selectedCategoryFilter.collectAsStateWithLifecycle()
+    val sortOption by viewModel.sortOption.collectAsStateWithLifecycle()
 
     val isAddEditOpen by viewModel.isAddEditOpen.collectAsStateWithLifecycle()
     val editingTransaction by viewModel.editingTransaction.collectAsStateWithLifecycle()
@@ -119,9 +130,9 @@ fun PennywiseApp(
                     },
                     label = { Text("Dashboard") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PennywisePrimary,
-                        selectedTextColor = PennywisePrimary,
-                        indicatorColor = PennywisePrimary.copy(alpha = 0.15f)
+                        selectedIconColor = VioletPrimary,
+                        selectedTextColor = VioletPrimary,
+                        indicatorColor = VioletPrimaryContainer
                     ),
                     modifier = Modifier.testTag("nav_tab_dashboard")
                 )
@@ -138,9 +149,9 @@ fun PennywiseApp(
                     },
                     label = { Text("Transactions") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PennywisePrimary,
-                        selectedTextColor = PennywisePrimary,
-                        indicatorColor = PennywisePrimary.copy(alpha = 0.15f)
+                        selectedIconColor = VioletPrimary,
+                        selectedTextColor = VioletPrimary,
+                        indicatorColor = VioletPrimaryContainer
                     ),
                     modifier = Modifier.testTag("nav_tab_transactions")
                 )
@@ -157,9 +168,9 @@ fun PennywiseApp(
                     },
                     label = { Text("Analytics") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PennywisePrimary,
-                        selectedTextColor = PennywisePrimary,
-                        indicatorColor = PennywisePrimary.copy(alpha = 0.15f)
+                        selectedIconColor = VioletPrimary,
+                        selectedTextColor = VioletPrimary,
+                        indicatorColor = VioletPrimaryContainer
                     ),
                     modifier = Modifier.testTag("nav_tab_analytics")
                 )
@@ -168,7 +179,7 @@ fun PennywiseApp(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { viewModel.openAddDialog() },
-                containerColor = PennywisePrimary,
+                containerColor = VioletPrimary,
                 contentColor = Color.White,
                 elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                 modifier = Modifier.testTag("fab_add_transaction")
@@ -186,54 +197,61 @@ fun PennywiseApp(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            when (selectedTab) {
-                0 -> DashboardScreen(
-                    summary = summary,
-                    breakdowns = categoryBreakdowns,
-                    recentTransactions = allTransactions,
-                    onAddExpense = {
-                        viewModel.openAddDialog()
-                        viewModel.updateFormType(TransactionType.EXPENSE)
-                    },
-                    onAddIncome = {
-                        viewModel.openAddDialog()
-                        viewModel.updateFormType(TransactionType.INCOME)
-                    },
-                    onViewAllTransactions = {
-                        viewModel.setTab(1)
-                    },
-                    onTransactionClick = { tx ->
-                        viewModel.openEditDialog(tx)
-                    },
-                    onTransactionDelete = { tx ->
-                        viewModel.promptDelete(tx)
-                    }
-                )
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    fadeIn().togetherWith(fadeOut())
+                },
+                label = "tab_page_transition"
+            ) { tab ->
+                when (tab) {
+                    0 -> DashboardScreen(
+                        summary = summary,
+                        breakdowns = categoryBreakdowns,
+                        recentTransactions = allTransactions,
+                        onAddExpense = {
+                            viewModel.openAddDialog()
+                            viewModel.updateFormType(TransactionType.EXPENSE)
+                        },
+                        onAddIncome = {
+                            viewModel.openAddDialog()
+                            viewModel.updateFormType(TransactionType.INCOME)
+                        },
+                        onViewAllTransactions = {
+                            viewModel.setTab(1)
+                        },
+                        onTransactionClick = { tx ->
+                            viewModel.openEditDialog(tx)
+                        },
+                        onTransactionDelete = { tx ->
+                            viewModel.promptDelete(tx)
+                        }
+                    )
 
-                1 -> TransactionsScreen(
-                    transactions = filteredTransactions,
-                    searchQuery = searchQuery,
-                    onSearchChange = { viewModel.setSearchQuery(it) },
-                    selectedFilterType = filterType,
-                    onFilterTypeChange = { viewModel.setFilterType(it) },
-                    selectedCategory = selectedCategoryFilter,
-                    onCategoryChange = { viewModel.setSelectedCategoryFilter(it) },
-                    onTransactionClick = { tx ->
-                        viewModel.openEditDialog(tx)
-                    },
-                    onTransactionDelete = { tx ->
-                        viewModel.promptDelete(tx)
-                    },
-                    transactionToDelete = transactionToDelete,
-                    onConfirmDelete = { viewModel.confirmDelete() },
-                    onDismissDelete = { viewModel.dismissDelete() }
-                )
+                    1 -> TransactionsScreen(
+                        transactions = filteredTransactions,
+                        searchQuery = searchQuery,
+                        onSearchChange = { viewModel.setSearchQuery(it) },
+                        selectedFilterType = filterType,
+                        onFilterTypeChange = { viewModel.setFilterType(it) },
+                        selectedCategory = selectedCategoryFilter,
+                        onCategoryChange = { viewModel.setSelectedCategoryFilter(it) },
+                        currentSortOption = sortOption,
+                        onSortOptionChange = { viewModel.setSortOption(it) },
+                        onTransactionClick = { tx ->
+                            viewModel.openEditDialog(tx)
+                        },
+                        onTransactionDelete = { tx ->
+                            viewModel.promptDelete(tx)
+                        }
+                    )
 
-                2 -> AnalyticsScreen(
-                    summary = summary,
-                    breakdowns = categoryBreakdowns,
-                    budgetStatuses = budgetStatuses
-                )
+                    2 -> AnalyticsScreen(
+                        summary = summary,
+                        breakdowns = categoryBreakdowns,
+                        budgetStatuses = budgetStatuses
+                    )
+                }
             }
         }
 
@@ -259,5 +277,33 @@ fun PennywiseApp(
             onSave = { viewModel.saveTransaction() },
             onDismiss = { viewModel.dismissAddEditDialog() }
         )
+
+        // Global Delete Confirmation Dialog (Works on Dashboard, Transactions & everywhere)
+        if (transactionToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { viewModel.dismissDelete() },
+                title = { Text("Delete Transaction", fontWeight = FontWeight.Bold) },
+                text = {
+                    Text("Are you sure you want to delete \"${transactionToDelete?.title}\"? This action will update all dashboard metrics and cannot be undone.")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.confirmDelete() },
+                        colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
+                        modifier = Modifier.testTag("confirm_delete_button")
+                    ) {
+                        Text("Delete", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { viewModel.dismissDelete() },
+                        modifier = Modifier.testTag("cancel_delete_button")
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
     }
 }

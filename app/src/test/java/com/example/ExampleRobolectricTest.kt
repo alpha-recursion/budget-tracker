@@ -1,5 +1,6 @@
 package com.example
 
+import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.BudgetEntity
@@ -7,11 +8,17 @@ import com.example.data.local.PennywiseDatabase
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
 import com.example.data.model.TransactionType
+import com.example.data.repository.PennywiseRepository
+import com.example.ui.PennywiseViewModel
+import com.example.ui.SortOption
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,11 +30,18 @@ import org.robolectric.annotation.Config
 class ExampleRobolectricTest {
 
     private lateinit var database: PennywiseDatabase
+    private lateinit var repository: PennywiseRepository
+    private lateinit var viewModel: PennywiseViewModel
 
     @Before
     fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = ApplicationProvider.getApplicationContext<Application>()
         database = PennywiseDatabase.createInMemory(context)
+        repository = PennywiseRepository(
+            database.transactionDao(),
+            database.budgetDao()
+        )
+        viewModel = PennywiseViewModel(context, repository)
     }
 
     @After
@@ -49,7 +63,133 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `test room database transaction insert and query`() = runBlocking {
+    fun `test navigation tabs switching`() {
+        assertEquals(0, viewModel.selectedTab.value)
+
+        // Switch to Transactions (Tab 1)
+        viewModel.setTab(1)
+        assertEquals(1, viewModel.selectedTab.value)
+
+        // Switch to Analytics (Tab 2)
+        viewModel.setTab(2)
+        assertEquals(2, viewModel.selectedTab.value)
+
+        // Return to Dashboard (Tab 0)
+        viewModel.setTab(0)
+        assertEquals(0, viewModel.selectedTab.value)
+    }
+
+    @Test
+    fun `test filter and search state updates`() {
+        // Search query
+        viewModel.setSearchQuery("Groceries")
+        assertEquals("Groceries", viewModel.searchQuery.value)
+        viewModel.setSearchQuery("")
+        assertEquals("", viewModel.searchQuery.value)
+
+        // Filter type
+        viewModel.setFilterType(TransactionType.EXPENSE.name)
+        assertEquals(TransactionType.EXPENSE.name, viewModel.filterType.value)
+        viewModel.setFilterType(TransactionType.INCOME.name)
+        assertEquals(TransactionType.INCOME.name, viewModel.filterType.value)
+        viewModel.setFilterType(null)
+        assertNull(viewModel.filterType.value)
+
+        // Category filter
+        viewModel.setSelectedCategoryFilter(Category.FOOD_DINING.displayName)
+        assertEquals(Category.FOOD_DINING.displayName, viewModel.selectedCategoryFilter.value)
+        viewModel.setSelectedCategoryFilter(null)
+        assertNull(viewModel.selectedCategoryFilter.value)
+
+        // Sort option
+        viewModel.setSortOption(SortOption.HIGHEST_AMOUNT)
+        assertEquals(SortOption.HIGHEST_AMOUNT, viewModel.sortOption.value)
+        viewModel.setSortOption(SortOption.NEWEST)
+        assertEquals(SortOption.NEWEST, viewModel.sortOption.value)
+    }
+
+    @Test
+    fun `test add transaction dialog flow and validation`() {
+        viewModel.openAddDialog()
+        assertTrue(viewModel.isAddEditOpen.value)
+        assertNull(viewModel.editingTransaction.value)
+
+        // Type toggle
+        viewModel.updateFormType(TransactionType.INCOME)
+        assertEquals(TransactionType.INCOME, viewModel.formType.value)
+        viewModel.updateFormType(TransactionType.EXPENSE)
+        assertEquals(TransactionType.EXPENSE, viewModel.formType.value)
+
+        // Invalid amount
+        viewModel.updateFormAmount("-10.00")
+        viewModel.updateFormTitle("Invalid Test")
+        assertFalse(viewModel.saveTransaction())
+        assertNotNull(viewModel.amountError.value)
+        assertTrue(viewModel.isAddEditOpen.value)
+
+        // Empty title
+        viewModel.updateFormAmount("25.00")
+        viewModel.updateFormTitle("")
+        assertFalse(viewModel.saveTransaction())
+        assertNotNull(viewModel.titleError.value)
+        assertTrue(viewModel.isAddEditOpen.value)
+
+        // Valid form
+        viewModel.updateFormTitle("Valid Grocery Trip")
+        viewModel.updateFormCategory(Category.FOOD_DINING.displayName)
+        val saveResult = viewModel.saveTransaction()
+        assertTrue(saveResult)
+
+        // Dismiss dialog
+        viewModel.dismissAddEditDialog()
+        assertFalse(viewModel.isAddEditOpen.value)
+    }
+
+    @Test
+    fun `test edit transaction dialog population`() {
+        val testEntity = TransactionEntity(
+            id = 42L,
+            title = "Existing Coffee",
+            amount = 4.75,
+            type = TransactionType.EXPENSE.name,
+            category = Category.FOOD_DINING.displayName,
+            date = 1700000000000L,
+            note = "Latte with oat milk"
+        )
+
+        viewModel.openEditDialog(testEntity)
+        assertTrue(viewModel.isAddEditOpen.value)
+        assertEquals(testEntity, viewModel.editingTransaction.value)
+        assertEquals("Existing Coffee", viewModel.formTitle.value)
+        assertEquals("4.75", viewModel.formAmount.value)
+        assertEquals(Category.FOOD_DINING.displayName, viewModel.formCategory.value)
+        assertEquals("Latte with oat milk", viewModel.formNote.value)
+
+        viewModel.dismissAddEditDialog()
+        assertFalse(viewModel.isAddEditOpen.value)
+        assertNull(viewModel.editingTransaction.value)
+    }
+
+    @Test
+    fun `test delete transaction prompt and confirmation flow`() {
+        val testEntity = TransactionEntity(
+            id = 99L,
+            title = "To be deleted",
+            amount = 100.0,
+            type = TransactionType.EXPENSE.name,
+            category = Category.OTHER.displayName,
+            date = 1000L
+        )
+
+        viewModel.promptDelete(testEntity)
+        assertEquals(testEntity, viewModel.transactionToDelete.value)
+
+        viewModel.dismissDelete()
+        assertNull(viewModel.transactionToDelete.value)
+    }
+
+    @Test
+    fun `test room database transaction CRUD`() = runBlocking {
         val dao = database.transactionDao()
         val tx = TransactionEntity(
             title = "Test Coffee",
@@ -67,19 +207,18 @@ class ExampleRobolectricTest {
         assertEquals(4.50, loaded?.amount ?: 0.0, 0.001)
 
         val all = dao.getAllTransactions().first()
-        assertEquals(1, all.size)
+        assertTrue(all.any { it.id == id && it.title == "Test Coffee" })
 
-        // Test update
+        // Update
         val updated = loaded!!.copy(title = "Updated Coffee", amount = 5.00)
         dao.update(updated)
         val reloaded = dao.getTransactionById(id)
         assertEquals("Updated Coffee", reloaded?.title)
         assertEquals(5.00, reloaded?.amount ?: 0.0, 0.001)
 
-        // Test delete
+        // Delete
         dao.deleteById(id)
-        val afterDelete = dao.getAllTransactions().first()
-        assertEquals(0, afterDelete.size)
+        assertNull(dao.getTransactionById(id))
     }
 
     @Test

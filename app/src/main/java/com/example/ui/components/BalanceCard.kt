@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.sp
 import com.example.domain.FinancialSummary
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.PennywisePrimary
+import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.VioletPrimaryDark
+import com.example.ui.theme.VioletSecondary
 import com.example.ui.util.Formatters
 
 @Composable
@@ -46,19 +48,20 @@ fun BalanceCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("balance_card"),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(
             modifier = Modifier
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            PennywisePrimary,
-                            Color(0xFF044E37)
+                            VioletPrimary,
+                            VioletSecondary,
+                            VioletPrimaryDark
                         )
                     )
                 )
@@ -70,7 +73,7 @@ fun BalanceCard(
                 Text(
                     text = "Total Balance",
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color.White.copy(alpha = 0.8f)
+                    color = Color.White.copy(alpha = 0.85f)
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -78,14 +81,15 @@ fun BalanceCard(
                 Text(
                     text = Formatters.formatCurrency(summary.netBalance),
                     style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 34.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp
                     ),
                     color = Color.White,
                     modifier = Modifier.testTag("net_balance_text")
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -97,21 +101,21 @@ fun BalanceCard(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                            .background(Color.White.copy(alpha = 0.16f))
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
                             .testTag("income_stat")
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(IncomeGreen.copy(alpha = 0.3f)),
+                                .background(Color.White.copy(alpha = 0.25f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                 contentDescription = "Income",
-                                tint = Color(0xFF6EE7B7),
+                                tint = Color(0xFFA7F3D0), // Soft Mint
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -120,11 +124,11 @@ fun BalanceCard(
                             Text(
                                 text = "Income",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.75f)
+                                color = Color.White.copy(alpha = 0.8f)
                             )
                             Text(
                                 text = Formatters.formatCurrency(summary.totalIncome),
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = Color.White
                             )
                         }
@@ -138,21 +142,21 @@ fun BalanceCard(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                            .background(Color.White.copy(alpha = 0.16f))
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
                             .testTag("expense_stat")
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(ExpenseRed.copy(alpha = 0.3f)),
+                                .background(Color.White.copy(alpha = 0.25f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                                 contentDescription = "Expense",
-                                tint = Color(0xFFFCA5A5),
+                                tint = Color(0xFFFECDD3), // Soft Rose
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -161,11 +165,11 @@ fun BalanceCard(
                             Text(
                                 text = "Expense",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.75f)
+                                color = Color.White.copy(alpha = 0.8f)
                             )
                             Text(
                                 text = Formatters.formatCurrency(summary.totalExpense),
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = Color.White
                             )
                         }

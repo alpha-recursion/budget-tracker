@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +38,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,10 +60,13 @@ import com.example.data.model.Category
 import com.example.data.model.TransactionType
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.PennywisePrimary
+import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.VioletPrimaryContainer
 import com.example.ui.util.Formatters
 import com.example.ui.util.getCategoryIcon
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTransactionDialog(
     isOpen: Boolean,
@@ -81,6 +93,7 @@ fun AddEditTransactionDialog(
 
     val isEditing = editingTransaction != null
     val availableCategories = Category.getCategoriesForType(type)
+    var showDatePicker by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -162,7 +175,7 @@ fun AddEditTransactionDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (type == TransactionType.INCOME) IncomeGreen else Color.Transparent
+                                if (type == TransactionType.INCOME) VioletPrimary else Color.Transparent
                             )
                             .clickable { onTypeChange(TransactionType.INCOME) }
                             .padding(vertical = 10.dp)
@@ -187,7 +200,7 @@ fun AddEditTransactionDialog(
                         .fillMaxWidth()
                         .testTag("amount_input"),
                     label = { Text("Amount") },
-                    prefix = { Text("$ ", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                    prefix = { Text("$ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = VioletPrimary) },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -203,8 +216,8 @@ fun AddEditTransactionDialog(
                     },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PennywisePrimary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                        focusedBorderColor = VioletPrimary,
+                        unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
                     )
                 )
 
@@ -232,8 +245,8 @@ fun AddEditTransactionDialog(
                     },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PennywisePrimary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                        focusedBorderColor = VioletPrimary,
+                        unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
                     )
                 )
 
@@ -272,13 +285,13 @@ fun AddEditTransactionDialog(
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSelected) {
-                                    Color(cat.colorHex).copy(alpha = 0.18f)
+                                    Color(cat.colorHex).copy(alpha = 0.16f)
                                 } else {
                                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                                 }
                             ),
                             border = if (isSelected) {
-                                androidx.compose.foundation.BorderStroke(2.dp, Color(cat.colorHex))
+                                BorderStroke(2.dp, Color(cat.colorHex))
                             } else null
                         ) {
                             Row(
@@ -306,17 +319,23 @@ fun AddEditTransactionDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Date Quick Selector
+                // Date Quick Selector + Calendar Picker
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showDatePicker = true }
+                            .padding(vertical = 4.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.CalendarToday,
                             contentDescription = "Date",
-                            tint = PennywisePrimary,
+                            tint = VioletPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -327,18 +346,25 @@ fun AddEditTransactionDialog(
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         TextButton(
                             onClick = { onDateChange(System.currentTimeMillis()) },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp)
                         ) {
-                            Text("Today", fontSize = 12.sp)
+                            Text("Today", fontSize = 12.sp, color = VioletPrimary)
                         }
                         TextButton(
                             onClick = { onDateChange(System.currentTimeMillis() - 86_400_000L) },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp)
                         ) {
-                            Text("Yesterday", fontSize = 12.sp)
+                            Text("Yesterday", fontSize = 12.sp, color = VioletPrimary)
+                        }
+                        TextButton(
+                            onClick = { showDatePicker = true },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp),
+                            modifier = Modifier.testTag("pick_custom_date_button")
+                        ) {
+                            Text("Pick", fontSize = 12.sp, color = VioletPrimary, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -357,8 +383,8 @@ fun AddEditTransactionDialog(
                     maxLines = 2,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PennywisePrimary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                        focusedBorderColor = VioletPrimary,
+                        unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
                     )
                 )
 
@@ -383,12 +409,37 @@ fun AddEditTransactionDialog(
                         modifier = Modifier
                             .weight(1f)
                             .testTag("save_transaction_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PennywisePrimary)
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
                     ) {
                         Text(if (isEditing) "Update" else "Save", fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        }
+
+        // Calendar Date Picker Dialog
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMs)
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { onDateChange(it) }
+                            showDatePicker = false
+                        }
+                    ) {
+                        Text("Select", color = VioletPrimary, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
         }
     }

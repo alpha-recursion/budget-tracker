@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +25,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.local.TransactionEntity
-import com.example.data.model.TransactionType
 import com.example.domain.CategoryBreakdown
 import com.example.domain.FinancialSummary
 import com.example.ui.components.BalanceCard
@@ -42,7 +41,9 @@ import com.example.ui.components.SpendingDonutChart
 import com.example.ui.components.TransactionItemRow
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.PennywisePrimary
+import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.VioletPrimaryContainer
 
 @Composable
 fun DashboardScreen(
@@ -63,7 +64,7 @@ fun DashboardScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Hero Balance Card
+        // Hero Balance Card (Violet Gradient)
         item {
             BalanceCard(summary = summary)
         }
@@ -79,11 +80,13 @@ fun DashboardScreen(
                     modifier = Modifier
                         .weight(1f)
                         .testTag("quick_add_expense_button"),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = ExpenseRed
-                    )
+                    ),
+                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.TrendingDown,
@@ -99,11 +102,13 @@ fun DashboardScreen(
                     modifier = Modifier
                         .weight(1f)
                         .testTag("quick_add_income_button"),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = IncomeGreen
-                    )
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = VioletPrimary
+                    ),
+                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.TrendingUp,
@@ -144,13 +149,13 @@ fun DashboardScreen(
                     Text(
                         text = "View All",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = PennywisePrimary
+                        color = VioletPrimary
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = PennywisePrimary,
+                        tint = VioletPrimary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -162,8 +167,9 @@ fun DashboardScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -179,8 +185,8 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
                             onClick = onAddExpense,
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = PennywisePrimary)
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
@@ -203,7 +209,7 @@ fun DashboardScreen(
         }
 
         item {
-            Spacer(modifier = Modifier.height(60.dp)) // Padding for FAB / navigation bar
+            Spacer(modifier = Modifier.height(60.dp))
         }
     }
 }

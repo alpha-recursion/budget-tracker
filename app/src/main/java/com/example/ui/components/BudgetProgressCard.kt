@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import com.example.domain.CategoryBudgetStatus
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
+import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.VioletPrimary
 import com.example.ui.theme.WarningAmber
 import com.example.ui.util.Formatters
 import com.example.ui.util.getCategoryIcon
@@ -42,7 +45,7 @@ fun BudgetProgressCard(
     val progressColor = when {
         status.isOverBudget -> ExpenseRed
         status.percentageUsed > 80.0 -> WarningAmber
-        else -> IncomeGreen
+        else -> VioletPrimary
     }
 
     val progressValue = (status.percentageUsed / 100.0).toFloat().coerceIn(0f, 1f)
@@ -51,11 +54,12 @@ fun BudgetProgressCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("budget_card_${status.categoryName}"),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -70,7 +74,7 @@ fun BudgetProgressCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(Color(status.category.colorHex).copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
@@ -79,10 +83,10 @@ fun BudgetProgressCard(
                             imageVector = getCategoryIcon(status.category.iconKey),
                             contentDescription = status.categoryName,
                             tint = Color(status.category.colorHex),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             text = status.categoryName,
@@ -104,7 +108,7 @@ fun BudgetProgressCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = Formatters.formatCurrency(status.spent) + " / " + Formatters.formatCurrency(status.budgetLimit),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
@@ -115,7 +119,7 @@ fun BudgetProgressCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             LinearProgressIndicator(
                 progress = { progressValue },

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,7 +42,9 @@ import com.example.domain.FinancialSummary
 import com.example.ui.components.BudgetProgressCard
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.PennywisePrimary
+import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.VioletPrimaryContainer
 import com.example.ui.util.Formatters
 
 @Composable
@@ -64,10 +67,12 @@ fun AnalyticsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("savings_rate_card"),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                )
+                    containerColor = VioletPrimaryContainer
+                ),
+                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -79,7 +84,7 @@ fun AnalyticsScreen(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(PennywisePrimary),
+                            .background(VioletPrimary),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -102,7 +107,7 @@ fun AnalyticsScreen(
                             text = Formatters.formatPercentage(summary.savingsRate),
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = PennywisePrimary
+                                color = VioletPrimary
                             )
                         )
                         Text(
@@ -125,8 +130,9 @@ fun AnalyticsScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -169,7 +175,7 @@ fun AnalyticsScreen(
                             Text(
                                 Formatters.formatCurrency(summary.netBalance),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = if (summary.netBalance >= 0.0) PennywisePrimary else ExpenseRed
+                                color = if (summary.netBalance >= 0.0) VioletPrimary else ExpenseRed
                             )
                         }
                     }
@@ -191,8 +197,9 @@ fun AnalyticsScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
                 ) {
                     Box(modifier = Modifier.padding(20.dp), contentAlignment = Alignment.Center) {
                         Text("No active budgets configured", style = MaterialTheme.typography.bodyMedium)
@@ -217,8 +224,9 @@ fun AnalyticsScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -289,10 +297,11 @@ fun AnalyticsScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
+                ),
+                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.5f))
             ) {
                 Row(
                     modifier = Modifier
@@ -303,7 +312,7 @@ fun AnalyticsScreen(
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = null,
-                        tint = PennywisePrimary,
+                        tint = VioletPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))

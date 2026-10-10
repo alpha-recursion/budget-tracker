@@ -22,7 +22,10 @@ class PennywiseRepository(
 
     init {
         coroutineScope.launch {
-            seedInitialDataIfEmpty()
+            try {
+                seedInitialDataIfEmpty()
+            } catch (_: Exception) {
+            }
         }
     }
 

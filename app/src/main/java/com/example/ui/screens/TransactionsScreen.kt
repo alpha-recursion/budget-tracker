@@ -17,11 +17,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -44,12 +42,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
 import com.example.data.model.TransactionType
+import com.example.ui.SortOption
 import com.example.ui.components.TransactionItemRow
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.PennywisePrimary
+import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.VioletPrimaryContainer
 
 @Composable
 fun TransactionsScreen(
@@ -60,11 +61,10 @@ fun TransactionsScreen(
     onFilterTypeChange: (String?) -> Unit,
     selectedCategory: String?,
     onCategoryChange: (String?) -> Unit,
+    currentSortOption: SortOption,
+    onSortOptionChange: (SortOption) -> Unit,
     onTransactionClick: (TransactionEntity) -> Unit,
     onTransactionDelete: (TransactionEntity) -> Unit,
-    transactionToDelete: TransactionEntity?,
-    onConfirmDelete: () -> Unit,
-    onDismissDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tabTitles = listOf("All", "Expenses", "Income")
@@ -111,8 +111,8 @@ fun TransactionsScreen(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                focusedBorderColor = PennywisePrimary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                focusedBorderColor = VioletPrimary,
+                unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
             )
         )
 
@@ -120,11 +120,11 @@ fun TransactionsScreen(
         TabRow(
             selectedTabIndex = selectedTabIndex,
             containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = PennywisePrimary,
+            contentColor = VioletPrimary,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                    color = PennywisePrimary
+                    color = VioletPrimary
                 )
             },
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -156,7 +156,7 @@ fun TransactionsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilterChip(
@@ -165,8 +165,8 @@ fun TransactionsScreen(
                 label = { Text("All Categories") },
                 shape = RoundedCornerShape(12.dp),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = PennywisePrimary.copy(alpha = 0.15f),
-                    selectedLabelColor = PennywisePrimary
+                    selectedContainerColor = VioletPrimaryContainer,
+                    selectedLabelColor = VioletPrimary
                 ),
                 modifier = Modifier.testTag("category_chip_all")
             )
@@ -189,7 +189,39 @@ fun TransactionsScreen(
             }
         }
 
-        // Count Indicator
+        // Sort Options Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Sort,
+                contentDescription = "Sort",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+
+            SortOption.entries.forEach { option ->
+                val isSelected = currentSortOption == option
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onSortOptionChange(option) },
+                    label = { Text(option.label, fontSize = 12.sp) },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = VioletPrimaryContainer,
+                        selectedLabelColor = VioletPrimary
+                    ),
+                    modifier = Modifier.testTag("sort_chip_${option.name}")
+                )
+            }
+        }
+
+        // Count Indicator & Clear Filters
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -211,7 +243,7 @@ fun TransactionsScreen(
                         onCategoryChange(null)
                     }
                 ) {
-                    Text("Clear filters", style = MaterialTheme.typography.labelSmall)
+                    Text("Clear filters", style = MaterialTheme.typography.labelSmall, color = VioletPrimary)
                 }
             }
         }
@@ -222,7 +254,7 @@ fun TransactionsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
@@ -268,33 +300,5 @@ fun TransactionsScreen(
                 }
             }
         }
-    }
-
-    // Delete Confirmation Dialog
-    if (transactionToDelete != null) {
-        AlertDialog(
-            onDismissRequest = onDismissDelete,
-            title = { Text("Delete Transaction") },
-            text = {
-                Text("Are you sure you want to delete \"${transactionToDelete.title}\"? This action cannot be undone.")
-            },
-            confirmButton = {
-                Button(
-                    onClick = onConfirmDelete,
-                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
-                    modifier = Modifier.testTag("confirm_delete_button")
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = onDismissDelete,
-                    modifier = Modifier.testTag("cancel_delete_button")
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }

@@ -8,53 +8,52 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PennywisePrimaryContainer,
-    onPrimary = PennywiseOnPrimaryContainer,
-    primaryContainer = PennywisePrimary,
-    onPrimaryContainer = PennywisePrimaryContainer,
-    secondary = PennywiseSecondaryContainer,
-    onSecondary = PennywiseOnSecondaryContainer,
-    secondaryContainer = PennywiseSecondary,
-    onSecondaryContainer = PennywiseSecondaryContainer,
-    tertiary = PennywiseTertiaryContainer,
-    onTertiary = PennywiseOnTertiaryContainer,
-    background = PennywiseBackgroundDark,
-    surface = PennywiseSurfaceDark,
-    surfaceVariant = PennywiseSurfaceVariantDark,
-    onBackground = PennywiseOnSurfaceDark,
-    onSurface = PennywiseOnSurfaceDark,
-    onSurfaceVariant = PennywiseOnSurfaceVariantDark,
-    outline = PennywiseOutlineDark
+    primary = VioletPrimary,
+    onPrimary = VioletOnPrimary,
+    primaryContainer = VioletPrimaryDark,
+    onPrimaryContainer = VioletPrimaryContainer,
+    secondary = VioletSecondary,
+    onSecondary = VioletOnSecondary,
+    secondaryContainer = VioletSecondaryContainer,
+    onSecondaryContainer = VioletOnSecondaryContainer,
+    tertiary = VioletTertiary,
+    onTertiary = VioletOnTertiary,
+    background = VioletBackgroundDark,
+    surface = VioletSurfaceDark,
+    surfaceVariant = VioletSurfaceVariantDark,
+    onBackground = VioletOnSurfaceDark,
+    onSurface = VioletOnSurfaceDark,
+    onSurfaceVariant = VioletOnSurfaceVariantDark,
+    outline = VioletOutlineDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PennywisePrimary,
-    onPrimary = PennywiseOnPrimary,
-    primaryContainer = PennywisePrimaryContainer,
-    onPrimaryContainer = PennywiseOnPrimaryContainer,
-    secondary = PennywiseSecondary,
-    onSecondary = PennywiseOnSecondary,
-    secondaryContainer = PennywiseSecondaryContainer,
-    onSecondaryContainer = PennywiseOnSecondaryContainer,
-    tertiary = PennywiseTertiary,
-    onTertiary = PennywiseOnTertiary,
-    background = PennywiseBackgroundLight,
-    surface = PennywiseSurfaceLight,
-    surfaceVariant = PennywiseSurfaceVariantLight,
-    onBackground = PennywiseOnSurfaceLight,
-    onSurface = PennywiseOnSurfaceLight,
-    onSurfaceVariant = PennywiseOnSurfaceVariantLight,
-    outline = PennywiseOutlineLight
+    primary = VioletPrimary,
+    onPrimary = VioletOnPrimary,
+    primaryContainer = VioletPrimaryContainer,
+    onPrimaryContainer = VioletOnPrimaryContainer,
+    secondary = VioletSecondary,
+    onSecondary = VioletOnSecondary,
+    secondaryContainer = VioletSecondaryContainer,
+    onSecondaryContainer = VioletOnSecondaryContainer,
+    tertiary = VioletTertiary,
+    onTertiary = VioletOnTertiary,
+    background = VioletBackgroundLight,
+    surface = VioletSurfaceLight,
+    surfaceVariant = VioletSurfaceVariantLight,
+    onBackground = VioletOnSurfaceLight,
+    onSurface = VioletOnSurfaceLight,
+    onSurfaceVariant = VioletOnSurfaceVariantLight,
+    outline = VioletOutlineLight
 )
 
 @Composable
 fun PennywiseTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Keep intentional brand identity
+    darkTheme: Boolean = false, // Default to Violet Light theme as requested
+    dynamicColor: Boolean = false, // Preserve violet brand identity
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

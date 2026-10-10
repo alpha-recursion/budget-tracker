@@ -6,17 +6,17 @@ enum class Category(
     val defaultType: TransactionType,
     val colorHex: Long
 ) {
-    FOOD_DINING("Food & Dining", "restaurant", TransactionType.EXPENSE, 0xFFEA580C),
-    SHOPPING("Shopping", "shopping_bag", TransactionType.EXPENSE, 0xFF8B5CF6),
-    HOUSING("Housing & Rent", "home", TransactionType.EXPENSE, 0xFF2563EB),
-    TRANSPORTATION("Transportation", "directions_car", TransactionType.EXPENSE, 0xFF0284C7),
-    UTILITIES("Utilities & Bills", "bolt", TransactionType.EXPENSE, 0xFF65A30D),
-    ENTERTAINMENT("Entertainment", "movie", TransactionType.EXPENSE, 0xFFEC4899),
-    HEALTHCARE("Healthcare", "local_hospital", TransactionType.EXPENSE, 0xFFE11D48),
-    SALARY("Salary & Wages", "work", TransactionType.INCOME, 0xFF059669),
-    FREELANCE("Freelance & Side Gig", "laptop", TransactionType.INCOME, 0xFF10B981),
-    INVESTMENT("Investments", "trending_up", TransactionType.INCOME, 0xFFD97706),
-    OTHER("Other", "more_horiz", TransactionType.EXPENSE, 0xFF64748B);
+    FOOD_DINING("Food & Dining", "restaurant", TransactionType.EXPENSE, 0xFFFF7675),
+    SHOPPING("Shopping", "shopping_bag", TransactionType.EXPENSE, 0xFF6C5CE7),
+    HOUSING("Housing & Rent", "home", TransactionType.EXPENSE, 0xFF4834D4),
+    TRANSPORTATION("Transportation", "directions_car", TransactionType.EXPENSE, 0xFF0984E3),
+    UTILITIES("Utilities & Bills", "bolt", TransactionType.EXPENSE, 0xFF00B894),
+    ENTERTAINMENT("Entertainment", "movie", TransactionType.EXPENSE, 0xFFFD79A8),
+    HEALTHCARE("Healthcare", "local_hospital", TransactionType.EXPENSE, 0xFFE84393),
+    SALARY("Salary & Wages", "work", TransactionType.INCOME, 0xFF00CEC9),
+    FREELANCE("Freelance & Side Gig", "laptop", TransactionType.INCOME, 0xFFA29BFE),
+    INVESTMENT("Investments", "trending_up", TransactionType.INCOME, 0xFFFDCB6E),
+    OTHER("Other", "more_horiz", TransactionType.EXPENSE, 0xFF636E72);
 
     companion object {
         fun fromDisplayName(name: String): Category {

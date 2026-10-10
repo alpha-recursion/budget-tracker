@@ -23,6 +23,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+enum class SortOption(val label: String) {
+    NEWEST("Newest"),
+    OLDEST("Oldest"),
+    HIGHEST_AMOUNT("Highest $"),
+    LOWEST_AMOUNT("Lowest $")
+}
+
 class PennywiseViewModel @JvmOverloads constructor(
     application: Application,
     private val repository: PennywiseRepository = PennywiseRepository(
@@ -54,6 +61,9 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     private val _selectedCategoryFilter = MutableStateFlow<String?>(null)
     val selectedCategoryFilter: StateFlow<String?> = _selectedCategoryFilter
+
+    private val _sortOption = MutableStateFlow(SortOption.NEWEST)
+    val sortOption: StateFlow<SortOption> = _sortOption
 
     // Transactions from Room
     val allTransactions: StateFlow<List<TransactionEntity>> = repository.allTransactions
@@ -107,9 +117,10 @@ class PennywiseViewModel @JvmOverloads constructor(
         allTransactions,
         _filterType,
         _searchQuery,
-        _selectedCategoryFilter
-    ) { txs, type, query, category ->
-        txs.filter { tx ->
+        _selectedCategoryFilter,
+        _sortOption
+    ) { txs, type, query, category, sort ->
+        val filtered = txs.filter { tx ->
             val matchesType = type == null || tx.type.equals(type, ignoreCase = true)
             val matchesQuery = query.isBlank() ||
                     tx.title.contains(query, ignoreCase = true) ||
@@ -117,6 +128,12 @@ class PennywiseViewModel @JvmOverloads constructor(
                     tx.note.contains(query, ignoreCase = true)
             val matchesCategory = category == null || tx.category.equals(category, ignoreCase = true)
             matchesType && matchesQuery && matchesCategory
+        }
+        when (sort) {
+            SortOption.NEWEST -> filtered.sortedWith(compareByDescending<TransactionEntity> { it.date }.thenByDescending { it.id })
+            SortOption.OLDEST -> filtered.sortedWith(compareBy<TransactionEntity> { it.date }.thenBy { it.id })
+            SortOption.HIGHEST_AMOUNT -> filtered.sortedByDescending { it.amount }
+            SortOption.LOWEST_AMOUNT -> filtered.sortedBy { it.amount }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -177,6 +194,10 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun setSelectedCategoryFilter(category: String?) {
         _selectedCategoryFilter.value = category
+    }
+
+    fun setSortOption(option: SortOption) {
+        _sortOption.value = option
     }
 
     // Dialog & Form Handlers

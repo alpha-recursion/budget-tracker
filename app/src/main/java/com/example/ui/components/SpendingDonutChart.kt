@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.CategoryBreakdown
+import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.VioletPrimary
 import com.example.ui.util.Formatters
 
 @Composable
@@ -44,10 +47,11 @@ fun SpendingDonutChart(
         modifier = modifier
             .fillMaxWidth()
             .testTag("spending_donut_chart"),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
+        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -88,7 +92,7 @@ fun SpendingDonutChart(
                         contentAlignment = Alignment.Center
                     ) {
                         Canvas(modifier = Modifier.size(130.dp)) {
-                            val strokeWidth = 24.dp.toPx()
+                            val strokeWidth = 22.dp.toPx()
                             val diameter = size.minDimension - strokeWidth
                             val topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
                             val arcSize = Size(diameter, diameter)
@@ -115,14 +119,16 @@ fun SpendingDonutChart(
                         // Center content
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Spent",
+                                text = "Total Spent",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = Formatters.formatCurrency(totalExpense),
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = VioletPrimary
+                                ),
                                 maxLines = 1
                             )
                         }
@@ -130,10 +136,10 @@ fun SpendingDonutChart(
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    // Top 3-4 Categories Legend
+                    // Top 4 Categories Legend
                     Column(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         val displayItems = breakdowns.take(4)
                         for (item in displayItems) {
@@ -155,14 +161,14 @@ fun SpendingDonutChart(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = item.categoryName,
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                                         color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1
                                     )
                                 }
                                 Text(
                                     text = Formatters.formatPercentage(item.percentage),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }

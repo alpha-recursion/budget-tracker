@@ -2,54 +2,60 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Emerald Brand
-val PennywisePrimary = Color(0xFF006C4C)
-val PennywiseOnPrimary = Color(0xFFFFFFFF)
-val PennywisePrimaryContainer = Color(0xFF89F8C7)
-val PennywiseOnPrimaryContainer = Color(0xFF002114)
+// Primary Violet Theme Palette
+val VioletPrimary = Color(0xFF6C5CE7)
+val VioletPrimaryDark = Color(0xFF5843E0)
+val VioletOnPrimary = Color(0xFFFFFFFF)
+val VioletPrimaryContainer = Color(0xFFEDE9FE)
+val VioletOnPrimaryContainer = Color(0xFF2E1065)
 
-val PennywiseSecondary = Color(0xFF4C6358)
-val PennywiseOnSecondary = Color(0xFFFFFFFF)
-val PennywiseSecondaryContainer = Color(0xFFCEE9DA)
-val PennywiseOnSecondaryContainer = Color(0xFF082017)
+val VioletSecondary = Color(0xFF8B5CF6)
+val VioletOnSecondary = Color(0xFFFFFFFF)
+val VioletSecondaryContainer = Color(0xFFF3E8FF)
+val VioletOnSecondaryContainer = Color(0xFF3B0764)
 
-val PennywiseTertiary = Color(0xFF3B6470)
-val PennywiseOnTertiary = Color(0xFFFFFFFF)
-val PennywiseTertiaryContainer = Color(0xFFBEEAF7)
-val PennywiseOnTertiaryContainer = Color(0xFF001F26)
+val VioletTertiary = Color(0xFFEC4899) // Coral/Pink vibrant accent
+val VioletOnTertiary = Color(0xFFFFFFFF)
+val VioletTertiaryContainer = Color(0xFFFCE7F3)
+val VioletOnTertiaryContainer = Color(0xFF700B3E)
 
 // Functional Financial Colors
-val IncomeGreen = Color(0xFF059669)
+val IncomeGreen = Color(0xFF10B981)
 val IncomeGreenContainer = Color(0xFFD1FAE5)
-val ExpenseRed = Color(0xFFDC2626)
+val IncomeGreenText = Color(0xFF047857)
+
+val ExpenseRed = Color(0xFFEF4444)
 val ExpenseRedContainer = Color(0xFFFEE2E2)
-val WarningAmber = Color(0xFFD97706)
+val ExpenseRedText = Color(0xFFB91C1C)
+
+val WarningAmber = Color(0xFFF59E0B)
 val WarningAmberContainer = Color(0xFFFEF3C7)
 
-// Neutral / Surfaces Light
-val PennywiseBackgroundLight = Color(0xFFF7FAF8)
-val PennywiseSurfaceLight = Color(0xFFFFFFFF)
-val PennywiseSurfaceVariantLight = Color(0xFFE0EAE3)
-val PennywiseOnSurfaceLight = Color(0xFF191C1B)
-val PennywiseOnSurfaceVariantLight = Color(0xFF414944)
-val PennywiseOutlineLight = Color(0xFF717974)
+// Neutral / Surfaces - Clean Violet Light Theme
+val VioletBackgroundLight = Color(0xFFF8F7FC)
+val VioletSurfaceLight = Color(0xFFFFFFFF)
+val VioletSurfaceVariantLight = Color(0xFFF1EEF8)
+val VioletOnSurfaceLight = Color(0xFF1E1B26)
+val VioletOnSurfaceVariantLight = Color(0xFF6A6478)
+val VioletOutlineLight = Color(0xFFE2DCF0)
 
-// Neutral / Surfaces Dark
-val PennywiseBackgroundDark = Color(0xFF0F1512)
-val PennywiseSurfaceDark = Color(0xFF161F1A)
-val PennywiseSurfaceVariantDark = Color(0xFF233029)
-val PennywiseOnSurfaceDark = Color(0xFFE1E3DF)
-val PennywiseOnSurfaceVariantDark = Color(0xFFC0C9C2)
-val PennywiseOutlineDark = Color(0xFF8A938D)
+// Surfaces - Dark Theme Support
+val VioletBackgroundDark = Color(0xFF121019)
+val VioletSurfaceDark = Color(0xFF1A1724)
+val VioletSurfaceVariantDark = Color(0xFF282338)
+val VioletOnSurfaceDark = Color(0xFFEDE9F6)
+val VioletOnSurfaceVariantDark = Color(0xFFBFB8D0)
+val VioletOutlineDark = Color(0xFF4C4460)
 
-// Category Colors
-val CategoryFoodColor = Color(0xFFEA580C) // Orange
-val CategoryShoppingColor = Color(0xFF8B5CF6) // Purple
-val CategoryHousingColor = Color(0xFF2563EB) // Blue
-val CategoryTransportColor = Color(0xFF0284C7) // Sky
-val CategoryEntertainmentColor = Color(0xFFEC4899) // Pink
-val CategoryHealthcareColor = Color(0xFFE11D48) // Rose
-val CategoryUtilitiesColor = Color(0xFF65A30D) // Lime
-val CategorySalaryColor = Color(0xFF059669) // Emerald
-val CategoryInvestmentColor = Color(0xFFD97706) // Amber
-val CategoryOtherColor = Color(0xFF64748B) // Slate
+// Harmonious Category Colors tailored for Violet Theme
+val CategoryFoodColor = Color(0xFFFF7675) // Coral Peach
+val CategoryShoppingColor = Color(0xFF6C5CE7) // Primary Violet
+val CategoryHousingColor = Color(0xFF4834D4) // Deep Indigo
+val CategoryTransportColor = Color(0xFF0984E3) // Cerulean
+val CategoryEntertainmentColor = Color(0xFFFD79A8) // Flamingo Pink
+val CategoryHealthcareColor = Color(0xFFE84393) // Rose
+val CategoryUtilitiesColor = Color(0xFF00B894) // Mint Teal
+val CategorySalaryColor = Color(0xFF00CEC9) // Turquoise
+val CategoryFreelanceColor = Color(0xFFA29BFE) // Lavender
+val CategoryInvestmentColor = Color(0xFFFDCB6E) // Warm Gold
+val CategoryOtherColor = Color(0xFF636E72) // Slate Grey
