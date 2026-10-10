@@ -77,6 +77,16 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun otherBanksNamedBankOfIndiaAreNotBoi() {
+        val sbi = BankSmsParser.parse("Rs.250.00 debited from your A/c XX12 by UPI. -State Bank of India", ist)
+        assertEquals(SmsBank.UNKNOWN, sbi!!.bank)
+        val central = BankSmsParser.parse("Rs.250.00 debited from your A/c XX12 by UPI. Central Bank of India", ist)
+        assertEquals(SmsBank.UNKNOWN, central!!.bank)
+        val boi = BankSmsParser.parse("Rs.250.00 debited from your A/c XX12 by UPI. Bank of India", ist)
+        assertEquals(SmsBank.BOI, boi!!.bank)
+    }
+
+    @Test
     fun ignoresMessagesThatDidNotMoveMoney() {
         assertNull(BankSmsParser.parse("123456 is your OTP for UPI transaction of Rs.500.00. Do not share.", ist))
         assertNull(BankSmsParser.parse("Rahul has requested Rs.200.00 from you on UPI. Pay or decline.", ist))

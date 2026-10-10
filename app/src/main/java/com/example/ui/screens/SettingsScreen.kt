@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
@@ -72,7 +73,8 @@ fun SettingsScreen(
     onPickBackup: (Uri) -> Unit = {},
     onConfirmRestore: () -> Unit = {},
     onCancelRestore: () -> Unit = {},
-    onEraseAll: () -> Unit = {}
+    onEraseAll: () -> Unit = {},
+    onOpenSmsImport: () -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
@@ -129,6 +131,28 @@ fun SettingsScreen(
                 Icon(Icons.Default.Add, contentDescription = null, tint = VioletPrimary)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Add category", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader(
+                title = "Import",
+                subtitle = "Add Kotak & BOI transactions from your SMS"
+            )
+        }
+
+        item {
+            OutlinedButton(
+                onClick = onOpenSmsImport,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_import_sms_button")
+            ) {
+                Icon(Icons.Default.Sms, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Import from SMS", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
             }
         }
 

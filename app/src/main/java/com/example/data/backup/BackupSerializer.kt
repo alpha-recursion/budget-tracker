@@ -2,6 +2,9 @@ package com.example.data.backup
 
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
+import com.example.data.local.MerchantRuleEntity
+import com.example.data.local.SmsImportEntity
+import com.example.data.local.SmsImportStatus
 import com.example.data.local.TransactionEntity
 import org.json.JSONArray
 import org.json.JSONException
@@ -11,6 +14,8 @@ data class BackupData(
     val transactions: List<TransactionEntity>,
     val budgets: List<BudgetEntity>,
     val categories: List<CustomCategoryEntity>,
+    val smsImports: List<SmsImportEntity> = emptyList(),
+    val merchantRules: List<MerchantRuleEntity> = emptyList(),
     val exportedAt: Long = 0L
 )
 
@@ -61,6 +66,29 @@ object BackupSerializer {
                     )
                 }
             })
+            // Added after format 1 shipped; older backups simply lack these optional arrays.
+            .put("smsImports", JSONArray().apply {
+                data.smsImports.forEach { record ->
+                    put(
+                        JSONObject()
+                            .put("dedupeKey", record.dedupeKey)
+                            .put("status", record.status)
+                            // JSONObject.put(name, null) would drop the key, so write NULL explicitly.
+                            .put("transactionId", record.transactionId ?: JSONObject.NULL)
+                            .put("receivedAt", record.receivedAt)
+                    )
+                }
+            })
+            .put("merchantRules", JSONArray().apply {
+                data.merchantRules.forEach { rule ->
+                    put(
+                        JSONObject()
+                            .put("counterpartyKey", rule.counterpartyKey)
+                            .put("category", rule.category)
+                            .put("isSelfTransfer", rule.isSelfTransfer)
+                    )
+                }
+            })
         return root.toString(2)
     }
 
@@ -102,7 +130,34 @@ object BackupSerializer {
                 )
             }.orEmpty()
 
-            return BackupData(transactions, budgets, categories, root.optLong("exportedAt", 0L))
+            val smsImports = root.optJSONArray("smsImports")?.objects()?.map { o ->
+                val status = o.getString("status")
+                if (SmsImportStatus.entries.none { it.name == status }) {
+                    throw InvalidBackupException("Backup contains an unknown SMS import status")
+                }
+                SmsImportEntity(
+                    dedupeKey = o.getString("dedupeKey"),
+                    status = status,
+                    transactionId = if (o.isNull("transactionId")) null else o.getLong("transactionId"),
+                    receivedAt = o.getLong("receivedAt")
+                )
+            }.orEmpty()
+            val merchantRules = root.optJSONArray("merchantRules")?.objects()?.map { o ->
+                MerchantRuleEntity(
+                    counterpartyKey = o.getString("counterpartyKey"),
+                    category = o.getString("category"),
+                    isSelfTransfer = o.getBoolean("isSelfTransfer")
+                )
+            }.orEmpty()
+
+            return BackupData(
+                transactions = transactions,
+                budgets = budgets,
+                categories = categories,
+                smsImports = smsImports,
+                merchantRules = merchantRules,
+                exportedAt = root.optLong("exportedAt", 0L)
+            )
         } catch (e: JSONException) {
             throw InvalidBackupException("The backup file is damaged or incomplete")
         }

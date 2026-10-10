@@ -1,5 +1,6 @@
 package com.example.ui
 
+import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -52,28 +53,33 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.example.data.model.TransactionType
 import com.example.ui.screens.AddEditTransactionDialog
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.SmsImportScreen
 import com.example.ui.screens.TransactionsScreen
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.theme.VioletPrimaryContainer
 import com.example.ui.util.LocalCategories
 
-// Screen keys for the main content area: the three tabs plus Settings shown on top of them.
+// Screen keys for the main content area: the three tabs plus full screens shown on top of them.
 private const val SETTINGS_SCREEN = 3
+private const val SMS_IMPORT_SCREEN = 4
 
 private fun tabTitle(tab: Int): String = when (tab) {
     1 -> "Transactions"
     2 -> "Analytics & Budget"
     SETTINGS_SCREEN -> "Settings"
+    SMS_IMPORT_SCREEN -> "Import from SMS"
     else -> "Pennywise"
 }
 
@@ -84,7 +90,8 @@ fun PennywiseApp(
     modifier: Modifier = Modifier
 ) {
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
-    val isSettingsOpen by viewModel.isSettingsOpen.collectAsStateWithLifecycle()
+    val overlay by viewModel.overlay.collectAsStateWithLifecycle()
+    val isOverlayOpen = overlay != null
     val isDataLoaded by viewModel.isDataLoaded.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
@@ -97,7 +104,20 @@ fun PennywiseApp(
             snackbarHostState.showSnackbar(it)
         }
     }
-    val currentScreen = if (isSettingsOpen) SETTINGS_SCREEN else selectedTab
+    val currentScreen = when (overlay) {
+        Overlay.SETTINGS -> SETTINGS_SCREEN
+        Overlay.SMS_IMPORT -> SMS_IMPORT_SCREEN
+        null -> selectedTab
+    }
+
+    val application = LocalContext.current.applicationContext as Application
+    val smsImportViewModel: SmsImportViewModel = composeViewModel(factory = SmsImportViewModel.Factory(application))
+    val smsImportState by smsImportViewModel.state.collectAsStateWithLifecycle()
+    val openSmsImport = {
+        // Always start from a fresh scan so an old preview is never shown.
+        smsImportViewModel.reset()
+        viewModel.openSmsImport()
+    }
 
     // Screen data is collected here (not inside each tab) so every flow stays subscribed and
     // already holds its latest value when a tab is opened - no empty frame on tab switch.
@@ -116,9 +136,9 @@ fun PennywiseApp(
     // shown, so switching tabs does not rebuild screens from scratch and jump back to the top.
     val tabStateHolder = rememberSaveableStateHolder()
 
-    // Handle back button: close Settings first, then return to the Dashboard tab
-    BackHandler(enabled = isSettingsOpen || selectedTab != 0) {
-        if (isSettingsOpen) viewModel.closeSettings() else viewModel.setTab(0)
+    // Handle back button: close a full screen first, then return to the Dashboard tab
+    BackHandler(enabled = isOverlayOpen || selectedTab != 0) {
+        if (isOverlayOpen) viewModel.closeOverlay() else viewModel.setTab(0)
     }
 
     CompositionLocalProvider(LocalCategories provides categories) {
@@ -144,14 +164,14 @@ fun PennywiseApp(
                         }
                     },
                     navigationIcon = {
-                        if (isSettingsOpen) {
-                            IconButton(onClick = { viewModel.closeSettings() }) {
+                        if (isOverlayOpen) {
+                            IconButton(onClick = { viewModel.closeOverlay() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                             }
                         }
                     },
                     actions = {
-                        if (!isSettingsOpen) {
+                        if (!isOverlayOpen) {
                             IconButton(
                                 onClick = { viewModel.openSettings() },
                                 modifier = Modifier.testTag("open_settings_button")
@@ -232,7 +252,7 @@ fun PennywiseApp(
                 }
             },
             floatingActionButton = {
-                if (!isSettingsOpen) FloatingActionButton(
+                if (!isOverlayOpen) FloatingActionButton(
                     onClick = { viewModel.openAddDialog() },
                     containerColor = VioletPrimary,
                     contentColor = Color.White,
@@ -284,7 +304,8 @@ fun PennywiseApp(
                                     onAddIncome = { viewModel.openAddDialog(TransactionType.INCOME) },
                                     onViewAllTransactions = { viewModel.setTab(1) },
                                     onTransactionClick = { tx -> viewModel.openEditDialog(tx) },
-                                    onTransactionDelete = { tx -> viewModel.promptDelete(tx) }
+                                    onTransactionDelete = { tx -> viewModel.promptDelete(tx) },
+                                    onImportSms = openSmsImport
                                 )
 
                                 1 -> TransactionsScreen(
@@ -318,7 +339,28 @@ fun PennywiseApp(
                                     onPickBackup = { viewModel.readBackup(it) },
                                     onConfirmRestore = { viewModel.confirmRestore() },
                                     onCancelRestore = { viewModel.cancelRestore() },
-                                    onEraseAll = { viewModel.eraseAllData() }
+                                    onEraseAll = { viewModel.eraseAllData() },
+                                    onOpenSmsImport = openSmsImport
+                                )
+
+                                SMS_IMPORT_SCREEN -> SmsImportScreen(
+                                    state = smsImportState,
+                                    categories = categories,
+                                    hasPermission = { smsImportViewModel.hasPermission() },
+                                    onScan = { since ->
+                                        smsImportViewModel.scan(since, categories.map { it.name }.toSet())
+                                    },
+                                    onToggleItem = { smsImportViewModel.toggleItem(it) },
+                                    onToggleGroup = { smsImportViewModel.toggleGroup(it) },
+                                    onSetCategory = { group, category -> smsImportViewModel.setGroupCategory(group, category) },
+                                    onSetSelfTransfer = { group, on -> smsImportViewModel.setGroupSelfTransfer(group, on) },
+                                    onImport = {
+                                        smsImportViewModel.importSelected { message ->
+                                            viewModel.showMessage(message)
+                                            viewModel.closeOverlay()
+                                        }
+                                    },
+                                    onStartOver = { smsImportViewModel.reset() }
                                 )
                             }
                         }

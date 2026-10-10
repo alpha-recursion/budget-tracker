@@ -6,14 +6,22 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [TransactionEntity::class, BudgetEntity::class, CustomCategoryEntity::class],
-    version = 2,
+    entities = [
+        TransactionEntity::class,
+        BudgetEntity::class,
+        CustomCategoryEntity::class,
+        SmsImportEntity::class,
+        MerchantRuleEntity::class
+    ],
+    version = 3,
     exportSchema = false
 )
 abstract class PennywiseDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun budgetDao(): BudgetDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun smsImportDao(): SmsImportDao
+    abstract fun merchantRuleDao(): MerchantRuleDao
 
     companion object {
         @Volatile

@@ -184,6 +184,48 @@ class ExampleRobolectricTest {
     }
 
     @Test
+    fun `sms import writes transactions, records and rules atomically`() = runBlocking {
+        val tx = TransactionEntity(
+            title = "Swaraj Poli Bhaji Kendra",
+            amount = 100.0,
+            type = TransactionType.EXPENSE.name,
+            category = Category.FOOD_DINING.displayName,
+            date = 1000L
+        )
+        val created = repository.importFromSms(
+            items = listOf(
+                com.example.data.repository.SmsImportItem("ref:BOI:EXPENSE:1", 1000L, tx),
+                com.example.data.repository.SmsImportItem("ref:KOTAK:EXPENSE:2", 2000L, null)
+            ),
+            rules = listOf(com.example.data.local.MerchantRuleEntity("swaraj poli bhaji kendra", Category.FOOD_DINING.displayName, false))
+        )
+
+        assertEquals(1, created)
+        assertEquals(1, database.transactionDao().getAllTransactionsOnce().size)
+        assertEquals(setOf("ref:BOI:EXPENSE:1", "ref:KOTAK:EXPENSE:2"), repository.smsImportKeys())
+        val records = database.smsImportDao().getAllOnce().associateBy { it.dedupeKey }
+        assertNotNull(records.getValue("ref:BOI:EXPENSE:1").transactionId)
+        assertEquals("SELF_TRANSFER", records.getValue("ref:KOTAK:EXPENSE:2").status)
+        assertNull(records.getValue("ref:KOTAK:EXPENSE:2").transactionId)
+        assertEquals(1, repository.merchantRules().size)
+    }
+
+    @Test
+    fun `deleting a custom category also updates remembered payee rules`() = runBlocking {
+        repository.saveCustomCategory(
+            com.example.data.local.CustomCategoryEntity("Bike & Fuel", "two_wheeler", 0xFF0984E3, TransactionType.EXPENSE.name)
+        )
+        repository.importFromSms(
+            items = emptyList(),
+            rules = listOf(com.example.data.local.MerchantRuleEntity("indian oil", "Bike & Fuel", false))
+        )
+
+        repository.deleteCustomCategory("Bike & Fuel")
+
+        assertEquals(Category.OTHER.displayName, repository.merchantRules().single().category)
+    }
+
+    @Test
     fun `budget limits are validated before saving`() {
         assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, ""))
         assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, "-100"))
