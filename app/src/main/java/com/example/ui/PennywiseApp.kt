@@ -47,7 +47,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
@@ -65,6 +68,7 @@ import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SmsImportScreen
+import com.example.ui.screens.TeachFormatDialog
 import com.example.ui.screens.TransactionsScreen
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.VioletPrimary
@@ -113,6 +117,10 @@ fun PennywiseApp(
     val application = LocalContext.current.applicationContext as Application
     val smsImportViewModel: SmsImportViewModel = composeViewModel(factory = SmsImportViewModel.Factory(application))
     val smsImportState by smsImportViewModel.state.collectAsStateWithLifecycle()
+    // Text of the SMS being taught as a new format; null when the dialog is closed.
+    var teachText by rememberSaveable { mutableStateOf<String?>(null) }
+    val smsTemplates by viewModel.smsTemplates.collectAsStateWithLifecycle()
+
     val openSmsImport = {
         // Always start from a fresh scan so an old preview is never shown.
         smsImportViewModel.reset()
@@ -340,7 +348,10 @@ fun PennywiseApp(
                                     onConfirmRestore = { viewModel.confirmRestore() },
                                     onCancelRestore = { viewModel.cancelRestore() },
                                     onEraseAll = { viewModel.eraseAllData() },
-                                    onOpenSmsImport = openSmsImport
+                                    onOpenSmsImport = openSmsImport,
+                                    smsTemplates = smsTemplates,
+                                    onTeachFormat = { teachText = "" },
+                                    onDeleteFormat = { viewModel.deleteSmsTemplate(it) }
                                 )
 
                                 SMS_IMPORT_SCREEN -> SmsImportScreen(
@@ -360,7 +371,8 @@ fun PennywiseApp(
                                             viewModel.closeOverlay()
                                         }
                                     },
-                                    onStartOver = { smsImportViewModel.reset() }
+                                    onStartOver = { smsImportViewModel.reset() },
+                                    onTeach = { body -> teachText = body }
                                 )
                             }
                         }
@@ -371,6 +383,22 @@ fun PennywiseApp(
             // Dialogs read their own state so typing in the form does not recompose the whole app.
             AddEditTransactionHost(viewModel = viewModel)
             DeleteConfirmationHost(viewModel = viewModel)
+
+            teachText?.let { initial ->
+                TeachFormatDialog(
+                    initialText = initial,
+                    onSave = { template ->
+                        teachText = null
+                        viewModel.saveSmsTemplate(template) {
+                            // Taught from a scan: scan the same period again with the new format.
+                            if (overlay == Overlay.SMS_IMPORT) {
+                                smsImportViewModel.rescan(categories.map { it.name }.toSet())
+                            }
+                        }
+                    },
+                    onDismiss = { teachText = null }
+                )
+            }
         }
     }
 }
