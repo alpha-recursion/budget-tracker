@@ -291,7 +291,9 @@ fun TransactionsScreen(
                     TransactionItemRow(
                         transaction = transaction,
                         onClick = { onTransactionClick(transaction) },
-                        onDelete = { onTransactionDelete(transaction) }
+                        onDelete = { onTransactionDelete(transaction) },
+                        // Animate inserts, removals and re-ordering instead of snapping rows around.
+                        modifier = Modifier.animateItem()
                     )
                 }
 

@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -65,8 +66,25 @@ class PennywiseViewModel @JvmOverloads constructor(
     private val _sortOption = MutableStateFlow(SortOption.NEWEST)
     val sortOption: StateFlow<SortOption> = _sortOption
 
-    // Transactions from Room
-    val allTransactions: StateFlow<List<TransactionEntity>> = repository.allTransactions
+    // Transactions from Room. Null until the first query result arrives so the UI can tell
+    // "still loading" apart from "no transactions" and avoid flashing empty states.
+    private val loadedTransactions: StateFlow<List<TransactionEntity>?> = repository.allTransactions
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val isDataLoaded: StateFlow<Boolean> = loadedTransactions
+        .map { it != null }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    val allTransactions: StateFlow<List<TransactionEntity>> = loadedTransactions
+        .map { it.orEmpty() }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -82,9 +100,8 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     // Derived Financial Summary directly from Room
     val financialSummary: StateFlow<FinancialSummary> = allTransactions
-        .combine(MutableStateFlow(Unit)) { txs, _ ->
-            FinancialCalculations.calculateSummary(txs)
-        }.stateIn(
+        .map { txs -> FinancialCalculations.calculateSummary(txs) }
+        .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = FinancialSummary()
@@ -92,9 +109,8 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     // Category Spending Breakdown
     val categoryBreakdowns: StateFlow<List<CategoryBreakdown>> = allTransactions
-        .combine(MutableStateFlow(Unit)) { txs, _ ->
-            FinancialCalculations.calculateCategoryBreakdown(txs)
-        }.stateIn(
+        .map { txs -> FinancialCalculations.calculateCategoryBreakdown(txs) }
+        .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
@@ -201,12 +217,12 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     // Dialog & Form Handlers
-    fun openAddDialog() {
+    fun openAddDialog(type: TransactionType = TransactionType.EXPENSE) {
         _editingTransaction.value = null
-        _formType.value = TransactionType.EXPENSE
+        _formType.value = type
         _formAmount.value = ""
         _formTitle.value = ""
-        _formCategory.value = Category.FOOD_DINING.displayName
+        _formCategory.value = Category.getCategoriesForType(type).first().displayName
         _formDate.value = System.currentTimeMillis()
         _formNote.value = ""
         _amountError.value = null
