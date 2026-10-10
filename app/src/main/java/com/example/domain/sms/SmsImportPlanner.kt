@@ -86,11 +86,18 @@ object SmsImportPlanner {
     private const val UNRECOGNISED_EXAMPLES = 5
 
     /** True when [sms] is a Kotak/BOI transaction alert this app can import. */
-    fun isSupportedTransaction(sms: RawSms, timeZone: TimeZone = TimeZone.getDefault()): Boolean {
+    fun isSupportedTransaction(
+        sms: RawSms,
+        timeZone: TimeZone = TimeZone.getDefault(),
+        templates: List<SmsTemplate> = emptyList()
+    ): Boolean {
         if (!isBankSender(sms.sender)) return false
-        val parsed = BankSmsParser.parse(sms.body, timeZone) ?: return false
-        return parsed.bank in SUPPORTED_BANKS
+        val parsed = BankSmsParser.parse(sms.body, timeZone, templates) ?: return false
+        return parsed.isSupported()
     }
+
+    // Formats the owner taught are always wanted, whatever bank they belong to.
+    private fun ParsedBankSms.isSupported(): Boolean = fromTemplate || bank in SUPPORTED_BANKS
 
     /**
      * Stable identity of an SMS transaction. The UPI reference is shared by both sides of a
@@ -118,7 +125,8 @@ object SmsImportPlanner {
         existingTransactions: List<TransactionEntity>,
         rules: List<MerchantRuleEntity>,
         validCategories: Set<String>,
-        timeZone: TimeZone = TimeZone.getDefault()
+        timeZone: TimeZone = TimeZone.getDefault(),
+        templates: List<SmsTemplate> = emptyList()
     ): ImportPlan {
         val rulesByKey = rules.associateBy { it.counterpartyKey }
         val seenKeys = HashSet<String>()
@@ -136,7 +144,7 @@ object SmsImportPlanner {
             .mapNotNull { sms ->
                 if (!isBankSender(sms.sender)) return@mapNotNull null
                 fromBankSenders++
-                val parsed = BankSmsParser.parse(sms.body, timeZone)?.takeIf { it.bank in SUPPORTED_BANKS }
+                val parsed = BankSmsParser.parse(sms.body, timeZone, templates)?.takeIf { it.isSupported() }
                 if (parsed == null) {
                     if (unrecognised.size < UNRECOGNISED_EXAMPLES &&
                         BankSmsParser.looksLikeTransaction(sms.body) &&

@@ -23,7 +23,9 @@ data class ParsedBankSms(
     val dayMs: Long?,
     val upiRef: String?,
     val bank: SmsBank,
-    val isConfident: Boolean
+    val isConfident: Boolean,
+    /** Read with a format the owner taught (see [SmsTemplate]). */
+    val fromTemplate: Boolean = false
 )
 
 /**
@@ -87,9 +89,27 @@ object BankSmsParser {
             !NOT_A_TRANSACTION.containsMatchIn(text)
     }
 
-    fun parse(body: String, timeZone: TimeZone = TimeZone.getDefault()): ParsedBankSms? {
-        val text = body.replace(Regex("""\s+"""), " ").trim()
+    /** Collapses whitespace so formats match however the SMS was wrapped. */
+    fun normalize(body: String): String = body.replace(Regex("""\s+"""), " ").trim()
+
+    /** True for OTPs, payment requests, failures and other messages that never move money. */
+    fun isNonTransaction(body: String): Boolean = NOT_A_TRANSACTION.containsMatchIn(normalize(body))
+
+    /**
+     * @param templates formats taught by the owner; tried first because the owner knows their
+     *   own messages best.
+     */
+    fun parse(
+        body: String,
+        timeZone: TimeZone = TimeZone.getDefault(),
+        templates: List<SmsTemplate> = emptyList()
+    ): ParsedBankSms? {
+        val text = normalize(body)
         if (NOT_A_TRANSACTION.containsMatchIn(text)) return null
+
+        for (template in templates) {
+            template.match(text, timeZone)?.let { return it }
+        }
 
         KOTAK_SENT.find(text)?.let { m ->
             return build(m.groupValues[1], TransactionType.EXPENSE, m.groupValues[2],
@@ -176,16 +196,16 @@ object BankSmsParser {
         return ref
     }
 
-    /** "27-08-26" or "27-08-2026" (day-month-year). */
-    private fun parseNumericDate(raw: String, timeZone: TimeZone): Long? {
-        val parts = raw.split('-').mapNotNull { it.toIntOrNull() }
+    /** "27-08-26", "27-08-2026" or "27/08/26" (day-month-year). */
+    internal fun parseNumericDate(raw: String, timeZone: TimeZone): Long? {
+        val parts = raw.split('-', '/').mapNotNull { it.trim().toIntOrNull() }
         if (parts.size != 3) return null
         return localMidnight(parts[2], parts[1], parts[0], timeZone)
     }
 
-    /** "21Aug26" or "21Aug2026". */
-    private fun parseMonthNameDate(raw: String, timeZone: TimeZone): Long? {
-        val m = Regex("""(\d{1,2})([A-Za-z]{3})(\d{2,4})""").matchEntire(raw) ?: return null
+    /** "21Aug26", "21Aug2026", "21-Aug-26" or "21 Aug, 2026". */
+    internal fun parseMonthNameDate(raw: String, timeZone: TimeZone): Long? {
+        val m = Regex("""(\d{1,2})[- ]?([A-Za-z]{3})[- ,]*(\d{2,4})""").matchEntire(raw.trim()) ?: return null
         val month = MONTHS.indexOf(m.groupValues[2].lowercase(Locale.US)) + 1
         if (month == 0) return null
         return localMidnight(m.groupValues[3].toInt(), month, m.groupValues[1].toInt(), timeZone)
