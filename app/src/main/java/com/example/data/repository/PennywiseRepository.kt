@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import androidx.room.withTransaction
+import com.example.data.model.CategoryInfo
 import com.example.data.backup.BackupData
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
@@ -17,6 +18,7 @@ import com.example.data.sms.toEntity
 import com.example.domain.sms.SmsTemplate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -118,6 +120,10 @@ class PennywiseRepository(
 
     // --- SMS import ---
 
+    /** Names of every category currently offered: built-in ones plus the user's own. */
+    suspend fun categoryNames(): Set<String> =
+        (CategoryInfo.builtIns.map { it.name } + customCategories.first().map { it.name }).toSet()
+
     suspend fun smsImportKeys(): Set<String> = withContext(Dispatchers.IO) {
         smsImportDao.getAllKeys().toSet()
     }
@@ -154,8 +160,13 @@ class PennywiseRepository(
         smsTemplateDao.deleteById(id)
     }
 
-    suspend fun transactionsOnce(): List<TransactionEntity> = withContext(Dispatchers.IO) {
-        transactionDao.getAllTransactionsOnce()
+    /**
+     * Transactions not created from an SMS: what a new bank SMS may duplicate. SMS-created ones
+     * are excluded, so two equal payments on one day (two ₹10 teas) are not flagged as duplicates.
+     */
+    suspend fun handEnteredTransactions(): List<TransactionEntity> = withContext(Dispatchers.IO) {
+        val fromSms = smsImportDao.getAllOnce().mapNotNull { it.transactionId }.toHashSet()
+        transactionDao.getAllTransactionsOnce().filterNot { it.id in fromSms }
     }
 
     /**
@@ -166,8 +177,11 @@ class PennywiseRepository(
     suspend fun importFromSms(items: List<SmsImportItem>, rules: List<MerchantRuleEntity>): Int =
         withContext(Dispatchers.IO) {
             database.withTransaction {
+                // Live capture and an in-app import can race on the same SMS; whoever commits
+                // second skips it instead of creating the transaction twice.
+                val recorded = smsImportDao.getAllKeys().toHashSet()
                 var created = 0
-                val records = items.map { item ->
+                val records = items.filter { recorded.add(it.dedupeKey) }.map { item ->
                     val transactionId = item.transaction?.let {
                         created++
                         transactionDao.insert(it)

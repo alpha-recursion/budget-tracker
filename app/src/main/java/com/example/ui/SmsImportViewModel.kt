@@ -7,16 +7,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.PennywiseDatabase
-import com.example.data.local.TransactionEntity
 import com.example.data.model.TransactionType
 import com.example.data.repository.PennywiseRepository
 import com.example.data.repository.SmsImportItem
+import com.example.data.sms.AutoCaptureStore
 import com.example.data.sms.SmsInboxReader
 import com.example.domain.sms.ImportCandidate
 import com.example.domain.sms.ImportGroup
 import com.example.domain.sms.ImportPlan
-import com.example.domain.sms.SmsBank
 import com.example.domain.sms.SmsImportPlanner
+import com.example.domain.sms.toTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +37,9 @@ data class SmsImportState(
     /** When nothing new was found: arrival time of the newest Kotak/BOI alert before the period. */
     val newestOlderAlertAt: Long? = null,
     /** Start of the last scan, so it can be repeated after teaching a new format. */
-    val lastSinceMs: Long? = null
+    val lastSinceMs: Long? = null,
+    /** When the last scan read the inbox: messages arriving later were not part of it. */
+    val scannedAtMs: Long? = null
 ) {
     private fun ImportGroup.selectedItems(): List<ImportCandidate> = items.filter { it.dedupeKey in selected }
 
@@ -58,12 +60,16 @@ data class SmsImportState(
 class SmsImportViewModel(
     application: Application,
     private val repository: PennywiseRepository = PennywiseRepository(PennywiseDatabase.getDatabase(application)),
-    private val reader: SmsInboxReader = SmsInboxReader(application)
+    private val reader: SmsInboxReader = SmsInboxReader(application),
+    private val captureStore: AutoCaptureStore = AutoCaptureStore(application)
 ) : AndroidViewModel(application) {
 
     companion object {
         /** How many older messages to look through for the newest bank alert. */
         private const val OLDER_SEARCH_LIMIT = 5000
+
+        /** Review window when nothing is waiting (e.g. the notification was stale). */
+        private const val PENDING_FALLBACK_MS = 24 * 60 * 60 * 1000L
 
         fun Factory(application: Application): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
@@ -82,6 +88,7 @@ class SmsImportViewModel(
     /** Scans messages received since [sinceMs]; [validCategories] are the names currently offered. */
     fun scan(sinceMs: Long, validCategories: Set<String>) {
         if (_state.value.phase == SmsImportPhase.SCANNING) return
+        val scannedAt = System.currentTimeMillis()
         _state.value = SmsImportState(phase = SmsImportPhase.SCANNING, lastSinceMs = sinceMs)
         viewModelScope.launch {
             try {
@@ -91,7 +98,7 @@ class SmsImportViewModel(
                     SmsImportPlanner.plan(
                         messages = messages,
                         alreadyImportedKeys = repository.smsImportKeys(),
-                        existingTransactions = repository.transactionsOnce(),
+                        existingTransactions = repository.handEnteredTransactions(),
                         rules = repository.merchantRules(),
                         validCategories = validCategories,
                         templates = templates
@@ -113,13 +120,25 @@ class SmsImportViewModel(
                     categoryByGroup = plan.groups.associate { it.key to it.suggestedCategory },
                     selfTransferGroups = plan.groups.filter { it.suggestedSelfTransfer }.map { it.key }.toSet(),
                     newestOlderAlertAt = newestOlder,
-                    lastSinceMs = sinceMs
+                    lastSinceMs = sinceMs,
+                    scannedAtMs = scannedAt
                 )
+                // Nothing left to review (e.g. imported meanwhile): drop the "to review" note.
+                if (plan.candidateCount == 0) captureStore.update { it.afterReview(sinceMs, scannedAt) }
             } catch (e: SecurityException) {
                 _state.value = SmsImportState(error = "SMS access was not granted.")
             } catch (e: Exception) {
                 _state.value = SmsImportState(error = "Could not read SMS: ${e.message ?: "unknown error"}")
             }
+        }
+    }
+
+    /** Scans from the oldest payment live capture left for review (notification or Home card). */
+    fun reviewPending() {
+        viewModelScope.launch {
+            val since = captureStore.state().pendingSinceMs
+                ?: (System.currentTimeMillis() - PENDING_FALLBACK_MS)
+            scan(since, repository.categoryNames())
         }
     }
 
@@ -175,7 +194,10 @@ class SmsImportViewModel(
         viewModelScope.launch {
             try {
                 val created = repository.importFromSms(items, rules)
-                val selfTransfers = items.size - created
+                val selfTransfers = items.count { it.transaction == null }
+                val from = current.lastSinceMs
+                val at = current.scannedAtMs
+                if (from != null && at != null) captureStore.update { it.afterReview(from, at) }
                 _state.value = SmsImportState()
                 onDone(
                     buildString {
@@ -194,21 +216,5 @@ class SmsImportViewModel(
     /** Discards any scan in progress or under review. */
     fun reset() {
         if (_state.value.phase != SmsImportPhase.IMPORTING) _state.value = SmsImportState()
-    }
-
-    private fun ImportCandidate.toTransaction(category: String): TransactionEntity {
-        val bank = when (parsed.bank) {
-            SmsBank.KOTAK -> "Kotak"
-            SmsBank.BOI -> "BOI"
-            SmsBank.UNKNOWN -> "bank"
-        }
-        return TransactionEntity(
-            title = title.take(60), // same limit as the manual form
-            amount = parsed.amount,
-            type = parsed.type.name,
-            category = category,
-            date = dateMs,
-            note = "From $bank SMS" + (parsed.upiRef?.let { " · UPI Ref $it" } ?: "")
-        )
     }
 }
