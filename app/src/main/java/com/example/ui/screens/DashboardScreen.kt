@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.example.data.local.TransactionEntity
 import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
+import com.example.domain.sms.CaptureState
 import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
 import com.example.ui.components.BudgetGauge
@@ -51,6 +52,7 @@ import com.example.ui.components.PwCard
 import com.example.ui.components.PwDivider
 import com.example.ui.components.PwIconBadge
 import com.example.ui.components.PwPrimaryButton
+import com.example.ui.components.PwSecondaryButton
 import com.example.ui.components.PwSectionTitle
 import com.example.ui.components.Space
 import com.example.ui.components.SpendingDonutChart
@@ -82,7 +84,10 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
     onImportSms: () -> Unit = {},
     budgetStatuses: List<CategoryBudgetStatus> = emptyList(),
-    onOpenBudgets: () -> Unit = {}
+    onOpenBudgets: () -> Unit = {},
+    captureState: CaptureState = CaptureState(),
+    onReviewCaptured: () -> Unit = {},
+    onDismissCaptured: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
@@ -92,6 +97,11 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(Space.section)
     ) {
         item { BalanceHero(summary = summary, onAddIncome = onAddIncome, onAddExpense = onAddExpense) }
+        if (captureState.pendingCount > 0) {
+            item(key = "captured") {
+                CapturedPaymentsCard(state = captureState, onReview = onReviewCaptured, onDismiss = onDismissCaptured)
+            }
+        }
         item { BudgetCard(statuses = budgetStatuses, onOpenBudgets = onOpenBudgets) }
         item { WeeklySpendingCard(transactions = recentTransactions) }
         item { ImportSmsCard(onImportSms = onImportSms) }
@@ -320,6 +330,54 @@ private fun WeeklySpendingCard(transactions: List<TransactionEntity>) {
             selectedIndex = selected,
             onSelect = { selected = it }
         )
+    }
+}
+
+/** Bank SMS that live capture could not add on its own (new payee, credit, possible duplicate). */
+@Composable
+private fun CapturedPaymentsCard(state: CaptureState, onReview: () -> Unit, onDismiss: () -> Unit) {
+    val count = state.pendingCount
+    PwCard(
+        contentPadding = PaddingValues(Space.l),
+        modifier = Modifier.testTag("captured_payments_card")
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PwIconBadge(icon = Icons.Default.Sms, tint = Accent)
+            Spacer(modifier = Modifier.width(Space.m))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "$count bank payment${if (count == 1) "" else "s"} to review",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Ink
+                )
+                val latest = state.latest?.takeIf { it.addedAs == null }
+                Text(
+                    latest?.let { "Latest: ${Formatters.formatCurrency(it.amount)} · ${it.title}" }
+                        ?: "New payees need a category once",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(Space.m))
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+            PwSecondaryButton(
+                text = "Not now",
+                onClick = onDismiss,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("captured_dismiss_button")
+            )
+            PwPrimaryButton(
+                text = "Review",
+                onClick = onReview,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("captured_review_button")
+            )
+        }
     }
 }
 

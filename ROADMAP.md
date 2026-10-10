@@ -41,7 +41,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 | Phase | Status |
 |---|---|
 | 0. Foundation | **Built** — ₹ currency, demo data removed, safe DB migrations (v2), custom categories, editable budgets, JSON backup / restore / erase. Needs on-device check. |
-| 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). Live capture (1.5) and verified credit formats (1.8) pending. Needs on-device check. |
+| 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). **Live capture built** (1.5): known payees added automatically, the rest wait for review. Verified credit formats (1.8) pending. Needs on-device check. |
 | 1, 3, 4, 5 | Not started |
 
 ## To-do list
@@ -53,7 +53,9 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 1.3 Review preview: grouped by payee, tick/untick items, import selected
 - [x] 1.4 De-duplication: never import the same SMS twice (bank + direction + UPI ref, or
       message fingerprint); flag likely manual duplicates (same amount, same day)
-- [ ] 1.5 Live capture of new SMS into a review inbox + notification
+- [x] 1.5 Live capture: Settings switch "Auto-detect bank SMS"; payments to payees with a
+      remembered category are added at once, everything else waits for review; one combined
+      notification; Home card "N bank payments to review"
 - [x] 1.6 Payee memory: category (or "self transfer") remembered per payee
 - [x] 1.7 Database v3: `sms_imports` and `merchant_rules` tables (+ backup/restore/erase)
 - [ ] 1.8 Exact credit formats once Kotak/BOI "money received" samples arrive
@@ -131,6 +133,31 @@ lent to others, and use light game mechanics so it gets opened every day.
 ```
 
 Unticked items are not recorded, so they appear again on the next scan.
+
+### Live capture (1.5)
+
+```
+ Bank SMS arrives ──► BankSmsReceiver (RECEIVE_SMS, switch on in Settings)
+              │
+              ▼
+  Same planner as the scan (parser, templates, dedupe, payee memory)
+              │
+              ▼
+  AutoCapture.decide — added at once only when ALL hold:
+   • payee has a remembered category (or self transfer)
+   • it is a debit (credit formats are not verified yet)
+   • it has a UPI ref (stable dedupe key; the fallback key uses arrival time)
+   • not a likely duplicate of a hand-entered transaction
+              │                                   │
+        added (sms_imports + transactions)   waits for review (key kept in prefs)
+              └──────────────┬────────────────────┘
+                             ▼
+     One updating notification ("2 bank payments to review · Latest: ₹45 · …")
+     Tap / Home card ──► SMS review scanning from the oldest waiting SMS
+```
+
+No database change: waiting items are re-read from the inbox when reviewed. SMS that arrive
+while the number is not registered with the bank cannot be captured or scanned.
 
 ---
 

@@ -1,6 +1,17 @@
 package com.example.ui.screens
 
 import android.net.Uri
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.example.ui.theme.SurfaceWhite
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -89,7 +100,10 @@ fun SettingsScreen(
     onOpenSmsImport: () -> Unit = {},
     smsTemplates: List<SmsTemplate> = emptyList(),
     onTeachFormat: () -> Unit = {},
-    onDeleteFormat: (Long) -> Unit = {}
+    onDeleteFormat: (Long) -> Unit = {},
+    autoCaptureEnabled: Boolean = false,
+    onAutoCaptureChange: (Boolean) -> Unit = {},
+    onAutoCapturePermissionDenied: () -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
@@ -121,6 +135,12 @@ fun SettingsScreen(
                     subtitle = "Kotak & BOI payments from your messages",
                     onClick = onOpenSmsImport,
                     modifier = Modifier.testTag("settings_import_sms_button")
+                )
+                PwDivider()
+                AutoCaptureRow(
+                    enabled = autoCaptureEnabled,
+                    onChange = onAutoCaptureChange,
+                    onPermissionDenied = onAutoCapturePermissionDenied
                 )
             }
         }
@@ -309,6 +329,68 @@ fun SettingsScreen(
 }
 
 /** Small label above a settings group. */
+/**
+ * Live capture switch. Shown as on only while the SMS permission is still granted, since
+ * without it no SMS reach the app; turning it on asks for SMS (and notification) access.
+ */
+@Composable
+private fun AutoCaptureRow(
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit,
+    onPermissionDenied: () -> Unit
+) {
+    val context = LocalContext.current
+    fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    // Re-checked on resume: the permission can be revoked from system settings at any time.
+    var canReceive by remember { mutableStateOf(granted(Manifest.permission.RECEIVE_SMS)) }
+    LifecycleResumeEffect(Unit) {
+        canReceive = granted(Manifest.permission.RECEIVE_SMS)
+        onPauseOrDispose { }
+    }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        canReceive = result[Manifest.permission.RECEIVE_SMS] == true || granted(Manifest.permission.RECEIVE_SMS)
+        if (canReceive) onChange(true) else onPermissionDenied()
+    }
+    val isOn = enabled && canReceive
+    val turnOn = {
+        val needed = buildList {
+            if (!granted(Manifest.permission.RECEIVE_SMS)) add(Manifest.permission.RECEIVE_SMS)
+            // Reviewing captured payments reads the inbox.
+            if (!granted(Manifest.permission.READ_SMS)) add(Manifest.permission.READ_SMS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                !granted(Manifest.permission.POST_NOTIFICATIONS)
+            ) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (needed.isEmpty()) onChange(true) else launcher.launch(needed.toTypedArray())
+    }
+    val toggle = { if (isOn) onChange(false) else turnOn() }
+    PwListRow(
+        title = "Auto-detect bank SMS",
+        subtitle = if (isOn) "On · known payees are added for you" else "Notify me when a Kotak/BOI payment arrives",
+        leading = { PwIconBadge(Icons.Default.NotificationsActive, Accent) },
+        onClick = toggle,
+        modifier = Modifier.testTag("settings_auto_capture_row")
+    ) {
+        Switch(
+            checked = isOn,
+            onCheckedChange = { toggle() },
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = Accent,
+                checkedThumbColor = SurfaceWhite,
+                uncheckedTrackColor = Hairline,
+                uncheckedThumbColor = SurfaceWhite,
+                uncheckedBorderColor = Hairline
+            ),
+            modifier = Modifier.testTag("settings_auto_capture_switch")
+        )
+    }
+}
+
 @Composable
 private fun GroupLabel(text: String) {
     Text(
