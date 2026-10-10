@@ -299,4 +299,17 @@ class ExampleRobolectricTest {
         assertEquals("Food & Dining", budgets[0].category)
         assertEquals(400.0, budgets[0].monthlyLimit, 0.001)
     }
+
+    @Test
+    fun `currency format uses Indian Rupee symbol`() {
+        val formatted = com.example.ui.util.Formatters.formatCurrency(1250.50)
+        assertTrue(formatted.startsWith("₹"))
+        assertTrue(formatted.contains("1,250.50"))
+
+        val signedExpense = com.example.ui.util.Formatters.formatSignedCurrency(100.0, "EXPENSE")
+        assertEquals("-₹100.00", signedExpense)
+
+        val signedIncome = com.example.ui.util.Formatters.formatSignedCurrency(500.0, "INCOME")
+        assertEquals("+₹500.00", signedIncome)
+    }
 }

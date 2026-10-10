@@ -201,8 +201,10 @@ class ExampleUnitTest {
     @Test
     fun testFormValidation_amount() {
         assertTrue(FormValidation.validateAmount("12.50").isValid)
+        assertTrue(FormValidation.validateAmount("₹45.00").isValid)
         assertTrue(FormValidation.validateAmount("$45.00").isValid)
         assertTrue(FormValidation.validateAmount("1,200.50").isValid)
+        assertEquals(45.0, FormValidation.parseAmount("₹45.00")!!, 0.001)
 
         assertFalse(FormValidation.validateAmount("").isValid)
         assertFalse(FormValidation.validateAmount("0").isValid)
