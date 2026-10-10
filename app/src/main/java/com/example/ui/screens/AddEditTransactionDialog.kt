@@ -1,78 +1,84 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.BorderStroke
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SelectableDates
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.example.data.local.TransactionEntity
 import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
-import com.example.ui.theme.Negative
-import com.example.ui.theme.PositiveText
-import com.example.ui.theme.Hairline
-import com.example.ui.theme.Accent
-import com.example.ui.theme.AccentSoft
 import com.example.ui.components.CategoryGrid
+import com.example.ui.components.PwCard
+import com.example.ui.components.PwChip
+import com.example.ui.components.PwHeaderIconButton
+import com.example.ui.components.PwPrimaryButton
+import com.example.ui.components.PwSegmented
+import com.example.ui.components.PwTextField
+import com.example.ui.components.Space
+import com.example.ui.theme.Accent
+import com.example.ui.theme.Canvas
+import com.example.ui.theme.Ink
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.InkTertiary
+import com.example.ui.theme.PositiveText
 import com.example.ui.util.DateConversions
 import com.example.ui.util.Formatters
-import com.example.ui.util.getCategoryIcon
+import java.util.Calendar
 
+/**
+ * Full-screen Add / Edit transaction page: big amount at the top, fields in one card, and Save
+ * fixed at the bottom above the keyboard. Must be placed above the app's Scaffold so the header
+ * and tab bar do not draw over it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTransactionDialog(
@@ -97,7 +103,8 @@ fun AddEditTransactionDialog(
     onDateChange: (Long) -> Unit,
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     if (!isOpen) return
 
@@ -105,336 +112,221 @@ fun AddEditTransactionDialog(
     val availableCategories = CategoryInfo.forType(categories, type)
     var showDatePicker by remember { mutableStateOf(false) }
     var showCategoryEditor by remember { mutableStateOf(false) }
+    val amountFocus = remember { FocusRequester() }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    BackHandler(onBack = onDismiss)
+    // New entry: put the cursor in the amount straight away.
+    LaunchedEffect(Unit) { if (!isEditing) amountFocus.requestFocus() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Canvas)
+            .statusBarsPadding()
+            .testTag("add_edit_dialog")
     ) {
-        Surface(
+        // Top bar
+        Row(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .widthIn(max = 560.dp)
-                .testTag("add_edit_dialog"),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .fillMaxWidth()
+                .padding(horizontal = Space.screen, vertical = Space.m),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
+            PwHeaderIconButton(Icons.Default.Close, "Close", onDismiss, Modifier.testTag("close_dialog_button"))
+            Text(
+                if (isEditing) "Edit transaction" else "New transaction",
+                style = MaterialTheme.typography.titleMedium,
+                color = Ink,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f)
+            )
+            if (onDelete != null) {
+                PwHeaderIconButton(Icons.Outlined.DeleteOutline, "Delete transaction", onDelete, Modifier.testTag("delete_transaction_button"))
+            } else {
+                Spacer(modifier = Modifier.size(44.dp))
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Space.screen)
+        ) {
+            // Amount: the focus of the page.
+            Spacer(modifier = Modifier.height(Space.l))
+            Text("Amount", style = MaterialTheme.typography.labelMedium, color = InkSecondary, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Row(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isEditing) "Edit Transaction" else "New Transaction",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .testTag("close_dialog_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Type Toggle (Expense / Income)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(4.dp)
-                ) {
-                    // Expense Option
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (type == TransactionType.EXPENSE) Negative else Color.Transparent
-                            )
-                            .clickable { onTypeChange(TransactionType.EXPENSE) }
-                            .padding(vertical = 10.dp)
-                            .testTag("type_toggle_expense"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Expense",
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (type == TransactionType.EXPENSE) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    // Income Option
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (type == TransactionType.INCOME) Accent else Color.Transparent
-                            )
-                            .clickable { onTypeChange(TransactionType.INCOME) }
-                            .padding(vertical = 10.dp)
-                            .testTag("type_toggle_income"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Income",
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (type == TransactionType.INCOME) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Amount Field
-                OutlinedTextField(
+                Text("₹", style = MaterialTheme.typography.displaySmall, color = InkSecondary)
+                Spacer(modifier = Modifier.width(Space.xs))
+                BasicTextField(
                     value = amount,
                     onValueChange = onAmountChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("amount_input"),
-                    label = { Text("Amount") },
-                    prefix = { Text("₹ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Accent) },
-                    placeholder = { Text("0.00") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
-                    isError = amountError != null,
-                    supportingText = {
-                        if (amountError != null) {
-                            Text(
-                                text = amountError,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.testTag("amount_error_text")
-                            )
+                    textStyle = MaterialTheme.typography.displayLarge.copy(color = Ink),
+                    cursorBrush = SolidColor(Accent),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier
+                        .width(IntrinsicSize.Min)
+                        .widthIn(min = 40.dp)
+                        .focusRequester(amountFocus)
+                        .testTag("amount_input"),
+                    decorationBox = { inner ->
+                        Box {
+                            if (amount.isEmpty()) {
+                                Text("0", style = MaterialTheme.typography.displayLarge, color = InkTertiary)
+                            }
+                            inner()
                         }
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Accent,
-                        unfocusedBorderColor = Hairline.copy(alpha = 0.6f)
-                    )
+                    }
                 )
+            }
+            if (amountError != null) {
+                Text(
+                    amountError,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .testTag("amount_error_text")
+                )
+            }
+            Spacer(modifier = Modifier.height(Space.xl))
 
-                Spacer(modifier = Modifier.height(8.dp))
+            PwSegmented(
+                options = listOf("Expense", "Income"),
+                selectedIndex = if (type == TransactionType.EXPENSE) 0 else 1,
+                onSelect = { onTypeChange(if (it == 0) TransactionType.EXPENSE else TransactionType.INCOME) },
+                selectedColors = listOf(Ink, PositiveText),
+                modifier = Modifier.testTag("type_toggle")
+            )
+            Spacer(modifier = Modifier.height(Space.l))
 
-                // Title / Merchant Field
-                OutlinedTextField(
+            PwCard {
+                PwTextField(
                     value = title,
                     onValueChange = onTitleChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("title_input"),
-                    label = { Text("Description / Title") },
-                    placeholder = { Text("e.g., Grocery shopping, Client payment") },
-                    singleLine = true,
-                    isError = titleError != null,
-                    supportingText = {
-                        if (titleError != null) {
-                            Text(
-                                text = titleError,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.testTag("title_error_text")
-                            )
-                        }
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Accent,
-                        unfocusedBorderColor = Hairline.copy(alpha = 0.6f)
-                    )
+                    label = if (type == TransactionType.EXPENSE) "Paid to" else "Received from",
+                    placeholder = if (type == TransactionType.EXPENSE) "e.g. Zepto, Rent, Chai" else "e.g. Salary, Rahul",
+                    errorText = titleError,
+                    modifier = Modifier.testTag("title_input")
                 )
+                Spacer(modifier = Modifier.height(Space.xl))
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Category Selector
-                Text(
-                    text = "Category",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
+                Text("Category", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
                 if (categoryError != null) {
-                    Text(
-                        text = categoryError,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Text(categoryError, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Grid instead of a sideways-scrolling row: every category is visible at once.
+                Spacer(modifier = Modifier.height(Space.s))
                 CategoryGrid(
                     categories = availableCategories,
                     selected = selectedCategory,
                     onSelect = onCategoryChange,
                     onCreateNew = { showCategoryEditor = true }
                 )
+                Spacer(modifier = Modifier.height(Space.xl))
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Date Quick Selector + Calendar Picker
-                // The label and the quick-pick buttons used to share one row, which overflowed
-                // on phone-width dialogs; they now sit on separate rows.
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showDatePicker = true }
-                        .padding(vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CalendarToday,
-                        contentDescription = "Date",
-                        tint = Accent,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Date: " + Formatters.formatDate(dateMs),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(
-                        onClick = { onDateChange(System.currentTimeMillis()) },
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) {
-                        Text("Today", fontSize = 12.sp, color = Accent)
-                    }
-                    TextButton(
-                        onClick = { onDateChange(System.currentTimeMillis() - 86_400_000L) },
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) {
-                        Text("Yesterday", fontSize = 12.sp, color = Accent)
-                    }
-                    TextButton(
+                Text("Date", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
+                Spacer(modifier = Modifier.height(Space.s))
+                val today = isSameDay(dateMs, System.currentTimeMillis())
+                val yesterday = isSameDay(dateMs, System.currentTimeMillis() - 86_400_000L)
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                    PwChip("Today", today, { onDateChange(System.currentTimeMillis()) })
+                    PwChip("Yesterday", yesterday, { onDateChange(System.currentTimeMillis() - 86_400_000L) })
+                    PwChip(
+                        text = if (today || yesterday) "Pick date" else Formatters.formatDate(dateMs),
+                        selected = !today && !yesterday,
                         onClick = { showDatePicker = true },
-                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        leading = {
+                            Icon(
+                                Icons.Default.CalendarToday,
+                                contentDescription = null,
+                                tint = if (!today && !yesterday) MaterialTheme.colorScheme.onPrimary else Ink,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        },
                         modifier = Modifier.testTag("pick_custom_date_button")
-                    ) {
-                        Text("Pick date", fontSize = 12.sp, color = Accent, fontWeight = FontWeight.Bold)
-                    }
+                    )
                 }
+                Spacer(modifier = Modifier.height(Space.xl))
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Notes Optional Field
-                OutlinedTextField(
+                PwTextField(
                     value = note,
                     onValueChange = onNoteChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("note_input"),
-                    label = { Text("Note (Optional)") },
-                    placeholder = { Text("Additional details...") },
-                    maxLines = 2,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Accent,
-                        unfocusedBorderColor = Hairline.copy(alpha = 0.6f)
-                    )
+                    label = "Note (optional)",
+                    placeholder = "Add details",
+                    singleLine = false,
+                    maxLines = 3,
+                    modifier = Modifier.testTag("note_input")
                 )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Action Buttons (Save & Cancel)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("cancel_button")
-                    ) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-
-                    Button(
-                        onClick = onSave,
-                        enabled = !isSaving,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("save_transaction_button"),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                    ) {
-                        Text(if (isEditing) "Update" else "Save", fontWeight = FontWeight.Bold)
-                    }
-                }
             }
+            Spacer(modifier = Modifier.height(Space.l))
         }
 
-        if (showCategoryEditor) {
-            CategoryEditorDialog(
-                initialType = type,
-                onSave = { name, newType, iconKey, colorHex ->
-                    val error = onCreateCategory(name, newType, iconKey, colorHex)
-                    if (error == null) showCategoryEditor = false
-                    error
-                },
-                onDismiss = { showCategoryEditor = false }
-            )
-        }
+        // Fixed bottom action, lifted above the keyboard.
+        PwPrimaryButton(
+            text = if (isEditing) "Update" else "Save",
+            onClick = onSave,
+            loading = isSaving,
+            modifier = Modifier
+                .fillMaxWidth()
+                // Larger of keyboard and navigation bar (applying both would double the gap).
+                .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+                .padding(horizontal = Space.screen, vertical = Space.m)
+                .testTag("save_transaction_button")
+        )
+    }
 
-        // Calendar Date Picker Dialog
-        if (showDatePicker) {
-            // DatePicker works in UTC-midnight millis; convert so the picker shows (and returns)
-            // the same calendar day the user sees in the form, and block future dates.
-            val todayUtc = remember { DateConversions.localToUtcDay(System.currentTimeMillis()) }
-            val datePickerState = rememberDatePickerState(
-                initialSelectedDateMillis = DateConversions.localToUtcDay(dateMs),
-                selectableDates = object : SelectableDates {
-                    override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= todayUtc
-                }
-            )
-            DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            datePickerState.selectedDateMillis?.let {
-                                onDateChange(DateConversions.utcDayToLocal(it, keepTimeOfMs = dateMs))
-                            }
-                            showDatePicker = false
+    if (showCategoryEditor) {
+        CategoryEditorDialog(
+            initialType = type,
+            onSave = { name, newType, iconKey, colorHex ->
+                val error = onCreateCategory(name, newType, iconKey, colorHex)
+                if (error == null) showCategoryEditor = false
+                error
+            },
+            onDismiss = { showCategoryEditor = false }
+        )
+    }
+
+    if (showDatePicker) {
+        // DatePicker works in UTC-midnight millis; convert so the picker shows (and returns)
+        // the same calendar day the user sees in the form, and block future dates.
+        val todayUtc = remember { DateConversions.localToUtcDay(System.currentTimeMillis()) }
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = DateConversions.localToUtcDay(dateMs),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= todayUtc
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            onDateChange(DateConversions.utcDayToLocal(it, keepTimeOfMs = dateMs))
                         }
-                    ) {
-                        Text("Select", color = Accent, fontWeight = FontWeight.Bold)
+                        showDatePicker = false
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text("Cancel")
-                    }
+                ) {
+                    Text("Select", color = Accent, style = MaterialTheme.typography.labelLarge)
                 }
-            ) {
-                DatePicker(state = datePickerState)
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel", color = Ink) }
             }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
+}
+
+private fun isSameDay(a: Long, b: Long): Boolean {
+    val ca = Calendar.getInstance().apply { timeInMillis = a }
+    val cb = Calendar.getInstance().apply { timeInMillis = b }
+    return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) && ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
 }

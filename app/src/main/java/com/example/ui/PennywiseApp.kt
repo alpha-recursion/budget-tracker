@@ -25,6 +25,9 @@ import com.example.ui.theme.Ink
 import com.example.ui.theme.InkSecondary
 import com.example.ui.theme.SurfaceWhite
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -192,8 +195,9 @@ fun PennywiseApp(
         LocalCategories provides categories,
         LocalCategoryUsage provides categoryUsage
     ) {
+        Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
-            modifier = modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 PageHeader(
@@ -322,7 +326,6 @@ fun PennywiseApp(
             }
 
             // Dialogs read their own state so typing in the form does not recompose the whole app.
-            AddEditTransactionHost(viewModel = viewModel)
             DeleteConfirmationHost(viewModel = viewModel)
             SimilarCategoryHost(viewModel = viewModel)
 
@@ -342,6 +345,10 @@ fun PennywiseApp(
                 )
             }
         }
+
+        // Full-screen form drawn above the Scaffold so the header and tab bar never cover it.
+        AddEditTransactionHost(viewModel = viewModel)
+        }
     }
 }
 
@@ -351,7 +358,17 @@ private const val TAB_FADE_IN_MS = 210
 @Composable
 private fun AddEditTransactionHost(viewModel: PennywiseViewModel) {
     val isAddEditOpen by viewModel.isAddEditOpen.collectAsStateWithLifecycle()
-    if (!isAddEditOpen) return
+    AnimatedVisibility(
+        visible = isAddEditOpen,
+        enter = slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(200)),
+        exit = slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180))
+    ) {
+        AddEditTransactionContent(viewModel)
+    }
+}
+
+@Composable
+private fun AddEditTransactionContent(viewModel: PennywiseViewModel) {
 
     val editingTransaction by viewModel.editingTransaction.collectAsStateWithLifecycle()
     val formType by viewModel.formType.collectAsStateWithLifecycle()
@@ -387,7 +404,13 @@ private fun AddEditTransactionHost(viewModel: PennywiseViewModel) {
         onDateChange = { viewModel.updateFormDate(it) },
         onNoteChange = { viewModel.updateFormNote(it) },
         onSave = { viewModel.saveTransaction() },
-        onDismiss = { viewModel.dismissAddEditDialog() }
+        onDismiss = { viewModel.dismissAddEditDialog() },
+        onDelete = editingTransaction?.let { tx ->
+            {
+                viewModel.dismissAddEditDialog()
+                viewModel.promptDelete(tx)
+            }
+        }
     )
 }
 
