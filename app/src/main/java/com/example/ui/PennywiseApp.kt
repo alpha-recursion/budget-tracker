@@ -97,7 +97,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.sms.AutoCaptureNotifier
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.example.data.model.TransactionType
 import com.example.ui.screens.AddEditTransactionDialog
@@ -130,7 +132,10 @@ private fun tabTitle(tab: Int): String = when (tab) {
 @Composable
 fun PennywiseApp(
     viewModel: PennywiseViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** What a notification asked to open (see AutoCaptureNotifier), handled once. */
+    openRequest: String? = null,
+    onOpenRequestHandled: () -> Unit = {}
 ) {
     val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val overlay by viewModel.overlay.collectAsStateWithLifecycle()
@@ -164,6 +169,27 @@ fun PennywiseApp(
         // Always start from a fresh scan so an old preview is never shown.
         smsImportViewModel.reset()
         viewModel.openSmsImport()
+    }
+
+    // Live capture: payments waiting for review open straight into the review step.
+    val captureState by viewModel.captureState.collectAsStateWithLifecycle()
+    val autoCaptureEnabled by viewModel.autoCaptureEnabled.collectAsStateWithLifecycle()
+    val reviewCaptured = {
+        openSmsImport()
+        // Without SMS access the import screen shows its permission step instead.
+        if (smsImportViewModel.hasPermission()) smsImportViewModel.reviewPending()
+    }
+    LifecycleResumeEffect(Unit) {
+        viewModel.onAppForeground()
+        onPauseOrDispose { }
+    }
+    LaunchedEffect(openRequest) {
+        when (openRequest) {
+            AutoCaptureNotifier.OPEN_SMS_REVIEW -> reviewCaptured()
+            AutoCaptureNotifier.OPEN_TRANSACTIONS -> viewModel.setTab(1)
+            else -> return@LaunchedEffect
+        }
+        onOpenRequestHandled()
     }
 
     // Screen data is collected here (not inside each tab) so every flow stays subscribed and
@@ -257,7 +283,10 @@ fun PennywiseApp(
                                     onTransactionDelete = { tx -> viewModel.promptDelete(tx) },
                                     onImportSms = openSmsImport,
                                     budgetStatuses = budgetStatuses,
-                                    onOpenBudgets = { viewModel.setTab(2) }
+                                    onOpenBudgets = { viewModel.setTab(2) },
+                                    captureState = captureState,
+                                    onReviewCaptured = reviewCaptured,
+                                    onDismissCaptured = { viewModel.dismissPendingCapture() }
                                 )
 
                                 1 -> TransactionsScreen(
@@ -296,7 +325,12 @@ fun PennywiseApp(
                                     onOpenSmsImport = openSmsImport,
                                     smsTemplates = smsTemplates,
                                     onTeachFormat = { teachText = "" },
-                                    onDeleteFormat = { viewModel.deleteSmsTemplate(it) }
+                                    onDeleteFormat = { viewModel.deleteSmsTemplate(it) },
+                                    autoCaptureEnabled = autoCaptureEnabled,
+                                    onAutoCaptureChange = { viewModel.setAutoCapture(it) },
+                                    onAutoCapturePermissionDenied = {
+                                        viewModel.showMessage("Auto-detect needs SMS permission")
+                                    }
                                 )
 
                                 SMS_IMPORT_SCREEN -> SmsImportScreen(

@@ -25,6 +25,9 @@ import com.example.domain.FinancialSummary
 import com.example.domain.CategoryPropagation
 import com.example.domain.FormValidation
 import com.example.domain.VendorSpend
+import com.example.data.sms.AutoCaptureNotifier
+import com.example.data.sms.AutoCaptureStore
+import com.example.domain.sms.CaptureState
 import com.example.domain.sms.SmsImportPlanner
 import com.example.domain.sms.SmsTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -285,6 +288,30 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun openSmsImport() {
         _overlay.value = Overlay.SMS_IMPORT
+    }
+
+    // Live capture of bank SMS: the Settings switch and what it did while the app was closed.
+    private val captureStore = AutoCaptureStore(application)
+    val autoCaptureEnabled: StateFlow<Boolean> = captureStore.updates
+        .map { it.first }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, captureStore.enabled)
+    val captureState: StateFlow<CaptureState> = captureStore.updates
+        .map { it.second }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, captureStore.state())
+
+    fun setAutoCapture(enabled: Boolean) {
+        captureStore.enabled = enabled
+    }
+
+    /** The app is in front: auto-added payments are visible in the list, so the notification can go. */
+    fun onAppForeground() {
+        val app = getApplication<Application>()
+        AutoCaptureNotifier.cancel(app)
+        viewModelScope.launch { captureStore.update { it.seen() } }
+    }
+
+    fun dismissPendingCapture() {
+        viewModelScope.launch { captureStore.update { it.dismissPending() } }
     }
 
     fun closeOverlay() {

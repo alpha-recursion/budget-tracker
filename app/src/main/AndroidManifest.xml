@@ -4,6 +4,10 @@
 
     <!-- Read bank transaction SMS when the user asks to scan (Settings / Dashboard > Import from SMS). -->
     <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- Live capture: notice bank SMS as they arrive (only when switched on in Settings). -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- The "bank payments" notification (Android 13+ asks the user). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- READ_SMS implies telephony; keep the app installable on devices without it. -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
@@ -28,6 +32,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Only the system may deliver SMS broadcasts (BROADCAST_SMS is a system permission). -->
+        <receiver
+            android:name=".data.sms.BankSmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
