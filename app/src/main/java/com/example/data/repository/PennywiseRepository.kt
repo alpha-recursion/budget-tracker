@@ -10,8 +10,12 @@ import com.example.data.local.SmsImportEntity
 import com.example.data.local.SmsImportStatus
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
+import com.example.data.sms.toDomainOrNull
+import com.example.data.sms.toEntity
+import com.example.domain.sms.SmsTemplate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 // No demo data is seeded: the app starts empty so it only ever shows the user's own money.
@@ -23,10 +27,13 @@ class PennywiseRepository(
     private val categoryDao = database.categoryDao()
     private val smsImportDao = database.smsImportDao()
     private val merchantRuleDao = database.merchantRuleDao()
+    private val smsTemplateDao = database.smsTemplateDao()
 
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
     val allBudgets: Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
     val customCategories: Flow<List<CustomCategoryEntity>> = categoryDao.getAllCategories()
+    val smsTemplates: Flow<List<SmsTemplate>> = smsTemplateDao.getAll()
+        .map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
 
     suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
         transactionDao.insert(transaction)
@@ -64,6 +71,7 @@ class PennywiseRepository(
                 categories = categoryDao.getAllCategoriesOnce(),
                 smsImports = smsImportDao.getAllOnce(),
                 merchantRules = merchantRuleDao.getAllOnce(),
+                smsTemplates = smsTemplateDao.getAllOnce(),
                 exportedAt = System.currentTimeMillis()
             )
         }
@@ -78,6 +86,7 @@ class PennywiseRepository(
             transactionDao.insertAll(data.transactions)
             smsImportDao.insertAll(data.smsImports)
             merchantRuleDao.insertAll(data.merchantRules)
+            smsTemplateDao.insertAll(data.smsTemplates)
         }
     }
 
@@ -91,6 +100,7 @@ class PennywiseRepository(
         categoryDao.deleteAll()
         smsImportDao.deleteAll()
         merchantRuleDao.deleteAll()
+        smsTemplateDao.deleteAll()
     }
 
     /** Deletes a custom category; its transactions move to "Other" and its budget is removed. */
@@ -111,6 +121,18 @@ class PennywiseRepository(
 
     suspend fun merchantRules(): List<MerchantRuleEntity> = withContext(Dispatchers.IO) {
         merchantRuleDao.getAllOnce()
+    }
+
+    suspend fun smsTemplatesOnce(): List<SmsTemplate> = withContext(Dispatchers.IO) {
+        smsTemplateDao.getAllOnce().mapNotNull { it.toDomainOrNull() }
+    }
+
+    suspend fun saveSmsTemplate(template: SmsTemplate): Long = withContext(Dispatchers.IO) {
+        smsTemplateDao.insert(template.toEntity(createdAt = System.currentTimeMillis()))
+    }
+
+    suspend fun deleteSmsTemplate(id: Long) = withContext(Dispatchers.IO) {
+        smsTemplateDao.deleteById(id)
     }
 
     suspend fun transactionsOnce(): List<TransactionEntity> = withContext(Dispatchers.IO) {

@@ -9,6 +9,7 @@ import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.SmsImportEntity
+import com.example.data.local.SmsTemplateEntity
 import com.example.data.local.PennywiseDatabase
 import com.example.data.local.TransactionEntity
 import com.example.data.repository.PennywiseRepository
@@ -48,6 +49,21 @@ class BackupTest {
             MerchantRuleEntity("swaraj poli bhaji kendra", "Food & Dining", false),
             MerchantRuleEntity("om patil", "Other", true)
         ),
+        smsTemplates = listOf(
+            SmsTemplateEntity(
+                id = 3L,
+                bank = "KOTAK",
+                type = "EXPENSE",
+                pattern = """Sent\s+Rs\.([\d,]+(?:\.\d{1,2})?)\s+to\s+(.+?)\s+on""",
+                amountGroup = 1,
+                payeeGroup = 2,
+                dateGroup = null,
+                dateFormat = null,
+                refGroup = null,
+                sample = "Sent Rs.10.00 to A on",
+                createdAt = 7L
+            )
+        ),
         exportedAt = 42L
     )
 
@@ -64,6 +80,13 @@ class BackupTest {
         val restored = BackupSerializer.fromJson(oldFormat)
         assertEquals(emptyList<SmsImportEntity>(), restored.smsImports)
         assertEquals(sample.transactions, restored.transactions)
+    }
+
+    @Test
+    fun `unusable taught formats are dropped instead of failing the restore`() {
+        val broken = sample.copy(smsTemplates = sample.smsTemplates + sample.smsTemplates.first().copy(id = 4L, pattern = "(unclosed"))
+        val restored = BackupSerializer.fromJson(BackupSerializer.toJson(broken))
+        assertEquals(sample.smsTemplates, restored.smsTemplates)
     }
 
     @Test
@@ -92,11 +115,13 @@ class BackupTest {
             assertEquals(sample.categories, repository.customCategories.first())
             assertEquals(sample.smsImports.map { it.dedupeKey }.toSet(), repository.smsImportKeys())
             assertEquals(sample.merchantRules.toSet(), repository.merchantRules().toSet())
+            assertEquals(listOf(3L), repository.smsTemplatesOnce().map { it.id })
 
             repository.eraseAllData()
             assertEquals(emptyList<TransactionEntity>(), repository.allTransactions.first())
             assertEquals(emptySet<String>(), repository.smsImportKeys())
             assertEquals(emptyList<MerchantRuleEntity>(), repository.merchantRules())
+            assertEquals(0, repository.smsTemplatesOnce().size)
         } finally {
             database.close()
         }
