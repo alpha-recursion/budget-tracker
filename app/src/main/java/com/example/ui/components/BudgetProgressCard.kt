@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +43,8 @@ import com.example.ui.util.getCategoryIcon
 @Composable
 fun BudgetProgressCard(
     status: CategoryBudgetStatus,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     val progressColor = when {
         status.isOverBudget -> ExpenseRed
@@ -55,7 +57,9 @@ fun BudgetProgressCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .testTag("budget_card_${status.categoryName}"),
+            .testTag("budget_card_${status.categoryName}")
+            .clip(RoundedCornerShape(18.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface

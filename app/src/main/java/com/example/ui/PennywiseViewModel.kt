@@ -268,6 +268,22 @@ class PennywiseViewModel @JvmOverloads constructor(
         return null
     }
 
+    /**
+     * Sets the monthly limit for [category]. Returns an error message for the user, or null
+     * when the budget was accepted.
+     */
+    fun saveBudget(category: String, rawLimit: String): String? {
+        if (category.isBlank()) return "Please choose a category"
+        FormValidation.validateAmount(rawLimit).errorOrNull?.let { return it }
+        val limit = FormValidation.parseAmount(rawLimit) ?: return "Please enter a valid numeric amount"
+        viewModelScope.launch { repository.setBudget(category, limit) }
+        return null
+    }
+
+    fun removeBudget(category: String) {
+        viewModelScope.launch { repository.removeBudget(category) }
+    }
+
     fun deleteCustomCategory(name: String) {
         viewModelScope.launch {
             repository.deleteCustomCategory(name)

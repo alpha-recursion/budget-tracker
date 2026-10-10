@@ -184,6 +184,14 @@ class ExampleRobolectricTest {
     }
 
     @Test
+    fun `budget limits are validated before saving`() {
+        assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, ""))
+        assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, "-100"))
+        assertNotNull(viewModel.saveBudget("", "3000"))
+        assertNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, "₹3,000"))
+    }
+
+    @Test
     fun `edit dialog amount is locale independent`() {
         val previous = java.util.Locale.getDefault()
         try {

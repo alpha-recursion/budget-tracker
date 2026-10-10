@@ -42,6 +42,10 @@ class PennywiseRepository(
         budgetDao.insertOrUpdate(BudgetEntity(category = category, monthlyLimit = limit))
     }
 
+    suspend fun removeBudget(category: String) = withContext(Dispatchers.IO) {
+        budgetDao.deleteByCategory(category)
+    }
+
     suspend fun saveCustomCategory(category: CustomCategoryEntity) = withContext(Dispatchers.IO) {
         categoryDao.insertOrUpdate(category)
     }

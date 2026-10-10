@@ -289,7 +289,9 @@ fun PennywiseApp(
                                 2 -> AnalyticsScreen(
                                     summary = summary,
                                     breakdowns = categoryBreakdowns,
-                                    budgetStatuses = budgetStatuses
+                                    budgetStatuses = budgetStatuses,
+                                    onSaveBudget = viewModel::saveBudget,
+                                    onRemoveBudget = { viewModel.removeBudget(it) }
                                 )
 
                                 SETTINGS_SCREEN -> SettingsScreen(
