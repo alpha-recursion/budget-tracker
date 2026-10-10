@@ -42,10 +42,11 @@ import com.example.domain.sms.SmsBank
 import com.example.domain.sms.SmsTemplate
 import com.example.domain.sms.SmsTemplateBuilder
 import com.example.domain.sms.TemplateBuildResult
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Ink
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.util.Formatters
 
 /**
@@ -190,7 +191,7 @@ fun TeachFormatDialog(
                         onClick = { (result as? TemplateBuildResult.Success)?.let { onSave(it.template) } },
                         enabled = result is TemplateBuildResult.Success,
                         shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("save_format_button")
@@ -226,8 +227,8 @@ private fun ChoiceRow(
                     onClick = { onSelect(index) },
                     label = { Text(option) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = VioletPrimaryContainer,
-                        selectedLabelColor = VioletPrimary
+                        selectedContainerColor = AccentSoft,
+                        selectedLabelColor = Accent
                     )
                 )
             }
@@ -237,8 +238,8 @@ private fun ChoiceRow(
                     onClick = { onSelect(-1) },
                     label = { Text(if (options.isEmpty()) "None found" else "None") },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = VioletPrimaryContainer,
-                        selectedLabelColor = VioletPrimary
+                        selectedContainerColor = AccentSoft,
+                        selectedLabelColor = Accent
                     )
                 )
             }
@@ -251,7 +252,7 @@ private fun PreviewCard(result: TemplateBuildResult.Success) {
     val p = result.preview
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = VioletPrimaryContainer),
+        colors = CardDefaults.cardColors(containerColor = AccentSoft),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("teach_preview")
@@ -262,7 +263,7 @@ private fun PreviewCard(result: TemplateBuildResult.Success) {
             Text(
                 Formatters.formatSignedCurrency(p.amount, p.type.name),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = if (p.type == TransactionType.INCOME) IncomeGreen else ExpenseRed
+                color = if (p.type == TransactionType.INCOME) PositiveText else Ink
             )
             val details = listOfNotNull(
                 p.counterparty,

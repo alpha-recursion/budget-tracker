@@ -32,11 +32,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.domain.CategoryBudgetStatus
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
+import com.example.ui.theme.Warning
 import com.example.ui.util.Formatters
 import com.example.ui.util.getCategoryIcon
 
@@ -47,9 +47,9 @@ fun BudgetProgressCard(
     onClick: (() -> Unit)? = null
 ) {
     val progressColor = when {
-        status.isOverBudget -> ExpenseRed
-        status.percentageUsed > 80.0 -> WarningAmber
-        else -> VioletPrimary
+        status.isOverBudget -> Negative
+        status.percentageUsed > 80.0 -> Warning
+        else -> Accent
     }
 
     val progressValue = (status.percentageUsed / 100.0).toFloat().coerceIn(0f, 1f)
@@ -64,7 +64,7 @@ fun BudgetProgressCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -113,7 +113,7 @@ fun BudgetProgressCard(
                                 Formatters.formatCurrency(status.remaining) + " remaining"
                             },
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (status.isOverBudget) ExpenseRed else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (status.isOverBudget) Negative else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )

@@ -1,73 +1,62 @@
 package com.example.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
-private val DarkColorScheme = darkColorScheme(
-    primary = VioletPrimary,
-    onPrimary = VioletOnPrimary,
-    primaryContainer = VioletPrimaryDark,
-    onPrimaryContainer = VioletPrimaryContainer,
-    secondary = VioletSecondary,
-    onSecondary = VioletOnSecondary,
-    secondaryContainer = VioletSecondaryContainer,
-    onSecondaryContainer = VioletOnSecondaryContainer,
-    tertiary = VioletTertiary,
-    onTertiary = VioletOnTertiary,
-    background = VioletBackgroundDark,
-    surface = VioletSurfaceDark,
-    surfaceVariant = VioletSurfaceVariantDark,
-    onBackground = VioletOnSurfaceDark,
-    onSurface = VioletOnSurfaceDark,
-    onSurfaceVariant = VioletOnSurfaceVariantDark,
-    outline = VioletOutlineDark
+// Material roles mapped onto the Pennywise tokens, so default components (dialogs, menus,
+// date picker, switches) match the custom ones.
+private val PennywiseColorScheme = lightColorScheme(
+    primary = Accent,
+    onPrimary = SurfaceWhite,
+    primaryContainer = AccentSoft,
+    onPrimaryContainer = Accent,
+    secondary = Ink,
+    onSecondary = SurfaceWhite,
+    secondaryContainer = SurfaceMuted,
+    onSecondaryContainer = Ink,
+    tertiary = PositiveText,
+    onTertiary = SurfaceWhite,
+    tertiaryContainer = PositiveSoft,
+    onTertiaryContainer = PositiveText,
+    background = Canvas,
+    onBackground = Ink,
+    surface = SurfaceWhite,
+    onSurface = Ink,
+    surfaceVariant = SurfaceMuted,
+    onSurfaceVariant = InkSecondary,
+    surfaceTint = SurfaceWhite, // no purple-ish tonal tint on elevated surfaces
+    surfaceContainerLowest = SurfaceWhite,
+    surfaceContainerLow = SurfaceWhite,
+    surfaceContainer = SurfaceWhite,
+    surfaceContainerHigh = SurfaceWhite,
+    surfaceContainerHighest = SurfaceMuted,
+    outline = Hairline,
+    outlineVariant = Hairline,
+    error = Negative,
+    onError = SurfaceWhite,
+    errorContainer = NegativeSoft,
+    onErrorContainer = Negative
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = VioletPrimary,
-    onPrimary = VioletOnPrimary,
-    primaryContainer = VioletPrimaryContainer,
-    onPrimaryContainer = VioletOnPrimaryContainer,
-    secondary = VioletSecondary,
-    onSecondary = VioletOnSecondary,
-    secondaryContainer = VioletSecondaryContainer,
-    onSecondaryContainer = VioletOnSecondaryContainer,
-    tertiary = VioletTertiary,
-    onTertiary = VioletOnTertiary,
-    background = VioletBackgroundLight,
-    surface = VioletSurfaceLight,
-    surfaceVariant = VioletSurfaceVariantLight,
-    onBackground = VioletOnSurfaceLight,
-    onSurface = VioletOnSurfaceLight,
-    onSurfaceVariant = VioletOnSurfaceVariantLight,
-    outline = VioletOutlineLight
+/** Corner radii: chips/fields 12-16, cards 24, sheets/dialogs 28. */
+val PennywiseShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable
-fun PennywiseTheme(
-    darkTheme: Boolean = false, // Default to Violet Light theme as requested
-    dynamicColor: Boolean = false, // Preserve violet brand identity
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
+fun PennywiseTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = PennywiseColorScheme,
         typography = Typography,
+        shapes = PennywiseShapes,
         content = content
     )
 }

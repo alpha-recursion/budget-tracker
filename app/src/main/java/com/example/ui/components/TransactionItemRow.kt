@@ -35,9 +35,10 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.TransactionEntity
 import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.Ink
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Hairline
 import com.example.ui.util.Formatters
 import com.example.ui.util.LocalCategories
 import com.example.ui.util.getCategoryIcon
@@ -51,7 +52,7 @@ fun TransactionItemRow(
 ) {
     val category = CategoryInfo.resolve(transaction.category, LocalCategories.current)
     val isIncome = transaction.type.equals(TransactionType.INCOME.name, ignoreCase = true)
-    val amountColor = if (isIncome) IncomeGreen else ExpenseRed
+    val amountColor = if (isIncome) PositiveText else Ink
 
     Card(
         modifier = modifier
@@ -63,7 +64,7 @@ fun TransactionItemRow(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(

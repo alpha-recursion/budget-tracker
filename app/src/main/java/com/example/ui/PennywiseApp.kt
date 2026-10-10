@@ -82,9 +82,9 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SmsImportScreen
 import com.example.ui.screens.TeachFormatDialog
 import com.example.ui.screens.TransactionsScreen
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Negative
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.util.LocalCategories
 import com.example.ui.util.LocalCategoryUsage
 import com.example.ui.util.Formatters
@@ -233,9 +233,9 @@ fun PennywiseApp(
                         },
                         label = { Text("Dashboard") },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VioletPrimary,
-                            selectedTextColor = VioletPrimary,
-                            indicatorColor = VioletPrimaryContainer
+                            selectedIconColor = Accent,
+                            selectedTextColor = Accent,
+                            indicatorColor = AccentSoft
                         ),
                         modifier = Modifier.testTag("nav_tab_dashboard")
                     )
@@ -252,9 +252,9 @@ fun PennywiseApp(
                         },
                         label = { Text("Transactions") },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VioletPrimary,
-                            selectedTextColor = VioletPrimary,
-                            indicatorColor = VioletPrimaryContainer
+                            selectedIconColor = Accent,
+                            selectedTextColor = Accent,
+                            indicatorColor = AccentSoft
                         ),
                         modifier = Modifier.testTag("nav_tab_transactions")
                     )
@@ -271,9 +271,9 @@ fun PennywiseApp(
                         },
                         label = { Text("Analytics") },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VioletPrimary,
-                            selectedTextColor = VioletPrimary,
-                            indicatorColor = VioletPrimaryContainer
+                            selectedIconColor = Accent,
+                            selectedTextColor = Accent,
+                            indicatorColor = AccentSoft
                         ),
                         modifier = Modifier.testTag("nav_tab_analytics")
                     )
@@ -282,7 +282,7 @@ fun PennywiseApp(
             floatingActionButton = {
                 if (!isOverlayOpen) FloatingActionButton(
                     onClick = { viewModel.openAddDialog() },
-                    containerColor = VioletPrimary,
+                    containerColor = Accent,
                     contentColor = Color.White,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                     modifier = Modifier.testTag("fab_add_transaction")
@@ -303,7 +303,7 @@ fun PennywiseApp(
                 if (!isDataLoaded) {
                     // Avoid flashing "No transactions" empty states before Room's first result.
                     CircularProgressIndicator(
-                        color = VioletPrimary,
+                        color = Accent,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -486,7 +486,7 @@ private fun DeleteConfirmationHost(viewModel: PennywiseViewModel) {
         confirmButton = {
             Button(
                 onClick = { viewModel.confirmDelete() },
-                colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
+                colors = ButtonDefaults.buttonColors(containerColor = Negative),
                 modifier = Modifier.testTag("confirm_delete_button")
             ) {
                 Text("Delete", fontWeight = FontWeight.Bold)
@@ -541,7 +541,7 @@ private fun SimilarCategoryHost(viewModel: PennywiseViewModel) {
                             Checkbox(
                                 checked = tx.id in ticked,
                                 onCheckedChange = { on -> ticked = if (on) ticked + tx.id else ticked - tx.id },
-                                colors = CheckboxDefaults.colors(checkedColor = VioletPrimary)
+                                colors = CheckboxDefaults.colors(checkedColor = Accent)
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(tx.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -566,7 +566,7 @@ private fun SimilarCategoryHost(viewModel: PennywiseViewModel) {
             Button(
                 onClick = { viewModel.applySimilarCategory(ticked) },
                 enabled = ticked.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier.testTag("apply_similar_button")
             ) { Text("Update ${ticked.size}", fontWeight = FontWeight.Bold) }
         },

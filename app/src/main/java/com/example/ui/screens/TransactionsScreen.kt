@@ -52,9 +52,9 @@ import com.example.data.local.TransactionEntity
 import com.example.data.model.TransactionType
 import com.example.ui.SortOption
 import com.example.ui.components.TransactionItemRow
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.util.LocalCategories
 
 @Composable
@@ -120,8 +120,8 @@ fun TransactionsScreen(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                focusedBorderColor = VioletPrimary,
-                unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
+                focusedBorderColor = Accent,
+                unfocusedBorderColor = Hairline.copy(alpha = 0.6f)
             )
         )
 
@@ -129,11 +129,11 @@ fun TransactionsScreen(
         TabRow(
             selectedTabIndex = selectedTabIndex,
             containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = VioletPrimary,
+            contentColor = Accent,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                    color = VioletPrimary
+                    color = Accent
                 )
             },
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -174,8 +174,8 @@ fun TransactionsScreen(
                 label = { Text("All Categories") },
                 shape = RoundedCornerShape(12.dp),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = VioletPrimaryContainer,
-                    selectedLabelColor = VioletPrimary
+                    selectedContainerColor = AccentSoft,
+                    selectedLabelColor = Accent
                 ),
                 modifier = Modifier.testTag("category_chip_all")
             )
@@ -222,8 +222,8 @@ fun TransactionsScreen(
                     label = { Text(option.label, fontSize = 12.sp) },
                     shape = RoundedCornerShape(10.dp),
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = VioletPrimaryContainer,
-                        selectedLabelColor = VioletPrimary
+                        selectedContainerColor = AccentSoft,
+                        selectedLabelColor = Accent
                     ),
                     modifier = Modifier.testTag("sort_chip_${option.name}")
                 )
@@ -257,7 +257,7 @@ fun TransactionsScreen(
                     },
                     modifier = Modifier.testTag("clear_filters_button")
                 ) {
-                    Text("Clear filters", style = MaterialTheme.typography.labelSmall, color = VioletPrimary)
+                    Text("Clear filters", style = MaterialTheme.typography.labelSmall, color = Accent)
                 }
             }
         }

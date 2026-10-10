@@ -76,12 +76,13 @@ import com.example.domain.sms.ImportGroup
 import com.example.ui.SmsImportPhase
 import com.example.ui.SmsImportState
 import com.example.ui.components.CategoryPickerDialog
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
-import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.Ink
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
+import com.example.ui.theme.Warning
 import com.example.ui.util.DateConversions
 import com.example.ui.util.Formatters
 import com.example.ui.util.getCategoryIcon
@@ -120,7 +121,7 @@ fun SmsImportScreen(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                CircularProgressIndicator(color = VioletPrimary)
+                CircularProgressIndicator(color = Accent)
                 Spacer(modifier = Modifier.height(12.dp))
                 Text("Reading your bank SMS…", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -154,7 +155,7 @@ private fun PermissionStep(onGranted: () -> Unit) {
         modifier = Modifier.testTag("sms_permission_step")
     ) {
         item {
-            Icon(Icons.Default.Sms, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(40.dp))
+            Icon(Icons.Default.Sms, contentDescription = null, tint = Accent, modifier = Modifier.size(40.dp))
         }
         item {
             SectionHeader(
@@ -177,7 +178,7 @@ private fun PermissionStep(onGranted: () -> Unit) {
             Button(
                 onClick = { launcher.launch(Manifest.permission.READ_SMS) },
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("grant_sms_button")
@@ -208,7 +209,7 @@ private fun PermissionStep(onGranted: () -> Unit) {
                                 )
                             },
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text("Open App info", color = VioletPrimary) }
+                        ) { Text("Open App info", color = Accent) }
                     }
                 }
             }
@@ -250,8 +251,8 @@ private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
                         },
                         label = { Text("$option days") },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = VioletPrimaryContainer,
-                            selectedLabelColor = VioletPrimary
+                            selectedContainerColor = AccentSoft,
+                            selectedLabelColor = Accent
                         ),
                         modifier = Modifier.testTag("scan_period_$option")
                     )
@@ -263,8 +264,8 @@ private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
                         Text(customStart?.let { "Since " + Formatters.formatShortDate(it) } ?: "Since date…")
                     },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = VioletPrimaryContainer,
-                        selectedLabelColor = VioletPrimary
+                        selectedContainerColor = AccentSoft,
+                        selectedLabelColor = Accent
                     )
                 )
             }
@@ -279,7 +280,7 @@ private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
                     onScan(customStart ?: (now - (days ?: 30) * DAY_MS))
                 },
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("start_scan_button")
@@ -307,7 +308,7 @@ private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
                         days = null
                     }
                     showPicker = false
-                }) { Text("Select", color = VioletPrimary, fontWeight = FontWeight.Bold) }
+                }) { Text("Select", color = Accent, fontWeight = FontWeight.Bold) }
             },
             dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancel") } }
         ) {
@@ -397,7 +398,7 @@ private fun ReviewStep(
                         onClick = onImport,
                         enabled = !importing && state.selectedCount > 0,
                         shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("import_selected_button")
@@ -419,7 +420,7 @@ private fun ReviewSummary(state: SmsImportState) {
     val plan = state.plan ?: return
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = VioletPrimaryContainer),
+        colors = CardDefaults.cardColors(containerColor = AccentSoft),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -473,7 +474,7 @@ private fun GroupCard(
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("sms_group_${group.key}")
@@ -487,7 +488,7 @@ private fun GroupCard(
                     state = groupState,
                     onClick = onToggleGroup,
                     enabled = enabled,
-                    colors = CheckboxDefaults.colors(checkedColor = VioletPrimary)
+                    colors = CheckboxDefaults.colors(checkedColor = Accent)
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -534,7 +535,7 @@ private fun GroupCard(
                     checked = isSelfTransfer,
                     onCheckedChange = onSetSelfTransfer,
                     enabled = enabled,
-                    colors = SwitchDefaults.colors(checkedTrackColor = VioletPrimary)
+                    colors = SwitchDefaults.colors(checkedTrackColor = Accent)
                 )
             }
             if (isSelfTransfer) {
@@ -548,7 +549,7 @@ private fun GroupCard(
 
             HorizontalDivider(
                 modifier = Modifier.padding(top = 8.dp),
-                color = VioletOutlineLight.copy(alpha = 0.5f)
+                color = Hairline.copy(alpha = 0.5f)
             )
             group.items.forEach { item ->
                 CandidateRow(
@@ -577,21 +578,21 @@ private fun CandidateRow(item: ImportCandidate, checked: Boolean, enabled: Boole
             checked = checked,
             onCheckedChange = { onToggle() },
             enabled = enabled,
-            colors = CheckboxDefaults.colors(checkedColor = VioletPrimary)
+            colors = CheckboxDefaults.colors(checkedColor = Accent)
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(Formatters.formatDate(item.dateMs), style = MaterialTheme.typography.bodyMedium)
             if (item.needsReview) {
-                Badge(text = "Check: unverified format", color = WarningAmber)
+                Badge(text = "Check: unverified format", color = Warning)
             }
             if (item.possibleDuplicate) {
-                Badge(text = "Maybe already added by hand", color = WarningAmber)
+                Badge(text = "Maybe already added by hand", color = Warning)
             }
         }
         Text(
             Formatters.formatSignedCurrency(item.parsed.amount, item.parsed.type.name),
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-            color = if (isIncome) IncomeGreen else ExpenseRed,
+            color = if (isIncome) PositiveText else Ink,
             maxLines = 1
         )
     }
@@ -669,7 +670,7 @@ private fun OlderAlertHint(newestAt: Long, onScan: (Long) -> Unit) {
             Button(
                 onClick = { onScan(startOfDay(newestAt)) },
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = Accent)
             ) { Text("Scan since ${Formatters.formatShortDate(newestAt)}") }
         }
     }
@@ -683,7 +684,7 @@ private fun ScanDetailsCard(plan: com.example.domain.sms.ImportPlan, onTeach: ((
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("scan_details_card")
@@ -700,7 +701,7 @@ private fun ScanDetailsCard(plan: com.example.domain.sms.ImportPlan, onTeach: ((
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.weight(1f)
                 )
-                Text(if (expanded) "Hide" else "Show", color = VioletPrimary, style = MaterialTheme.typography.labelLarge)
+                Text(if (expanded) "Hide" else "Show", color = Accent, style = MaterialTheme.typography.labelLarge)
             }
             if (expanded) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -724,7 +725,7 @@ private fun ScanDetailsCard(plan: com.example.domain.sms.ImportPlan, onTeach: ((
                         Text(sms.body, style = MaterialTheme.typography.bodySmall, maxLines = 4, overflow = TextOverflow.Ellipsis)
                         if (onTeach != null) {
                             TextButton(onClick = { onTeach(sms.body) }) {
-                                Text("Teach this format", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                                Text("Teach this format", color = Accent, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }

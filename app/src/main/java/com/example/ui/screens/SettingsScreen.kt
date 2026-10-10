@@ -56,9 +56,9 @@ import com.example.data.model.CategoryInfo
 import com.example.domain.sms.SmsBank
 import com.example.domain.sms.SmsTemplate
 import com.example.data.model.TransactionType
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.Negative
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
 import com.example.ui.util.getCategoryIcon
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -133,9 +133,9 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("add_category_button")
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = VioletPrimary)
+                Icon(Icons.Default.Add, contentDescription = null, tint = Accent)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Add category", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                Text("Add category", color = Accent, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -155,9 +155,9 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_import_sms_button")
             ) {
-                Icon(Icons.Default.Sms, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Sms, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Import from SMS", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                Text("Import from SMS", color = Accent, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -185,9 +185,9 @@ fun SettingsScreen(
                 onClick = onTeachFormat,
                 modifier = Modifier.testTag("teach_format_button")
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Add, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Teach a new format", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                Text("Teach a new format", color = Accent, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -206,7 +206,7 @@ fun SettingsScreen(
                     exportLauncher.launch("pennywise-backup-$date.json")
                 },
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("export_backup_button")
@@ -228,9 +228,9 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("import_backup_button")
             ) {
-                Icon(Icons.Default.Download, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Download, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Restore from a backup", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                Text("Restore from a backup", color = Accent, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -241,7 +241,7 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("erase_all_button")
             ) {
-                Text("Erase all data", color = ExpenseRed)
+                Text("Erase all data", color = Negative)
             }
         }
 
@@ -274,7 +274,7 @@ fun SettingsScreen(
             confirmButton = {
                 Button(
                     onClick = onConfirmRestore,
-                    colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent),
                     modifier = Modifier.testTag("confirm_restore_button")
                 ) { Text("Replace & restore", fontWeight = FontWeight.Bold) }
             },
@@ -295,7 +295,7 @@ fun SettingsScreen(
                         onEraseAll()
                         confirmErase = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = Negative),
                     modifier = Modifier.testTag("confirm_erase_button")
                 ) { Text("Erase everything", fontWeight = FontWeight.Bold) }
             },
@@ -314,7 +314,7 @@ fun SettingsScreen(
                         onDeleteCategory(name)
                         pendingDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed)
+                    colors = ButtonDefaults.buttonColors(containerColor = Negative)
                 ) { Text("Delete", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
@@ -348,7 +348,7 @@ private fun CustomCategoryRow(category: CategoryInfo, onDelete: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier
@@ -401,7 +401,7 @@ private fun TemplateRow(template: SmsTemplate, onDelete: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier

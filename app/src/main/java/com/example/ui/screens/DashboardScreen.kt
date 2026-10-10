@@ -42,11 +42,11 @@ import com.example.domain.FinancialSummary
 import com.example.ui.components.BalanceCard
 import com.example.ui.components.SpendingDonutChart
 import com.example.ui.components.TransactionItemRow
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 
 @Composable
 fun DashboardScreen(
@@ -68,7 +68,7 @@ fun DashboardScreen(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Hero Balance Card (Violet Gradient)
+        // Hero Balance Card
         item {
             BalanceCard(summary = summary)
         }
@@ -87,9 +87,9 @@ fun DashboardScreen(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = ExpenseRed
+                        contentColor = Negative
                     ),
-                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+                    border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
                 ) {
                     Icon(
@@ -109,9 +109,9 @@ fun DashboardScreen(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = VioletPrimary
+                        contentColor = Accent
                     ),
-                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+                    border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
                 ) {
                     Icon(
@@ -134,7 +134,7 @@ fun DashboardScreen(
                     .clickable(onClick = onImportSms)
                     .testTag("import_sms_card"),
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = VioletPrimaryContainer)
+                colors = CardDefaults.cardColors(containerColor = AccentSoft)
             ) {
                 Row(
                     modifier = Modifier
@@ -142,7 +142,7 @@ fun DashboardScreen(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Sms, contentDescription = null, tint = VioletPrimary)
+                    Icon(Icons.Default.Sms, contentDescription = null, tint = Accent)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -159,7 +159,7 @@ fun DashboardScreen(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = VioletPrimary,
+                        tint = Accent,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -194,13 +194,13 @@ fun DashboardScreen(
                     Text(
                         text = "View All",
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = VioletPrimary
+                        color = Accent
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = VioletPrimary,
+                        tint = Accent,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -214,7 +214,7 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
+                    border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -231,7 +231,7 @@ fun DashboardScreen(
                         Button(
                             onClick = onAddExpense,
                             shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))

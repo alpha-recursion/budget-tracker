@@ -40,8 +40,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.model.TransactionType
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.util.CategoryColorChoices
 import com.example.ui.util.CategoryIconChoices
 import com.example.ui.util.getCategoryIcon
@@ -90,8 +90,8 @@ fun CategoryEditorDialog(
                             onClick = { type = option },
                             label = { Text(option.displayName()) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = VioletPrimaryContainer,
-                                selectedLabelColor = VioletPrimary
+                                selectedContainerColor = AccentSoft,
+                                selectedLabelColor = Accent
                             )
                         )
                     }
@@ -168,7 +168,7 @@ fun CategoryEditorDialog(
             Button(
                 onClick = { error = onSave(name, type, iconKey, colorHex) },
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier.testTag("save_category_button")
             ) {
                 Text("Create", fontWeight = FontWeight.Bold)

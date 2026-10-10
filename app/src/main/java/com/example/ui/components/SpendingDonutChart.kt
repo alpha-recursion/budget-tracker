@@ -34,8 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.CategoryBreakdown
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
 import com.example.ui.util.Formatters
 
 @Composable
@@ -52,7 +52,7 @@ fun SpendingDonutChart(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -135,7 +135,7 @@ fun SpendingDonutChart(
                                 text = totalText,
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = VioletPrimary,
+                                    color = Accent,
                                     // Shrink long totals rather than spilling over the ring.
                                     fontSize = if (totalText.length > 9) 11.sp else 14.sp
                                 ),

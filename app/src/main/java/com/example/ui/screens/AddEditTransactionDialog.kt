@@ -63,11 +63,11 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.data.local.TransactionEntity
 import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.components.CategoryGrid
 import com.example.ui.util.DateConversions
 import com.example.ui.util.Formatters
@@ -167,7 +167,7 @@ fun AddEditTransactionDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (type == TransactionType.EXPENSE) ExpenseRed else Color.Transparent
+                                if (type == TransactionType.EXPENSE) Negative else Color.Transparent
                             )
                             .clickable { onTypeChange(TransactionType.EXPENSE) }
                             .padding(vertical = 10.dp)
@@ -187,7 +187,7 @@ fun AddEditTransactionDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (type == TransactionType.INCOME) VioletPrimary else Color.Transparent
+                                if (type == TransactionType.INCOME) Accent else Color.Transparent
                             )
                             .clickable { onTypeChange(TransactionType.INCOME) }
                             .padding(vertical = 10.dp)
@@ -212,7 +212,7 @@ fun AddEditTransactionDialog(
                         .fillMaxWidth()
                         .testTag("amount_input"),
                     label = { Text("Amount") },
-                    prefix = { Text("₹ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = VioletPrimary) },
+                    prefix = { Text("₹ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Accent) },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -228,8 +228,8 @@ fun AddEditTransactionDialog(
                     },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = VioletPrimary,
-                        unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
+                        focusedBorderColor = Accent,
+                        unfocusedBorderColor = Hairline.copy(alpha = 0.6f)
                     )
                 )
 
@@ -257,8 +257,8 @@ fun AddEditTransactionDialog(
                     },
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = VioletPrimary,
-                        unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
+                        focusedBorderColor = Accent,
+                        unfocusedBorderColor = Hairline.copy(alpha = 0.6f)
                     )
                 )
 
@@ -305,7 +305,7 @@ fun AddEditTransactionDialog(
                     Icon(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = "Date",
-                        tint = VioletPrimary,
+                        tint = Accent,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -323,20 +323,20 @@ fun AddEditTransactionDialog(
                         onClick = { onDateChange(System.currentTimeMillis()) },
                         contentPadding = PaddingValues(horizontal = 10.dp)
                     ) {
-                        Text("Today", fontSize = 12.sp, color = VioletPrimary)
+                        Text("Today", fontSize = 12.sp, color = Accent)
                     }
                     TextButton(
                         onClick = { onDateChange(System.currentTimeMillis() - 86_400_000L) },
                         contentPadding = PaddingValues(horizontal = 10.dp)
                     ) {
-                        Text("Yesterday", fontSize = 12.sp, color = VioletPrimary)
+                        Text("Yesterday", fontSize = 12.sp, color = Accent)
                     }
                     TextButton(
                         onClick = { showDatePicker = true },
                         contentPadding = PaddingValues(horizontal = 10.dp),
                         modifier = Modifier.testTag("pick_custom_date_button")
                     ) {
-                        Text("Pick date", fontSize = 12.sp, color = VioletPrimary, fontWeight = FontWeight.Bold)
+                        Text("Pick date", fontSize = 12.sp, color = Accent, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -354,8 +354,8 @@ fun AddEditTransactionDialog(
                     maxLines = 2,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = VioletPrimary,
-                        unfocusedBorderColor = VioletOutlineLight.copy(alpha = 0.6f)
+                        focusedBorderColor = Accent,
+                        unfocusedBorderColor = Hairline.copy(alpha = 0.6f)
                     )
                 )
 
@@ -382,7 +382,7 @@ fun AddEditTransactionDialog(
                             .weight(1f)
                             .testTag("save_transaction_button"),
                         shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
                     ) {
                         Text(if (isEditing) "Update" else "Save", fontWeight = FontWeight.Bold)
                     }
@@ -424,7 +424,7 @@ fun AddEditTransactionDialog(
                             showDatePicker = false
                         }
                     ) {
-                        Text("Select", color = VioletPrimary, fontWeight = FontWeight.Bold)
+                        Text("Select", color = Accent, fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {

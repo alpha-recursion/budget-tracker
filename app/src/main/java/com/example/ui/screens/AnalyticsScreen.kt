@@ -53,11 +53,11 @@ import com.example.domain.CategoryBudgetStatus
 import com.example.domain.FinancialSummary
 import com.example.domain.VendorSpend
 import com.example.ui.components.BudgetProgressCard
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.VioletOutlineLight
-import com.example.ui.theme.VioletPrimary
-import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentSoft
 import com.example.ui.util.Formatters
 import com.example.ui.util.LocalCategories
 
@@ -92,9 +92,9 @@ fun AnalyticsScreen(
                     .testTag("savings_rate_card"),
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = VioletPrimaryContainer
+                    containerColor = AccentSoft
                 ),
-                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.5f)),
+                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.5f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
@@ -107,7 +107,7 @@ fun AnalyticsScreen(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(VioletPrimary),
+                            .background(Accent),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -131,7 +131,7 @@ fun AnalyticsScreen(
                             text = Formatters.formatPercentage(summary.savingsRate),
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = VioletPrimary
+                                color = Accent
                             )
                         )
                         Text(
@@ -155,7 +155,7 @@ fun AnalyticsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -179,21 +179,21 @@ fun AnalyticsScreen(
                         CashFlowStat(
                             label = "Total Inflow",
                             amount = summary.totalIncome,
-                            color = IncomeGreen,
+                            color = PositiveText,
                             alignment = Alignment.Start,
                             modifier = Modifier.weight(1f)
                         )
                         CashFlowStat(
                             label = "Total Outflow",
                             amount = summary.totalExpense,
-                            color = ExpenseRed,
+                            color = Negative,
                             alignment = Alignment.CenterHorizontally,
                             modifier = Modifier.weight(1f)
                         )
                         CashFlowStat(
                             label = if (summary.netBalance >= 0.0) "Net Surplus" else "Net Deficit",
                             amount = summary.netBalance,
-                            color = if (summary.netBalance >= 0.0) VioletPrimary else ExpenseRed,
+                            color = if (summary.netBalance >= 0.0) Accent else Negative,
                             alignment = Alignment.End,
                             modifier = Modifier.weight(1f)
                         )
@@ -228,9 +228,9 @@ fun AnalyticsScreen(
                     onClick = { budgetEditorTarget = NEW_BUDGET },
                     modifier = Modifier.testTag("add_budget_button")
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Add, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Add", color = Accent, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -242,7 +242,7 @@ fun AnalyticsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
+                    border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -259,7 +259,7 @@ fun AnalyticsScreen(
                         Button(
                             onClick = { budgetEditorTarget = NEW_BUDGET },
                             shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
                         ) { Text("Set a budget") }
                     }
                 }
@@ -287,7 +287,7 @@ fun AnalyticsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
@@ -373,7 +373,7 @@ fun AnalyticsScreen(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ),
-                border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.5f))
             ) {
                 Row(
                     modifier = Modifier
@@ -384,7 +384,7 @@ fun AnalyticsScreen(
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = null,
-                        tint = VioletPrimary,
+                        tint = Accent,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -450,7 +450,7 @@ private fun TopVendorsCard(vendors: List<VendorSpend>) {
             .testTag("top_vendors_card"),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -485,13 +485,13 @@ private fun TopVendorsCard(vendors: List<VendorSpend>) {
                             modifier = Modifier
                                 .size(26.dp)
                                 .clip(CircleShape)
-                                .background(VioletPrimaryContainer),
+                                .background(AccentSoft),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 "${index + 1}",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = VioletPrimary
+                                color = Accent
                             )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
@@ -526,7 +526,7 @@ private fun TopVendorsCard(vendors: List<VendorSpend>) {
                             .fillMaxWidth()
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp)),
-                        color = VioletPrimary,
+                        color = Accent,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant,
                         strokeCap = StrokeCap.Round,
                         gapSize = 0.dp,

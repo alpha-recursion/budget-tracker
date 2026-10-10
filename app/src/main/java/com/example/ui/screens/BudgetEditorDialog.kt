@@ -42,8 +42,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.model.CategoryInfo
 import com.example.ui.components.CategoryGrid
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.Negative
+import com.example.ui.theme.Accent
 import com.example.ui.util.getCategoryIcon
 import java.util.Locale
 
@@ -106,7 +106,7 @@ fun BudgetEditorDialog(
                         error = null
                     },
                     label = { Text("Monthly limit") },
-                    prefix = { Text("₹ ", fontWeight = FontWeight.Bold, color = VioletPrimary) },
+                    prefix = { Text("₹ ", fontWeight = FontWeight.Bold, color = Accent) },
                     placeholder = { Text("5000") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -126,7 +126,7 @@ fun BudgetEditorDialog(
                 },
                 enabled = editingCategory != null || availableCategories.isNotEmpty(),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier.testTag("save_budget_button")
             ) { Text("Save", fontWeight = FontWeight.Bold) }
         },
@@ -139,7 +139,7 @@ fun BudgetEditorDialog(
                             onDismiss()
                         },
                         modifier = Modifier.testTag("remove_budget_button")
-                    ) { Text("Remove", color = ExpenseRed) }
+                    ) { Text("Remove", color = Negative) }
                 }
                 TextButton(onClick = onDismiss) { Text("Cancel") }
             }
