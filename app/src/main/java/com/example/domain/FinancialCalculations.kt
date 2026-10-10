@@ -33,7 +33,42 @@ data class CategoryBudgetStatus(
     val isOverBudget: Boolean
 )
 
+/** Spending at one vendor (similar spellings combined). */
+data class VendorSpend(
+    val name: String,
+    val total: Double,
+    val count: Int,
+    val percentage: Double // share of all expense in the input, 0.0 to 100.0
+)
+
 object FinancialCalculations {
+
+    /**
+     * Biggest vendors by total spent among [transactions]' expenses. Truncated spellings of
+     * the same vendor (see [VendorMatcher]) are combined under the fullest name.
+     */
+    fun topVendors(transactions: List<TransactionEntity>, limit: Int = 5): List<VendorSpend> {
+        val expenses = transactions.filter {
+            it.type == TransactionType.EXPENSE.name && VendorMatcher.compact(it.title).isNotEmpty()
+        }
+        val totalExpense = expenses.sumOf { it.amount }
+        if (totalExpense <= 0.0) return emptyList()
+        val canonical = VendorMatcher.canonicalNames(expenses.map { it.title })
+        return expenses
+            .groupBy { VendorMatcher.groupKey(it.title, canonical) }
+            .map { (_, items) ->
+                val total = items.sumOf { it.amount }
+                VendorSpend(
+                    name = canonical.getValue(items.first().title),
+                    total = total,
+                    count = items.size,
+                    percentage = total / totalExpense * 100.0
+                )
+            }
+            .sortedByDescending { it.total }
+            .take(limit)
+    }
+
 
     fun calculateTotalIncome(transactions: List<TransactionEntity>): Double {
         return transactions

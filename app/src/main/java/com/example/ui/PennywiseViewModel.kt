@@ -24,6 +24,7 @@ import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
 import com.example.domain.CategoryPropagation
 import com.example.domain.FormValidation
+import com.example.domain.VendorSpend
 import com.example.domain.sms.SmsImportPlanner
 import com.example.domain.sms.SmsTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -251,6 +252,11 @@ class PennywiseViewModel @JvmOverloads constructor(
     // Remembered vendor -> category choices (from SMS imports and saved transactions).
     private val merchantRules: StateFlow<List<MerchantRuleEntity>> = repository.merchantRulesFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Where the most money went this month, by vendor (similar spellings combined). */
+    val topVendors: StateFlow<List<VendorSpend>> = allTransactions
+        .map { txs -> FinancialCalculations.topVendors(FinancialCalculations.filterToMonth(txs, System.currentTimeMillis())) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** How often each category is used, for ordering the category picker. */
     val categoryUsage: StateFlow<Map<String, Int>> = allTransactions
