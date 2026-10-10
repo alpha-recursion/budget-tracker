@@ -4,6 +4,8 @@ import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.SmsImportEntity
+import com.example.data.local.SmsTemplateEntity
+import com.example.data.sms.toDomainOrNull
 import com.example.data.local.SmsImportStatus
 import com.example.data.local.TransactionEntity
 import org.json.JSONArray
@@ -16,6 +18,7 @@ data class BackupData(
     val categories: List<CustomCategoryEntity>,
     val smsImports: List<SmsImportEntity> = emptyList(),
     val merchantRules: List<MerchantRuleEntity> = emptyList(),
+    val smsTemplates: List<SmsTemplateEntity> = emptyList(),
     val exportedAt: Long = 0L
 )
 
@@ -89,6 +92,24 @@ object BackupSerializer {
                     )
                 }
             })
+            .put("smsTemplates", JSONArray().apply {
+                data.smsTemplates.forEach { t ->
+                    put(
+                        JSONObject()
+                            .put("id", t.id)
+                            .put("bank", t.bank)
+                            .put("type", t.type)
+                            .put("pattern", t.pattern)
+                            .put("amountGroup", t.amountGroup)
+                            .put("payeeGroup", t.payeeGroup ?: JSONObject.NULL)
+                            .put("dateGroup", t.dateGroup ?: JSONObject.NULL)
+                            .put("dateFormat", t.dateFormat ?: JSONObject.NULL)
+                            .put("refGroup", t.refGroup ?: JSONObject.NULL)
+                            .put("sample", t.sample)
+                            .put("createdAt", t.createdAt)
+                    )
+                }
+            })
         return root.toString(2)
     }
 
@@ -150,12 +171,32 @@ object BackupSerializer {
                 )
             }.orEmpty()
 
+            // Rows that cannot be used (e.g. a pattern that does not compile) are dropped
+            // rather than failing the whole restore.
+            val smsTemplates = root.optJSONArray("smsTemplates")?.objects()?.mapNotNull { o ->
+                fun optInt(name: String): Int? = if (o.isNull(name)) null else o.getInt(name)
+                SmsTemplateEntity(
+                    id = o.getLong("id"),
+                    bank = o.getString("bank"),
+                    type = o.getString("type"),
+                    pattern = o.getString("pattern"),
+                    amountGroup = o.getInt("amountGroup"),
+                    payeeGroup = optInt("payeeGroup"),
+                    dateGroup = optInt("dateGroup"),
+                    dateFormat = if (o.isNull("dateFormat")) null else o.getString("dateFormat"),
+                    refGroup = optInt("refGroup"),
+                    sample = o.getString("sample"),
+                    createdAt = o.getLong("createdAt")
+                ).takeIf { it.toDomainOrNull() != null }
+            }.orEmpty()
+
             return BackupData(
                 transactions = transactions,
                 budgets = budgets,
                 categories = categories,
                 smsImports = smsImports,
                 merchantRules = merchantRules,
+                smsTemplates = smsTemplates,
                 exportedAt = root.optLong("exportedAt", 0L)
             )
         } catch (e: JSONException) {

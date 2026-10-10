@@ -53,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.backup.BackupData
 import com.example.data.model.CategoryInfo
+import com.example.domain.sms.SmsBank
+import com.example.domain.sms.SmsTemplate
 import com.example.data.model.TransactionType
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.VioletOutlineLight
@@ -74,7 +76,10 @@ fun SettingsScreen(
     onConfirmRestore: () -> Unit = {},
     onCancelRestore: () -> Unit = {},
     onEraseAll: () -> Unit = {},
-    onOpenSmsImport: () -> Unit = {}
+    onOpenSmsImport: () -> Unit = {},
+    smsTemplates: List<SmsTemplate> = emptyList(),
+    onTeachFormat: () -> Unit = {},
+    onDeleteFormat: (Long) -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
@@ -153,6 +158,36 @@ fun SettingsScreen(
                 Icon(Icons.Default.Sms, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Import from SMS", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        item {
+            SectionHeader(
+                title = "SMS formats you taught",
+                subtitle = "Teach a bank message the app doesn't recognise yet"
+            )
+        }
+        if (smsTemplates.isEmpty()) {
+            item {
+                Text(
+                    "None yet. Kotak and BOI payment alerts are already recognised.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            items(smsTemplates, key = { "template_${it.id}" }) { template ->
+                TemplateRow(template = template, onDelete = { onDeleteFormat(template.id) })
+            }
+        }
+        item {
+            TextButton(
+                onClick = onTeachFormat,
+                modifier = Modifier.testTag("teach_format_button")
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Teach a new format", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -355,6 +390,45 @@ private fun CustomCategoryRow(category: CategoryInfo, onDelete: () -> Unit) {
                     contentDescription = "Delete ${category.name}",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TemplateRow(template: SmsTemplate, onDelete: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                val bank = when (template.bank) {
+                    SmsBank.KOTAK -> "Kotak"
+                    SmsBank.BOI -> "Bank of India"
+                    SmsBank.UNKNOWN -> "Other bank"
+                }
+                Text(
+                    "$bank · ${if (template.type == TransactionType.INCOME) "Money received" else "Payment"}",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    template.sample,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete format", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

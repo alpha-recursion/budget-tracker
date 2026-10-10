@@ -33,7 +33,11 @@ data class SmsImportState(
     val selected: Set<String> = emptySet(),
     val categoryByGroup: Map<String, String> = emptyMap(),
     val selfTransferGroups: Set<String> = emptySet(),
-    val error: String? = null
+    val error: String? = null,
+    /** When nothing new was found: arrival time of the newest Kotak/BOI alert before the period. */
+    val newestOlderAlertAt: Long? = null,
+    /** Start of the last scan, so it can be repeated after teaching a new format. */
+    val lastSinceMs: Long? = null
 ) {
     private fun ImportGroup.selectedItems(): List<ImportCandidate> = items.filter { it.dedupeKey in selected }
 
@@ -58,6 +62,9 @@ class SmsImportViewModel(
 ) : AndroidViewModel(application) {
 
     companion object {
+        /** How many older messages to look through for the newest bank alert. */
+        private const val OLDER_SEARCH_LIMIT = 5000
+
         fun Factory(application: Application): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -75,25 +82,38 @@ class SmsImportViewModel(
     /** Scans messages received since [sinceMs]; [validCategories] are the names currently offered. */
     fun scan(sinceMs: Long, validCategories: Set<String>) {
         if (_state.value.phase == SmsImportPhase.SCANNING) return
-        _state.value = SmsImportState(phase = SmsImportPhase.SCANNING)
+        _state.value = SmsImportState(phase = SmsImportPhase.SCANNING, lastSinceMs = sinceMs)
         viewModelScope.launch {
             try {
                 val messages = reader.readSince(sinceMs)
+                val templates = repository.smsTemplatesOnce()
                 val plan = withContext(Dispatchers.Default) {
                     SmsImportPlanner.plan(
                         messages = messages,
                         alreadyImportedKeys = repository.smsImportKeys(),
                         existingTransactions = repository.transactionsOnce(),
                         rules = repository.merchantRules(),
-                        validCategories = validCategories
+                        validCategories = validCategories,
+                        templates = templates
                     )
+                }
+                // Nothing in the period: find when the latest bank alert actually arrived, so the
+                // user can widen the scan instead of seeing an unexplained empty result.
+                val newestOlder = if (plan.stats.recognised == 0) {
+                    reader.findNewestBefore(sinceMs, limit = OLDER_SEARCH_LIMIT) {
+                        SmsImportPlanner.isSupportedTransaction(it, templates = templates)
+                    }?.receivedAt
+                } else {
+                    null
                 }
                 _state.value = SmsImportState(
                     phase = SmsImportPhase.REVIEW,
                     plan = plan,
                     selected = plan.groups.flatMap { g -> g.items.filter { it.selectedByDefault }.map { it.dedupeKey } }.toSet(),
                     categoryByGroup = plan.groups.associate { it.key to it.suggestedCategory },
-                    selfTransferGroups = plan.groups.filter { it.suggestedSelfTransfer }.map { it.key }.toSet()
+                    selfTransferGroups = plan.groups.filter { it.suggestedSelfTransfer }.map { it.key }.toSet(),
+                    newestOlderAlertAt = newestOlder,
+                    lastSinceMs = sinceMs
                 )
             } catch (e: SecurityException) {
                 _state.value = SmsImportState(error = "SMS access was not granted.")
@@ -101,6 +121,13 @@ class SmsImportViewModel(
                 _state.value = SmsImportState(error = "Could not read SMS: ${e.message ?: "unknown error"}")
             }
         }
+    }
+
+    /** Repeats the last scan (e.g. after a new format was taught); no-op if none ran yet. */
+    fun rescan(validCategories: Set<String>) {
+        val since = _state.value.lastSinceMs ?: return
+        if (_state.value.phase == SmsImportPhase.IMPORTING) return
+        scan(since, validCategories)
     }
 
     fun toggleItem(dedupeKey: String) = _state.update { s ->

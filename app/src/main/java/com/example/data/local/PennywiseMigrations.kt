@@ -70,5 +70,18 @@ object PennywiseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /** v3 -> v4: SMS formats taught by the owner. */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `sms_templates` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `bank` TEXT NOT NULL, " +
+                    "`type` TEXT NOT NULL, `pattern` TEXT NOT NULL, `amountGroup` INTEGER NOT NULL, " +
+                    "`payeeGroup` INTEGER, `dateGroup` INTEGER, `dateFormat` TEXT, `refGroup` INTEGER, " +
+                    "`sample` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }

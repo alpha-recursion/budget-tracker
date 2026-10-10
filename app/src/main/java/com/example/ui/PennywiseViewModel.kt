@@ -22,6 +22,7 @@ import com.example.domain.CategoryBudgetStatus
 import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
 import com.example.domain.FormValidation
+import com.example.domain.sms.SmsTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -295,6 +296,27 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun removeBudget(category: String) {
         viewModelScope.launch { repository.removeBudget(category) }
+    }
+
+    // SMS formats taught by the owner.
+    val smsTemplates: StateFlow<List<SmsTemplate>> = repository.smsTemplates
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    /** Saves a taught format; [onSaved] runs after it is stored (e.g. to rescan). */
+    fun saveSmsTemplate(template: SmsTemplate, onSaved: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.saveSmsTemplate(template)
+            _userMessage.value = "Message format saved"
+            onSaved()
+        }
+    }
+
+    fun deleteSmsTemplate(id: Long) {
+        viewModelScope.launch { repository.deleteSmsTemplate(id) }
     }
 
     // Backup / restore. Messages are shown once as a snackbar, then cleared.

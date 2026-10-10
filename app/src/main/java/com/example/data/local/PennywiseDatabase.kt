@@ -11,9 +11,10 @@ import androidx.room.RoomDatabase
         BudgetEntity::class,
         CustomCategoryEntity::class,
         SmsImportEntity::class,
-        MerchantRuleEntity::class
+        MerchantRuleEntity::class,
+        SmsTemplateEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class PennywiseDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ abstract class PennywiseDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun smsImportDao(): SmsImportDao
     abstract fun merchantRuleDao(): MerchantRuleDao
+    abstract fun smsTemplateDao(): SmsTemplateDao
 
     companion object {
         @Volatile
