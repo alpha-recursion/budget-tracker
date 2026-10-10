@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import androidx.room.withTransaction
+import com.example.data.backup.BackupData
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.PennywiseDatabase
@@ -48,6 +49,37 @@ class PennywiseRepository(
 
     suspend fun saveCustomCategory(category: CustomCategoryEntity) = withContext(Dispatchers.IO) {
         categoryDao.insertOrUpdate(category)
+    }
+
+    suspend fun exportBackup(): BackupData = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            BackupData(
+                transactions = transactionDao.getAllTransactionsOnce(),
+                budgets = budgetDao.getAllBudgetsOnce(),
+                categories = categoryDao.getAllCategoriesOnce(),
+                exportedAt = System.currentTimeMillis()
+            )
+        }
+    }
+
+    /** Replaces everything with the backup's contents, all-or-nothing. */
+    suspend fun restoreBackup(data: BackupData) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            clearAllTables()
+            categoryDao.insertAll(data.categories)
+            budgetDao.insertAll(data.budgets)
+            transactionDao.insertAll(data.transactions)
+        }
+    }
+
+    suspend fun eraseAllData() = withContext(Dispatchers.IO) {
+        database.withTransaction { clearAllTables() }
+    }
+
+    private suspend fun clearAllTables() {
+        transactionDao.deleteAll()
+        budgetDao.deleteAll()
+        categoryDao.deleteAll()
     }
 
     /** Deletes a custom category; its transactions move to "Other" and its budget is removed. */

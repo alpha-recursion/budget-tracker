@@ -1,10 +1,14 @@
 package com.example.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.backup.BackupData
+import com.example.data.backup.BackupSerializer
+import com.example.data.backup.InvalidBackupException
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.PennywiseDatabase
@@ -24,7 +28,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.Locale
 
 enum class SortOption(val label: String) {
@@ -282,6 +289,76 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun removeBudget(category: String) {
         viewModelScope.launch { repository.removeBudget(category) }
+    }
+
+    // Backup / restore. Messages are shown once as a snackbar, then cleared.
+    private val _userMessage = MutableStateFlow<String?>(null)
+    val userMessage: StateFlow<String?> = _userMessage
+
+    // A parsed backup waiting for the user to confirm that it may replace all data.
+    private val _pendingRestore = MutableStateFlow<BackupData?>(null)
+    val pendingRestore: StateFlow<BackupData?> = _pendingRestore
+
+    fun consumeUserMessage() {
+        _userMessage.value = null
+    }
+
+    fun exportBackup(uri: Uri) {
+        viewModelScope.launch {
+            _userMessage.value = try {
+                val data = repository.exportBackup()
+                val json = BackupSerializer.toJson(data)
+                withContext(Dispatchers.IO) {
+                    val stream = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
+                        ?: throw IOException("Could not open the file")
+                    stream.bufferedWriter().use { it.write(json) }
+                }
+                "Backup saved (${data.transactions.size} transactions)"
+            } catch (e: Exception) {
+                "Backup failed: ${e.message ?: "unknown error"}"
+            }
+        }
+    }
+
+    fun readBackup(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val json = withContext(Dispatchers.IO) {
+                    val stream = getApplication<Application>().contentResolver.openInputStream(uri)
+                        ?: throw IOException("Could not open the file")
+                    stream.bufferedReader().use { it.readText() }
+                }
+                _pendingRestore.value = withContext(Dispatchers.Default) { BackupSerializer.fromJson(json) }
+            } catch (e: InvalidBackupException) {
+                _userMessage.value = e.message
+            } catch (e: Exception) {
+                _userMessage.value = "Could not read the backup: ${e.message ?: "unknown error"}"
+            }
+        }
+    }
+
+    fun confirmRestore() {
+        val data = _pendingRestore.value ?: return
+        _pendingRestore.value = null
+        viewModelScope.launch {
+            _userMessage.value = try {
+                repository.restoreBackup(data)
+                "Restored ${data.transactions.size} transactions"
+            } catch (e: Exception) {
+                "Restore failed, your data was not changed"
+            }
+        }
+    }
+
+    fun cancelRestore() {
+        _pendingRestore.value = null
+    }
+
+    fun eraseAllData() {
+        viewModelScope.launch {
+            repository.eraseAllData()
+            _userMessage.value = "All data erased"
+        }
     }
 
     fun deleteCustomCategory(name: String) {

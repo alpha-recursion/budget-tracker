@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,12 +18,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -46,12 +50,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.data.backup.BackupData
 import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.VioletOutlineLight
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.util.getCategoryIcon
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -59,11 +67,25 @@ fun SettingsScreen(
     onCreateCategory: (name: String, type: TransactionType, iconKey: String, colorHex: Long) -> String?,
     onDeleteCategory: (String) -> Unit,
     modifier: Modifier = Modifier,
-    extraSections: LazyListScope.() -> Unit = {}
+    pendingRestore: BackupData? = null,
+    onExportBackup: (Uri) -> Unit = {},
+    onPickBackup: (Uri) -> Unit = {},
+    onConfirmRestore: () -> Unit = {},
+    onCancelRestore: () -> Unit = {},
+    onEraseAll: () -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmErase by rememberSaveable { mutableStateOf(false) }
     val customCategories = categories.filter { it.isCustom }
+
+    // System file pickers: the user chooses where the backup goes (Drive, Downloads, ...).
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let(onExportBackup) }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let(onPickBackup) }
 
     LazyColumn(
         modifier = modifier
@@ -110,7 +132,59 @@ fun SettingsScreen(
             }
         }
 
-        extraSections()
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader(
+                title = "Your data",
+                subtitle = "Everything stays on this phone. Back up regularly to keep it safe."
+            )
+        }
+
+        item {
+            Button(
+                onClick = {
+                    val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                    exportLauncher.launch("pennywise-backup-$date.json")
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("export_backup_button")
+            ) {
+                Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Back up to a file", fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        item {
+            OutlinedButton(
+                onClick = {
+                    // Some file managers label .json files as plain text or binary.
+                    importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+                },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("import_backup_button")
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Restore from a backup", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        item {
+            TextButton(
+                onClick = { confirmErase = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("erase_all_button")
+            ) {
+                Text("Erase all data", color = ExpenseRed)
+            }
+        }
 
         item { Spacer(modifier = Modifier.height(24.dp)) }
     }
@@ -124,6 +198,49 @@ fun SettingsScreen(
                 error
             },
             onDismiss = { showEditor = false }
+        )
+    }
+
+    pendingRestore?.let { backup ->
+        AlertDialog(
+            onDismissRequest = onCancelRestore,
+            title = { Text("Restore this backup?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "It contains ${backup.transactions.size} transactions, ${backup.budgets.size} budgets " +
+                        "and ${backup.categories.size} custom categories. Everything currently in the app " +
+                        "will be replaced."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = onConfirmRestore,
+                    colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                    modifier = Modifier.testTag("confirm_restore_button")
+                ) { Text("Replace & restore", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = onCancelRestore) { Text("Cancel") } }
+        )
+    }
+
+    if (confirmErase) {
+        AlertDialog(
+            onDismissRequest = { confirmErase = false },
+            title = { Text("Erase all data?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("All transactions, budgets and custom categories will be deleted. Back up first if you might need them.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onEraseAll()
+                        confirmErase = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ExpenseRed),
+                    modifier = Modifier.testTag("confirm_erase_button")
+                ) { Text("Erase everything", fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { confirmErase = false }) { Text("Cancel") } }
         )
     }
 

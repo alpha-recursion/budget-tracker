@@ -38,11 +38,15 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
@@ -83,6 +87,16 @@ fun PennywiseApp(
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsStateWithLifecycle()
     val isDataLoaded by viewModel.isDataLoaded.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
+    val userMessage by viewModel.userMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(userMessage) {
+        userMessage?.let {
+            viewModel.consumeUserMessage()
+            snackbarHostState.showSnackbar(it)
+        }
+    }
     val currentScreen = if (isSettingsOpen) SETTINGS_SCREEN else selectedTab
 
     // Screen data is collected here (not inside each tab) so every flow stays subscribed and
@@ -110,6 +124,7 @@ fun PennywiseApp(
     CompositionLocalProvider(LocalCategories provides categories) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
@@ -297,7 +312,13 @@ fun PennywiseApp(
                                 SETTINGS_SCREEN -> SettingsScreen(
                                     categories = categories,
                                     onCreateCategory = viewModel::addCustomCategory,
-                                    onDeleteCategory = { viewModel.deleteCustomCategory(it) }
+                                    onDeleteCategory = { viewModel.deleteCustomCategory(it) },
+                                    pendingRestore = pendingRestore,
+                                    onExportBackup = { viewModel.exportBackup(it) },
+                                    onPickBackup = { viewModel.readBackup(it) },
+                                    onConfirmRestore = { viewModel.confirmRestore() },
+                                    onCancelRestore = { viewModel.cancelRestore() },
+                                    onEraseAll = { viewModel.eraseAllData() }
                                 )
                             }
                         }
