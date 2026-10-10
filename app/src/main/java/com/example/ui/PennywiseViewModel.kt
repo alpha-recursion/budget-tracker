@@ -41,6 +41,8 @@ enum class SortOption(val label: String) {
     LOWEST_AMOUNT("Lowest ₹")
 }
 
+enum class Overlay { SETTINGS, SMS_IMPORT }
+
 class PennywiseViewModel @JvmOverloads constructor(
     application: Application,
     private val repository: PennywiseRepository = PennywiseRepository(
@@ -62,9 +64,9 @@ class PennywiseViewModel @JvmOverloads constructor(
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab
 
-    // Settings is a full screen shown on top of the tabs.
-    private val _isSettingsOpen = MutableStateFlow(false)
-    val isSettingsOpen: StateFlow<Boolean> = _isSettingsOpen
+    // Full screens shown on top of the tabs; only one can be open at a time.
+    private val _overlay = MutableStateFlow<Overlay?>(null)
+    val overlay: StateFlow<Overlay?> = _overlay
 
     // Built-in categories followed by the user's own. Eager so the list is ready for the form
     // the first time it opens.
@@ -238,16 +240,20 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     // Navigation and Filters
     fun setTab(index: Int) {
-        _isSettingsOpen.value = false
+        _overlay.value = null
         _selectedTab.value = index
     }
 
     fun openSettings() {
-        _isSettingsOpen.value = true
+        _overlay.value = Overlay.SETTINGS
     }
 
-    fun closeSettings() {
-        _isSettingsOpen.value = false
+    fun openSmsImport() {
+        _overlay.value = Overlay.SMS_IMPORT
+    }
+
+    fun closeOverlay() {
+        _overlay.value = null
     }
 
     /**
@@ -298,6 +304,10 @@ class PennywiseViewModel @JvmOverloads constructor(
     // A parsed backup waiting for the user to confirm that it may replace all data.
     private val _pendingRestore = MutableStateFlow<BackupData?>(null)
     val pendingRestore: StateFlow<BackupData?> = _pendingRestore
+
+    fun showMessage(message: String) {
+        _userMessage.value = message
+    }
 
     fun consumeUserMessage() {
         _userMessage.value = null

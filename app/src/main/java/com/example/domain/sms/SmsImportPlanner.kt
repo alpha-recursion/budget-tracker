@@ -100,7 +100,8 @@ object SmsImportPlanner {
     ): ImportPlan {
         val rulesByKey = rules.associateBy { it.counterpartyKey }
         val seenKeys = HashSet<String>()
-        var alreadyImported = 0
+        // Distinct keys, so an alert the bank sent twice is not counted twice.
+        val alreadyImported = HashSet<String>()
 
         data class Found(val sms: RawSms, val parsed: ParsedBankSms, val key: String)
 
@@ -113,7 +114,7 @@ object SmsImportPlanner {
                 val key = dedupeKey(sms, parsed)
                 when {
                     key in alreadyImportedKeys -> {
-                        alreadyImported++
+                        alreadyImported += key
                         null
                     }
                     !seenKeys.add(key) -> null // same alert delivered twice in this scan
@@ -175,7 +176,7 @@ object SmsImportPlanner {
             }
             .sortedByDescending { group -> group.items.maxOf { it.dateMs } }
 
-        return ImportPlan(groups = groups, alreadyImportedCount = alreadyImported)
+        return ImportPlan(groups = groups, alreadyImportedCount = alreadyImported.size)
     }
 
     private fun fallbackTitle(parsed: ParsedBankSms): String {

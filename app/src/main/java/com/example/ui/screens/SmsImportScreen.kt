@@ -1,0 +1,625 @@
+package com.example.ui.screens
+
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TriStateCheckbox
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.example.data.model.CategoryInfo
+import com.example.data.model.TransactionType
+import com.example.domain.sms.ImportCandidate
+import com.example.domain.sms.ImportGroup
+import com.example.ui.SmsImportPhase
+import com.example.ui.SmsImportState
+import com.example.ui.theme.ExpenseRed
+import com.example.ui.theme.IncomeGreen
+import com.example.ui.theme.VioletOutlineLight
+import com.example.ui.theme.VioletPrimary
+import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.theme.WarningAmber
+import com.example.ui.util.DateConversions
+import com.example.ui.util.Formatters
+import java.util.Calendar
+
+private const val DAY_MS = 86_400_000L
+
+@Composable
+fun SmsImportScreen(
+    state: SmsImportState,
+    categories: List<CategoryInfo>,
+    hasPermission: () -> Boolean,
+    onScan: (sinceMs: Long) -> Unit,
+    onToggleItem: (String) -> Unit,
+    onToggleGroup: (ImportGroup) -> Unit,
+    onSetCategory: (groupKey: String, category: String) -> Unit,
+    onSetSelfTransfer: (groupKey: String, Boolean) -> Unit,
+    onImport: () -> Unit,
+    onStartOver: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var granted by remember { mutableStateOf(hasPermission()) }
+    // The user may grant access from system settings and come back.
+    LifecycleResumeEffect(Unit) {
+        granted = hasPermission()
+        onPauseOrDispose { }
+    }
+
+    Box(modifier = modifier.fillMaxSize().testTag("sms_import_screen")) {
+        when {
+            !granted -> PermissionStep(onGranted = { granted = true })
+            state.phase == SmsImportPhase.CHOOSE_PERIOD -> PeriodStep(error = state.error, onScan = onScan)
+            state.phase == SmsImportPhase.SCANNING -> Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = VioletPrimary)
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Reading your bank SMS…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            else -> ReviewStep(
+                state = state,
+                categories = categories,
+                onToggleItem = onToggleItem,
+                onToggleGroup = onToggleGroup,
+                onSetCategory = onSetCategory,
+                onSetSelfTransfer = onSetSelfTransfer,
+                onImport = onImport,
+                onStartOver = onStartOver
+            )
+        }
+    }
+}
+
+@Composable
+private fun PermissionStep(onGranted: () -> Unit) {
+    val context = LocalContext.current
+    var wasDenied by rememberSaveable { mutableStateOf(false) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) onGranted() else wasDenied = true
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.testTag("sms_permission_step")
+    ) {
+        item {
+            Icon(Icons.Default.Sms, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(40.dp))
+        }
+        item {
+            SectionHeader(
+                title = "Import spending from your bank SMS",
+                subtitle = "Pennywise needs permission to read SMS to find your Kotak and BOI transaction alerts."
+            )
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    "Only Kotak and Bank of India transaction alerts are used; other messages are ignored.",
+                    "Everything stays on this phone. Nothing is uploaded.",
+                    "You review every transaction before it is added."
+                ).forEach { line ->
+                    Text("•  $line", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        item {
+            Button(
+                onClick = { launcher.launch(Manifest.permission.READ_SMS) },
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("grant_sms_button")
+            ) { Text("Allow SMS access", fontWeight = FontWeight.SemiBold) }
+        }
+        if (wasDenied) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text("Permission not granted", fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "If Android didn't ask, or said \"Restricted setting\": open App info, tap ⋮ " +
+                                "(top right) → \"Allow restricted settings\", then go to Permissions → SMS → Allow.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.fromParts("package", context.packageName, null)
+                                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) { Text("Open App info", color = VioletPrimary) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
+    // Days to look back, or null when a custom start date is chosen.
+    var days by rememberSaveable { mutableStateOf<Int?>(30) }
+    var customStart by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showPicker by rememberSaveable { mutableStateOf(false) }
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.testTag("sms_period_step")
+    ) {
+        item {
+            SectionHeader(
+                title = "Scan past messages",
+                subtitle = "Find Kotak and BOI transactions you haven't added yet. Already-imported messages are skipped."
+            )
+        }
+        item {
+            // Scrollable: four chips are wider than a small phone screen.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState())
+            ) {
+                listOf(7, 14, 30).forEach { option ->
+                    FilterChip(
+                        selected = days == option,
+                        onClick = {
+                            days = option
+                            customStart = null
+                        },
+                        label = { Text("$option days") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = VioletPrimaryContainer,
+                            selectedLabelColor = VioletPrimary
+                        ),
+                        modifier = Modifier.testTag("scan_period_$option")
+                    )
+                }
+                FilterChip(
+                    selected = days == null,
+                    onClick = { showPicker = true },
+                    label = {
+                        Text(customStart?.let { "Since " + Formatters.formatShortDate(it) } ?: "Since date…")
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = VioletPrimaryContainer,
+                        selectedLabelColor = VioletPrimary
+                    )
+                )
+            }
+        }
+        if (error != null) {
+            item { Text(error, color = MaterialTheme.colorScheme.error) }
+        }
+        item {
+            Button(
+                onClick = {
+                    val now = System.currentTimeMillis()
+                    onScan(customStart ?: (now - (days ?: 30) * DAY_MS))
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("start_scan_button")
+            ) { Text("Scan messages", fontWeight = FontWeight.SemiBold) }
+        }
+    }
+
+    if (showPicker) {
+        val todayUtc = remember { DateConversions.localToUtcDay(System.currentTimeMillis()) }
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = DateConversions.localToUtcDay(
+                customStart ?: (System.currentTimeMillis() - 30 * DAY_MS)
+            ),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= todayUtc
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { utcDay ->
+                        // Start of the chosen day in local time.
+                        customStart = DateConversions.utcDayToLocal(utcDay, keepTimeOfMs = localMidnight())
+                        days = null
+                    }
+                    showPicker = false
+                }) { Text("Select", color = VioletPrimary, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancel") } }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+private fun localMidnight(): Long = Calendar.getInstance().apply {
+    set(Calendar.HOUR_OF_DAY, 0)
+    set(Calendar.MINUTE, 0)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis
+
+@Composable
+private fun ReviewStep(
+    state: SmsImportState,
+    categories: List<CategoryInfo>,
+    onToggleItem: (String) -> Unit,
+    onToggleGroup: (ImportGroup) -> Unit,
+    onSetCategory: (String, String) -> Unit,
+    onSetSelfTransfer: (String, Boolean) -> Unit,
+    onImport: () -> Unit,
+    onStartOver: () -> Unit
+) {
+    val plan = state.plan ?: return
+    val importing = state.phase == SmsImportPhase.IMPORTING
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .testTag("sms_review_list"),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item { ReviewSummary(state) }
+
+            if (plan.candidateCount == 0) {
+                item {
+                    Text(
+                        "No new Kotak or BOI transactions in this period.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            items(plan.groups, key = { it.key }) { group ->
+                GroupCard(
+                    group = group,
+                    selected = state.selected,
+                    category = state.categoryByGroup[group.key] ?: group.suggestedCategory,
+                    isSelfTransfer = group.key in state.selfTransferGroups,
+                    categories = categories,
+                    enabled = !importing,
+                    onToggleItem = onToggleItem,
+                    onToggleGroup = { onToggleGroup(group) },
+                    onSetCategory = { onSetCategory(group.key, it) },
+                    onSetSelfTransfer = { onSetSelfTransfer(group.key, it) }
+                )
+            }
+        }
+
+        Surface(tonalElevation = 3.dp, shadowElevation = 6.dp) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                if (state.error != null) {
+                    Text(state.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = onStartOver,
+                        enabled = !importing,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Scan again") }
+                    Button(
+                        onClick = onImport,
+                        enabled = !importing && state.selectedCount > 0,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("import_selected_button")
+                    ) {
+                        if (importing) {
+                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                        } else {
+                            Text("Import ${state.selectedCount}", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReviewSummary(state: SmsImportState) {
+    val plan = state.plan ?: return
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = VioletPrimaryContainer),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Found ${plan.candidateCount} new transaction${if (plan.candidateCount == 1) "" else "s"}",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            if (plan.alreadyImportedCount > 0) {
+                Text(
+                    "${plan.alreadyImportedCount} already imported earlier (skipped)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Ticked: ${Formatters.formatCurrency(state.selectedSpent)} spent · " +
+                "${Formatters.formatCurrency(state.selectedReceived)} received",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Pick a category once per payee; it's remembered for next time. Unticked items will appear again on the next scan.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupCard(
+    group: ImportGroup,
+    selected: Set<String>,
+    category: String,
+    isSelfTransfer: Boolean,
+    categories: List<CategoryInfo>,
+    enabled: Boolean,
+    onToggleItem: (String) -> Unit,
+    onToggleGroup: () -> Unit,
+    onSetCategory: (String) -> Unit,
+    onSetSelfTransfer: (Boolean) -> Unit
+) {
+    val selectedInGroup = group.items.count { it.dedupeKey in selected }
+    val groupState = when (selectedInGroup) {
+        0 -> ToggleableState.Off
+        group.items.size -> ToggleableState.On
+        else -> ToggleableState.Indeterminate
+    }
+    val isIncome = group.type == TransactionType.INCOME
+
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("sms_group_${group.key}")
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 12.dp)
+            ) {
+                TriStateCheckbox(
+                    state = groupState,
+                    onClick = onToggleGroup,
+                    enabled = enabled,
+                    colors = CheckboxDefaults.colors(checkedColor = VioletPrimary)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        group.title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        (if (isIncome) "Received" else "Paid") + " · ${group.items.size} message" +
+                            if (group.items.size == 1) "" else "s",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            ) {
+                CategoryDropdown(
+                    current = category,
+                    options = CategoryInfo.forType(categories, group.type),
+                    enabled = enabled && !isSelfTransfer,
+                    onSelect = onSetCategory,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Self transfer", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.width(6.dp))
+                Switch(
+                    checked = isSelfTransfer,
+                    onCheckedChange = onSetSelfTransfer,
+                    enabled = enabled,
+                    colors = SwitchDefaults.colors(checkedTrackColor = VioletPrimary)
+                )
+            }
+            if (isSelfTransfer) {
+                Text(
+                    "Not counted as spending or income.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 8.dp),
+                color = VioletOutlineLight.copy(alpha = 0.5f)
+            )
+            group.items.forEach { item ->
+                CandidateRow(
+                    item = item,
+                    checked = item.dedupeKey in selected,
+                    enabled = enabled,
+                    onToggle = { onToggleItem(item.dedupeKey) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CandidateRow(item: ImportCandidate, checked: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+    val isIncome = item.parsed.type == TransactionType.INCOME
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onToggle)
+            .padding(end = 12.dp)
+            .testTag("sms_item_${item.dedupeKey}")
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = { onToggle() },
+            enabled = enabled,
+            colors = CheckboxDefaults.colors(checkedColor = VioletPrimary)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(Formatters.formatDate(item.dateMs), style = MaterialTheme.typography.bodyMedium)
+            if (item.needsReview) {
+                Badge(text = "Check: unverified format", color = WarningAmber)
+            }
+            if (item.possibleDuplicate) {
+                Badge(text = "Maybe already added by hand", color = WarningAmber)
+            }
+        }
+        Text(
+            Formatters.formatSignedCurrency(item.parsed.amount, item.parsed.type.name),
+            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+            color = if (isIncome) IncomeGreen else ExpenseRed,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun Badge(text: String, color: Color) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+        color = color
+    )
+}
+
+@Composable
+private fun CategoryDropdown(
+    current: String,
+    options: List<CategoryInfo>,
+    enabled: Boolean,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            enabled = enabled,
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                current,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Icon(Icons.Default.ArrowDropDown, contentDescription = "Choose category")
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.name) },
+                    onClick = {
+                        onSelect(option.name)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}

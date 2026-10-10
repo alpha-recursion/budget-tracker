@@ -67,7 +67,7 @@ class SmsImportPlannerTest {
     fun skipsAlreadyImportedAndRepeatedMessages() {
         val key = SmsImportPlanner.dedupeKey(boiFood, com.example.domain.sms.BankSmsParser.parse(boiFood.body, ist)!!)
         val result = plan(listOf(boiFood, boiFood.copy(id = 9, receivedAt = boiFood.receivedAt + 1000), kotakPerson), imported = setOf(key))
-        assertEquals(2, result.alreadyImportedCount)
+        assertEquals(1, result.alreadyImportedCount) // the same alert received twice counts once
         assertEquals(1, result.candidateCount)
     }
 
