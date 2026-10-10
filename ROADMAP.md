@@ -57,6 +57,9 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 1.6 Payee memory: category (or "self transfer") remembered per payee
 - [x] 1.7 Database v3: `sms_imports` and `merchant_rules` tables (+ backup/restore/erase)
 - [ ] 1.8 Exact credit formats once Kotak/BOI "money received" samples arrive
+- [x] 1.9 Scan details: what was read / recognised, unrecognised examples, and
+      "Scan since <date>" when the latest bank SMS is older than the period
+- [x] 1.10 Teach by example: save a new SMS format from one sample (DB v4)
 
 ### 2. Lending tracker
 - [ ] 2.1 People + lent/borrowed ledger
