@@ -28,8 +28,8 @@ import java.util.Locale
 enum class SortOption(val label: String) {
     NEWEST("Newest"),
     OLDEST("Oldest"),
-    HIGHEST_AMOUNT("Highest $"),
-    LOWEST_AMOUNT("Lowest $")
+    HIGHEST_AMOUNT("Highest ₹"),
+    LOWEST_AMOUNT("Lowest ₹")
 }
 
 class PennywiseViewModel @JvmOverloads constructor(

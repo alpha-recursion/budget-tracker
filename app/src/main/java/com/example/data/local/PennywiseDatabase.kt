@@ -25,7 +25,10 @@ abstract class PennywiseDatabase : RoomDatabase() {
                     PennywiseDatabase::class.java,
                     "pennywise_database"
                 )
-                .fallbackToDestructiveMigration(true)
+                // Never wipe the user's data on a schema change: every version bump must ship
+                // an explicit Migration (see PennywiseMigrations). Only a downgrade, which
+                // cannot be migrated, falls back to recreating the database.
+                .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
                 INSTANCE = instance
                 instance

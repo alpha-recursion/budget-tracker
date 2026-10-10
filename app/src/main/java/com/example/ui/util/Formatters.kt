@@ -21,7 +21,9 @@ import java.util.Locale
 
 object Formatters {
 
-    private val currencyFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale.US).apply {
+    // Indian rupees with Indian digit grouping (₹1,23,456.00). The symbol is added by hand so
+    // it is always "₹" regardless of what the platform's currency data uses for en-IN.
+    private val rupeeNumberFormat: NumberFormat = NumberFormat.getNumberInstance(Locale("en", "IN")).apply {
         maximumFractionDigits = 2
         minimumFractionDigits = 2
     }
@@ -33,11 +35,15 @@ object Formatters {
     private val monthYearFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
 
     fun formatCurrency(amount: Double): String {
-        return currencyFormat.format(amount)
+        return if (amount < 0) {
+            "-₹" + rupeeNumberFormat.format(-amount)
+        } else {
+            "₹" + rupeeNumberFormat.format(amount)
+        }
     }
 
     fun formatSignedCurrency(amount: Double, type: String): String {
-        val formatted = currencyFormat.format(amount)
+        val formatted = formatCurrency(amount)
         return if (type.equals("INCOME", ignoreCase = true)) {
             "+$formatted"
         } else {

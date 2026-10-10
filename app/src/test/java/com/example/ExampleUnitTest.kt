@@ -188,6 +188,17 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun testFormValidation_acceptsRupeeFormats() {
+        assertTrue(FormValidation.validateAmount("₹1,250").isValid)
+        assertTrue(FormValidation.validateAmount("Rs. 99.50").isValid)
+        assertTrue(FormValidation.validateAmount("Rs.45").isValid)
+        assertTrue(FormValidation.validateAmount("INR 40").isValid)
+        assertEquals(1250.0, FormValidation.parseAmount("₹1,250")!!, 0.001)
+        assertEquals(99.5, FormValidation.parseAmount("Rs. 99.50")!!, 0.001)
+        assertFalse(FormValidation.validateAmount("₹").isValid)
+    }
+
+    @Test
     fun testFormValidation_rejectsNonDecimalNumberSyntax() {
         // All of these parse with toDoubleOrNull() but are not amounts a user should save.
         assertFalse(FormValidation.validateAmount("NaN").isValid)

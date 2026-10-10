@@ -207,7 +207,7 @@ fun AddEditTransactionDialog(
                         .fillMaxWidth()
                         .testTag("amount_input"),
                     label = { Text("Amount") },
-                    prefix = { Text("$ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = VioletPrimary) },
+                    prefix = { Text("₹ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = VioletPrimary) },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,

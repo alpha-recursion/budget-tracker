@@ -14,8 +14,11 @@ object FormValidation {
     // exponents like "1e5" and hex floats, which must not be saved as amounts.
     private val PLAIN_DECIMAL = Regex("""^(\d+(\.\d*)?|\.\d+)$""")
 
+    private val CURRENCY_MARKERS = Regex("""(?i)₹|\$|\bINR\b|\bRs\.?""")
+
+    // Accept what people naturally type or paste: "₹1,250", "Rs. 99", "INR 40", "$5".
     private fun normalize(rawInput: String): String =
-        rawInput.trim().replace("$", "").replace(",", "")
+        rawInput.replace(CURRENCY_MARKERS, "").replace(",", "").trim()
 
     fun validateAmount(rawInput: String): ValidationResult {
         val trimmed = normalize(rawInput)
@@ -29,7 +32,7 @@ object FormValidation {
         }
 
         if (amount <= 0.0) {
-            return ValidationResult.Invalid("Amount must be greater than $0.00")
+            return ValidationResult.Invalid("Amount must be greater than ₹0")
         }
 
         if (!PLAIN_DECIMAL.matches(trimmed)) {
@@ -37,7 +40,7 @@ object FormValidation {
         }
 
         if (amount > 10_000_000.0) {
-            return ValidationResult.Invalid("Amount cannot exceed $10,000,000.00")
+            return ValidationResult.Invalid("Amount cannot exceed ₹1,00,00,000")
         }
 
         // Check decimal places: at most 2 decimal digits allowed
