@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,22 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,24 +33,36 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
 import com.example.domain.FinancialSummary
 import com.example.domain.VendorSpend
-import com.example.ui.components.BudgetProgressCard
-import com.example.ui.theme.Negative
-import com.example.ui.theme.PositiveText
-import com.example.ui.theme.Hairline
+import com.example.ui.components.BudgetGauge
+import com.example.ui.components.PwCard
+import com.example.ui.components.PwDivider
+import com.example.ui.components.PwIconBadge
+import com.example.ui.components.PwListRow
+import com.example.ui.components.PwPrimaryButton
+import com.example.ui.components.PwSectionTitle
+import com.example.ui.components.Space
 import com.example.ui.theme.Accent
 import com.example.ui.theme.AccentSoft
+import com.example.ui.theme.Ink
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.InkTertiary
+import com.example.ui.theme.Negative
+import com.example.ui.theme.Positive
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.SurfaceMuted
+import com.example.ui.theme.Warning
+import com.example.ui.theme.WarningText
 import com.example.ui.util.Formatters
 import com.example.ui.util.LocalCategories
+import com.example.ui.util.getCategoryIcon
 
 private const val NEW_BUDGET = "\u0000new"
 
@@ -81,325 +84,20 @@ fun AnalyticsScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("analytics_screen"),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
+        verticalArrangement = Arrangement.spacedBy(Space.section)
     ) {
-        // Financial Health & Savings Card
+        item { SavingsCard(summary) }
+        item { CashFlowCard(summary) }
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("savings_rate_card"),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = AccentSoft
-                ),
-                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.5f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(Accent),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Savings,
-                            contentDescription = "Savings Rate",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column {
-                        Text(
-                            // Computed from all recorded transactions, like the cash flow card.
-                            text = "Savings Rate",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = Formatters.formatPercentage(summary.savingsRate),
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Accent
-                            )
-                        )
-                        Text(
-                            text = when {
-                                summary.totalIncome <= 0.0 -> "Add income to see how much you are saving."
-                                summary.savingsRate >= 20.0 -> "Excellent! You are saving over 20% of your income."
-                                summary.savingsRate > 0.0 -> "Good start! Aim for 20% savings for financial resilience."
-                                else -> "Expenses currently exceed or match income."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        // Cash Flow Overview Card
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp)
-                ) {
-                    Text(
-                        text = "Cash Flow Overview",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Equal-width columns so large amounts cannot push into each other.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        CashFlowStat(
-                            label = "Total Inflow",
-                            amount = summary.totalIncome,
-                            color = PositiveText,
-                            alignment = Alignment.Start,
-                            modifier = Modifier.weight(1f)
-                        )
-                        CashFlowStat(
-                            label = "Total Outflow",
-                            amount = summary.totalExpense,
-                            color = Negative,
-                            alignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.weight(1f)
-                        )
-                        CashFlowStat(
-                            label = if (summary.netBalance >= 0.0) "Net Surplus" else "Net Deficit",
-                            amount = summary.netBalance,
-                            color = if (summary.netBalance >= 0.0) Accent else Negative,
-                            alignment = Alignment.End,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Top vendors this month
-        item { TopVendorsCard(topVendors) }
-
-        // Monthly Category Budgets Header
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Category Budgets & Limits",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Spending in " + Formatters.formatMonthYear(System.currentTimeMillis()) +
-                            if (budgetStatuses.isNotEmpty()) " · tap to edit" else "",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                TextButton(
-                    onClick = { budgetEditorTarget = NEW_BUDGET },
-                    modifier = Modifier.testTag("add_budget_button")
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add", color = Accent, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
-        // Budget Progress Items
-        if (budgetStatuses.isEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            "Set monthly limits to see how much you have left in each category.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { budgetEditorTarget = NEW_BUDGET },
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                        ) { Text("Set a budget") }
-                    }
-                }
-            }
-        } else {
-            items(budgetStatuses, key = { it.categoryName }) { status ->
-                BudgetProgressCard(
-                    status = status,
-                    onClick = { budgetEditorTarget = status.categoryName }
-                )
-            }
-        }
-
-        // Spending by Category Leaderboard
-        item {
-            Text(
-                text = "Expense Leaderboard",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+            BudgetsCard(
+                statuses = budgetStatuses,
+                onAdd = { budgetEditorTarget = NEW_BUDGET },
+                onEdit = { budgetEditorTarget = it }
             )
         }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    if (breakdowns.isEmpty()) {
-                        Text("No expense breakdown available", style = MaterialTheme.typography.bodyMedium)
-                    } else {
-                        breakdowns.forEach { item ->
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(10.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(item.category.colorHex))
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = item.categoryName,
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = Formatters.formatCurrency(item.amount),
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = Formatters.formatPercentage(item.percentage),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                LinearProgressIndicator(
-                                    progress = { (item.percentage / 100.0).toFloat().coerceIn(0f, 1f) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp)),
-                                    color = Color(item.category.colorHex),
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    strokeCap = StrokeCap.Round,
-                                    // Material3 1.3 adds a gap and an end "stop" dot by default,
-                                    // which looked like a rendering glitch on these thin bars.
-                                    gapSize = 0.dp,
-                                    drawStopIndicator = {}
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Financial Tip
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                ),
-                border = BorderStroke(1.dp, Hairline.copy(alpha = 0.5f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = Accent,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Tip: Tracking small everyday expenses like coffee and quick snacks helps uncover hidden monthly spending leaks.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(72.dp))
-        }
+        item { TopVendorsCard(topVendors) }
+        item { CategoryRowsCard(breakdowns) }
     }
 
     budgetEditorTarget?.let { target ->
@@ -418,23 +116,65 @@ fun AnalyticsScreen(
 }
 
 @Composable
-private fun CashFlowStat(
-    label: String,
-    amount: Double,
-    color: Color,
-    alignment: Alignment.Horizontal,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier, horizontalAlignment = alignment) {
+private fun SavingsCard(summary: FinancialSummary) {
+    PwCard(modifier = Modifier.testTag("savings_rate_card")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                // Computed from all recorded transactions, like the cash flow card.
+                Text("Savings rate", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
+                Text(
+                    Formatters.formatPercentage(summary.savingsRate),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = Ink
+                )
+                Spacer(modifier = Modifier.height(Space.xs))
+                Text(
+                    text = when {
+                        summary.totalIncome <= 0.0 -> "Add income to see how much you save."
+                        summary.savingsRate >= 20.0 -> "Excellent — over 20% of income saved."
+                        summary.savingsRate > 0.0 -> "Aim for 20% to build a cushion."
+                        else -> "Spending matches or exceeds income."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkSecondary
+                )
+            }
+            BudgetGauge(
+                fraction = (summary.savingsRate / 100.0).toFloat(),
+                color = Positive,
+                value = Formatters.formatPercentage(summary.savingsRate),
+                caption = "saved"
+            )
+        }
+    }
+}
+
+@Composable
+private fun CashFlowCard(summary: FinancialSummary) {
+    PwCard {
+        PwSectionTitle(title = "Cash flow", subtitle = "All time")
+        Spacer(modifier = Modifier.height(Space.l))
+        // Equal-width columns so large amounts cannot push into each other.
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+            FlowStat("Income", summary.totalIncome, PositiveText, Modifier.weight(1f))
+            FlowStat("Spent", summary.totalExpense, Ink, Modifier.weight(1f))
+            FlowStat(
+                if (summary.netBalance >= 0) "Net saved" else "Net deficit",
+                summary.netBalance,
+                if (summary.netBalance >= 0) Accent else Negative,
+                Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlowStat(label: String, amount: Double, color: Color, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = InkSecondary, maxLines = 1)
         Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
-        )
-        Text(
-            text = Formatters.formatCurrency(amount),
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            Formatters.formatCurrency(amount),
+            style = MaterialTheme.typography.titleMedium,
             color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -442,95 +182,169 @@ private fun CashFlowStat(
     }
 }
 
+/** Budgets as compact rows (reference style): name, spent of limit, thin bar, percentage. */
+@Composable
+private fun BudgetsCard(
+    statuses: List<CategoryBudgetStatus>,
+    onAdd: () -> Unit,
+    onEdit: (String) -> Unit
+) {
+    PwCard(contentPadding = PaddingValues(vertical = Space.l)) {
+        PwSectionTitle(
+            title = "Budgets",
+            subtitle = "Spending in " + Formatters.formatMonthYear(System.currentTimeMillis()),
+            action = "Add",
+            onAction = onAdd,
+            modifier = Modifier
+                .padding(horizontal = Space.xl)
+                .testTag("add_budget_button")
+        )
+        Spacer(modifier = Modifier.height(Space.s))
+        if (statuses.isEmpty()) {
+            Column(modifier = Modifier.padding(horizontal = Space.xl, vertical = Space.s)) {
+                Text(
+                    "Set monthly limits to see how much you have left in each category.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = InkSecondary
+                )
+                Spacer(modifier = Modifier.height(Space.m))
+                PwPrimaryButton(text = "Set a budget", onClick = onAdd, modifier = Modifier.fillMaxWidth())
+            }
+            return@PwCard
+        }
+        statuses.forEachIndexed { index, status ->
+            if (index > 0) PwDivider()
+            BudgetRow(status = status, onClick = { onEdit(status.categoryName) })
+        }
+    }
+}
+
+@Composable
+private fun BudgetRow(status: CategoryBudgetStatus, onClick: () -> Unit) {
+    val (barColor, textColor) = when {
+        status.isOverBudget -> Negative to Negative
+        status.percentageUsed > 80.0 -> Warning to WarningText
+        else -> Positive to PositiveText
+    }
+    PwListRow(
+        title = status.categoryName,
+        subtitle = if (status.isOverBudget) {
+            "Over by " + Formatters.formatCurrency(-status.remaining)
+        } else {
+            Formatters.formatCurrency(status.spent) + " of " + Formatters.formatCurrency(status.budgetLimit)
+        },
+        leading = { PwIconBadge(getCategoryIcon(status.category.iconKey), Color(status.category.colorHex), size = 36.dp) },
+        onClick = onClick,
+        modifier = Modifier.testTag("budget_card_${status.categoryName}")
+    ) {
+        Column(horizontalAlignment = Alignment.End) {
+            Text(Formatters.formatPercentage(status.percentageUsed), style = MaterialTheme.typography.labelLarge, color = textColor)
+            Spacer(modifier = Modifier.height(Space.xs))
+            ThinBar(fraction = (status.percentageUsed / 100.0).toFloat(), color = barColor, modifier = Modifier.width(72.dp))
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
+    }
+}
+
+@Composable
+private fun ThinBar(fraction: Float, color: Color, modifier: Modifier = Modifier) {
+    LinearProgressIndicator(
+        progress = { fraction.coerceIn(0f, 1f) },
+        modifier = modifier
+            .height(6.dp)
+            .clip(RoundedCornerShape(3.dp)),
+        color = color,
+        trackColor = SurfaceMuted,
+        strokeCap = StrokeCap.Round,
+        // Material3 1.3 adds a gap and an end "stop" dot by default; not wanted here.
+        gapSize = 0.dp,
+        drawStopIndicator = {}
+    )
+}
+
 @Composable
 private fun TopVendorsCard(vendors: List<VendorSpend>) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("top_vendors_card"),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Column {
-                Text(
-                    text = "Top vendors",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Where your money went in " + Formatters.formatMonthYear(System.currentTimeMillis()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    PwCard(contentPadding = PaddingValues(vertical = Space.l), modifier = Modifier.testTag("top_vendors_card")) {
+        PwSectionTitle(
+            title = "Top vendors",
+            subtitle = "Where your money went in " + Formatters.formatMonthYear(System.currentTimeMillis()),
+            modifier = Modifier.padding(horizontal = Space.xl)
+        )
+        Spacer(modifier = Modifier.height(Space.s))
+        if (vendors.isEmpty()) {
+            Text(
+                "No spending recorded this month yet.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = InkSecondary,
+                modifier = Modifier.padding(horizontal = Space.xl, vertical = Space.s)
+            )
+            return@PwCard
+        }
+        vendors.forEachIndexed { index, vendor ->
+            if (index > 0) PwDivider()
+            PwListRow(
+                title = vendor.name,
+                subtitle = "${vendor.count} payment${if (vendor.count == 1) "" else "s"} · " + Formatters.formatPercentage(vendor.percentage),
+                leading = {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(AccentSoft),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("${index + 1}", style = MaterialTheme.typography.labelLarge, color = Accent)
+                    }
+                }
+            ) {
+                // The amount is the value people scan for: strongest text in the row.
+                Text(Formatters.formatCurrency(vendor.total), style = MaterialTheme.typography.titleSmall, color = Ink, maxLines = 1)
             }
-            if (vendors.isEmpty()) {
-                Text(
-                    "No spending recorded this month yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            vendors.forEachIndexed { index, vendor ->
-                Column(modifier = Modifier.fillMaxWidth()) {
+        }
+    }
+}
+
+@Composable
+private fun CategoryRowsCard(breakdowns: List<CategoryBreakdown>) {
+    PwCard {
+        PwSectionTitle(title = "Spending by category", subtitle = "All time")
+        Spacer(modifier = Modifier.height(Space.l))
+        if (breakdowns.isEmpty()) {
+            Text("No spending recorded yet.", style = MaterialTheme.typography.bodyMedium, color = InkSecondary)
+            return@PwCard
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(Space.l)) {
+            breakdowns.forEach { item ->
+                Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(26.dp)
+                                .size(10.dp)
                                 .clip(CircleShape)
-                                .background(AccentSoft),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "${index + 1}",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Accent
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        // Value first (largest, boldest); vendor and count are secondary.
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                vendor.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                "${vendor.count} payment${if (vendor.count == 1) "" else "s"} · " +
-                                    Formatters.formatPercentage(vendor.percentage),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            Formatters.formatCurrency(vendor.total),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1
+                                .background(Color(item.category.colorHex))
                         )
+                        Spacer(modifier = Modifier.width(Space.s))
+                        Text(
+                            item.categoryName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            Formatters.formatPercentage(item.percentage),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = InkSecondary
+                        )
+                        Spacer(modifier = Modifier.width(Space.m))
+                        Text(Formatters.formatCurrency(item.amount), style = MaterialTheme.typography.titleSmall, color = Ink)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
-                    LinearProgressIndicator(
-                        progress = { (vendor.percentage / 100.0).toFloat().coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = Accent,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        strokeCap = StrokeCap.Round,
-                        gapSize = 0.dp,
-                        drawStopIndicator = {}
+                    ThinBar(
+                        fraction = (item.percentage / 100.0).toFloat(),
+                        color = Color(item.category.colorHex),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
