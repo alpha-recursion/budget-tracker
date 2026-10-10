@@ -20,9 +20,21 @@ lent to others, and use light game mechanics so it gets opened every day.
 - **Banks for SMS parsing:** Bank of India (BOI), Kotak Mahindra Bank
 - **Data import:** all four — bank SMS auto-read, bank statement CSV/Excel,
   PhonePe/Paytm PDF, and manual quick-add
-- **Priorities after Phase 0:** lending tracker, then goals & gamification
-  (subscriptions and vehicle tracking follow later)
+- **Priorities after Phase 0:** SMS scanning first, then lending tracker, then goals &
+  gamification (subscriptions and vehicle tracking follow later)
 - **SMS samples received:** Kotak UPI debit and BOI UPI debit (credit samples still needed)
+- **SMS scan rules:** only Kotak & BOI messages; credits included but flagged and unticked
+  until confirmed; self transfers can be marked and are excluded from totals; categories
+  are chosen once per payee and remembered
+
+## Working agreement
+
+- Plan before building; look for flaws in the plan and fix them first. Only proceed when
+  90%+ confident the step is right.
+- After every step, verify the goal was met, check for drift, and look for new and existing
+  bugs.
+- Never assume: read the code, or ask the owner (multiple-choice questions).
+- Commits and PRs carry no AI co-author/attribution lines.
 
 ## Progress
 
@@ -31,6 +43,75 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 0. Foundation | **Built** — ₹ currency, demo data removed, safe DB migrations (v2), custom categories, editable budgets, JSON backup / restore / erase. Needs on-device check. |
 | 2. Auto-capture | **Started** — `BankSmsParser` handles the real Kotak and BOI debit formats (unit-tested); SMS receiver and review inbox not built yet. |
 | 1, 3, 4, 5 | Not started |
+
+## To-do list
+
+### 1. SMS scanning (in progress)
+- [ ] 1.1 Permission screen: why SMS access is needed, grant button, help for Android's
+      "Allow restricted settings"
+- [ ] 1.2 History scan: last 7 / 14 / 30 days or since a chosen date, with preview summary
+- [ ] 1.3 Review preview: grouped by payee, tick/untick items, import selected
+- [ ] 1.4 De-duplication: never import the same SMS twice (bank + direction + UPI ref, or
+      message fingerprint); flag likely manual duplicates (same amount, same day)
+- [ ] 1.5 Live capture of new SMS into a review inbox + notification
+- [ ] 1.6 Payee memory: category (or "self transfer") remembered per payee
+- [ ] 1.7 Database v3: `sms_imports` and `merchant_rules` tables (+ backup/restore/erase)
+- [ ] 1.8 Exact credit formats once Kotak/BOI "money received" samples arrive
+
+### 2. Lending tracker
+- [ ] 2.1 People + lent/borrowed ledger
+- [ ] 2.2 Partial repayments, mark as paid, due-date reminder
+- [ ] 2.3 Suggest "mark as paid" when an SMS shows money received from that person
+
+### 3. Goals & gamification
+- [ ] 3.1 Savings goals with 25/50/75/100% milestones
+- [ ] 3.2 Streaks (daily review, no-spend days) with freezes
+- [ ] 3.3 XP, levels, badges
+- [ ] 3.4 Monthly challenges + month-end report card
+
+### 4. Faster manual entry
+- [ ] 4.1 Quick-add chips and recent merchants
+- [ ] 4.2 Monthly income and salary day
+
+### 5. Recurring, subscriptions & bike
+- [ ] 5.1 Recurring payments/subscriptions with alerts; detect recurring payments in SMS
+- [ ] 5.2 Bike costs: fuel, service, insurance, cost per km
+
+### 6. Statement import & polish
+- [ ] 6.1 Bank CSV/Excel import, then PhonePe/Paytm PDF
+- [ ] 6.2 Widget, insights, dark mode
+
+## SMS import design
+
+```
+ [Scan: 7d | 14d | 30d | Since date]
+              │
+              ▼
+  Read SMS inbox (READ_SMS), date ≥ start
+  Keep alphanumeric bank senders only (e.g. JD-KOTAKB)
+              │
+              ▼
+  BankSmsParser ──► keep Kotak / BOI results
+              │
+              ▼
+  Dedupe key: ref:<bank>:<type>:<upiRef>  or  sms:<hash(sender|time|body)>
+  Already in sms_imports? ──► skip (counted in summary)
+              │
+              ▼
+  Preview grouped by payee (null payee = one row per message)
+   • category pre-filled from merchant_rules, else "Other"
+   • "Self transfer" toggle per group (auto-suggested when a Kotak debit
+     and BOI credit share a UPI ref)
+   • unticked by default: unverified credits, likely manual duplicates
+              │
+              ▼
+  Import (one DB transaction):
+   transactions  ← ticked, non-self-transfer items
+   sms_imports   ← IMPORTED (with transactionId) / SELF_TRANSFER
+   merchant_rules← category / self-transfer per payee
+```
+
+Unticked items are not recorded, so they appear again on the next scan.
 
 ---
 
