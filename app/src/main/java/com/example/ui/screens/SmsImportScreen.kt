@@ -76,6 +76,9 @@ import com.example.domain.sms.ImportGroup
 import com.example.ui.SmsImportPhase
 import com.example.ui.SmsImportState
 import com.example.ui.components.CategoryPickerDialog
+import com.example.ui.components.PwPrimaryButton
+import com.example.ui.components.PwSecondaryButton
+import com.example.ui.components.Space
 import com.example.ui.theme.Ink
 import com.example.ui.theme.Negative
 import com.example.ui.theme.PositiveText
@@ -150,7 +153,7 @@ private fun PermissionStep(onGranted: () -> Unit) {
     }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(horizontal = Space.screen, vertical = Space.l),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.testTag("sms_permission_step")
     ) {
@@ -175,14 +178,13 @@ private fun PermissionStep(onGranted: () -> Unit) {
             }
         }
         item {
-            Button(
+            PwPrimaryButton(
+                text = "Allow SMS access",
                 onClick = { launcher.launch(Manifest.permission.READ_SMS) },
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("grant_sms_button")
-            ) { Text("Allow SMS access", fontWeight = FontWeight.SemiBold) }
+            )
         }
         if (wasDenied) {
             item {
@@ -226,7 +228,7 @@ private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(horizontal = Space.screen, vertical = Space.l),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.testTag("sms_period_step")
     ) {
@@ -274,17 +276,16 @@ private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
             item { Text(error, color = MaterialTheme.colorScheme.error) }
         }
         item {
-            Button(
+            PwPrimaryButton(
+                text = "Scan messages",
                 onClick = {
                     val now = System.currentTimeMillis()
                     onScan(customStart ?: (now - (days ?: 30) * DAY_MS))
                 },
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Accent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("start_scan_button")
-            ) { Text("Scan messages", fontWeight = FontWeight.SemiBold) }
+            )
         }
     }
 
@@ -345,7 +346,7 @@ private fun ReviewStep(
             modifier = Modifier
                 .weight(1f)
                 .testTag("sms_review_list"),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(horizontal = Space.screen, vertical = Space.l),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item { ReviewSummary(state) }
@@ -382,33 +383,27 @@ private fun ReviewStep(
         }
 
         Surface(tonalElevation = 3.dp, shadowElevation = 6.dp) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Space.screen, vertical = Space.m)) {
                 if (state.error != null) {
                     Text(state.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.height(6.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
+                    PwSecondaryButton(
+                        text = "Scan again",
                         onClick = onStartOver,
                         enabled = !importing,
-                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.weight(1f)
-                    ) { Text("Scan again") }
-                    Button(
+                    )
+                    PwPrimaryButton(
+                        text = "Import ${state.selectedCount}",
                         onClick = onImport,
-                        enabled = !importing && state.selectedCount > 0,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                        enabled = state.selectedCount > 0,
+                        loading = importing,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("import_selected_button")
-                    ) {
-                        if (importing) {
-                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                        } else {
-                            Text("Import ${state.selectedCount}", fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    )
                 }
             }
         }

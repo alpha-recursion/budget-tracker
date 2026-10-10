@@ -4,6 +4,16 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.example.ui.components.PwCard
+import com.example.ui.components.PwDivider
+import com.example.ui.components.PwIconBadge
+import com.example.ui.components.PwListRow
+import com.example.ui.components.Space
+import com.example.ui.theme.Ink
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.InkTertiary
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,154 +108,128 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .testTag("settings_screen"),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
+        verticalArrangement = Arrangement.spacedBy(Space.s)
     ) {
+        item { GroupLabel("Import") }
         item {
-            SectionHeader(
-                title = "Your categories",
-                subtitle = "Add categories like \"Bike & Fuel\" or \"Rent to Parents\""
-            )
-        }
-
-        if (customCategories.isEmpty()) {
-            item {
-                Text(
-                    text = "No custom categories yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            items(customCategories, key = { it.name }) { category ->
-                CustomCategoryRow(
-                    category = category,
-                    onDelete = { pendingDelete = category.name }
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                SettingsRow(
+                    icon = Icons.Default.Sms,
+                    tint = Accent,
+                    title = "Import from SMS",
+                    subtitle = "Kotak & BOI payments from your messages",
+                    onClick = onOpenSmsImport,
+                    modifier = Modifier.testTag("settings_import_sms_button")
                 )
             }
         }
 
+        item { GroupLabel("Your categories") }
         item {
-            OutlinedButton(
-                onClick = { showEditor = true },
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("add_category_button")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Accent)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Add category", color = Accent, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader(
-                title = "Import",
-                subtitle = "Add Kotak & BOI transactions from your SMS"
-            )
-        }
-
-        item {
-            OutlinedButton(
-                onClick = onOpenSmsImport,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("settings_import_sms_button")
-            ) {
-                Icon(Icons.Default.Sms, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Import from SMS", color = Accent, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        item {
-            SectionHeader(
-                title = "SMS formats you taught",
-                subtitle = "Teach a bank message the app doesn't recognise yet"
-            )
-        }
-        if (smsTemplates.isEmpty()) {
-            item {
-                Text(
-                    "None yet. Kotak and BOI payment alerts are already recognised.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                customCategories.forEach { category ->
+                    PwListRow(
+                        title = category.name,
+                        subtitle = category.type.displayName(),
+                        leading = { PwIconBadge(getCategoryIcon(category.iconKey), Color(category.colorHex)) }
+                    ) {
+                        IconButton(onClick = { pendingDelete = category.name }) {
+                            Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete ${category.name}", tint = InkSecondary)
+                        }
+                    }
+                    PwDivider()
+                }
+                SettingsRow(
+                    icon = Icons.Default.Add,
+                    tint = Accent,
+                    title = "Add category",
+                    subtitle = if (customCategories.isEmpty()) "e.g. Bike & Fuel, Rent to Parents" else null,
+                    onClick = { showEditor = true },
+                    showChevron = false,
+                    modifier = Modifier.testTag("add_category_button")
                 )
             }
-        } else {
-            items(smsTemplates, key = { "template_${it.id}" }) { template ->
-                TemplateRow(template = template, onDelete = { onDeleteFormat(template.id) })
-            }
         }
+
+        item { GroupLabel("SMS formats you taught") }
         item {
-            TextButton(
-                onClick = onTeachFormat,
-                modifier = Modifier.testTag("teach_format_button")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Teach a new format", color = Accent, fontWeight = FontWeight.SemiBold)
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                smsTemplates.forEach { template ->
+                    val bank = when (template.bank) {
+                        SmsBank.KOTAK -> "Kotak"
+                        SmsBank.BOI -> "Bank of India"
+                        SmsBank.UNKNOWN -> "Other bank"
+                    }
+                    PwListRow(
+                        title = "$bank · ${if (template.type == TransactionType.INCOME) "Money received" else "Payment"}",
+                        subtitle = template.sample,
+                        leading = { PwIconBadge(Icons.Default.Sms, InkSecondary) }
+                    ) {
+                        IconButton(onClick = { onDeleteFormat(template.id) }) {
+                            Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete format", tint = InkSecondary)
+                        }
+                    }
+                    PwDivider()
+                }
+                SettingsRow(
+                    icon = Icons.Default.Add,
+                    tint = Accent,
+                    title = "Teach a new format",
+                    subtitle = if (smsTemplates.isEmpty()) "Kotak and BOI payment alerts already work" else null,
+                    onClick = onTeachFormat,
+                    showChevron = false,
+                    modifier = Modifier.testTag("teach_format_button")
+                )
             }
         }
 
+        item { GroupLabel("Your data") }
         item {
-            Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader(
-                title = "Your data",
-                subtitle = "Everything stays on this phone. Back up regularly to keep it safe."
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                SettingsRow(
+                    icon = Icons.Default.Upload,
+                    tint = Accent,
+                    title = "Back up to a file",
+                    subtitle = "Save to Drive, Downloads, …",
+                    onClick = {
+                        val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                        exportLauncher.launch("pennywise-backup-$date.json")
+                    },
+                    modifier = Modifier.testTag("export_backup_button")
+                )
+                PwDivider()
+                SettingsRow(
+                    icon = Icons.Default.Download,
+                    tint = Accent,
+                    title = "Restore from a backup",
+                    subtitle = "Replaces what's in the app",
+                    onClick = {
+                        // Some file managers label .json files as plain text or binary.
+                        importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+                    },
+                    modifier = Modifier.testTag("import_backup_button")
+                )
+                PwDivider()
+                SettingsRow(
+                    icon = Icons.Outlined.DeleteOutline,
+                    tint = Negative,
+                    title = "Erase all data",
+                    subtitle = "Delete everything on this phone",
+                    onClick = { confirmErase = true },
+                    showChevron = false,
+                    modifier = Modifier.testTag("erase_all_button")
+                )
+            }
+        }
+        item {
+            Text(
+                "Everything stays on this phone. Back up regularly to keep it safe.",
+                style = MaterialTheme.typography.bodySmall,
+                color = InkSecondary,
+                modifier = Modifier.padding(horizontal = Space.xs, vertical = Space.s)
             )
         }
-
-        item {
-            Button(
-                onClick = {
-                    val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                    exportLauncher.launch("pennywise-backup-$date.json")
-                },
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Accent),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("export_backup_button")
-            ) {
-                Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Back up to a file", fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        item {
-            OutlinedButton(
-                onClick = {
-                    // Some file managers label .json files as plain text or binary.
-                    importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
-                },
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("import_backup_button")
-            ) {
-                Icon(Icons.Default.Download, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Restore from a backup", color = Accent, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        item {
-            TextButton(
-                onClick = { confirmErase = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("erase_all_button")
-            ) {
-                Text("Erase all data", color = Negative)
-            }
-        }
-
-        item { Spacer(modifier = Modifier.height(24.dp)) }
     }
 
     if (showEditor) {
@@ -324,112 +308,46 @@ fun SettingsScreen(
     }
 }
 
+/** Small label above a settings group. */
+@Composable
+private fun GroupLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = InkSecondary,
+        modifier = Modifier.padding(start = Space.xs, top = Space.m, bottom = Space.xs)
+    )
+}
+
+@Composable
+private fun SettingsRow(
+    icon: ImageVector,
+    tint: Color,
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    showChevron: Boolean = true
+) {
+    PwListRow(
+        title = title,
+        subtitle = subtitle,
+        leading = { PwIconBadge(icon, tint) },
+        onClick = onClick,
+        modifier = modifier
+    ) {
+        if (showChevron) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
+    }
+}
+
+/** Title + subtitle used at the top of full-screen steps (e.g. SMS import). */
 @Composable
 internal fun SectionHeader(title: String, subtitle: String? = null) {
     Column(modifier = Modifier.padding(top = 4.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Text(text = title, style = MaterialTheme.typography.titleLarge, color = Ink)
         if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun CustomCategoryRow(category: CategoryInfo, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(Color(category.colorHex).copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = getCategoryIcon(category.iconKey),
-                    contentDescription = null,
-                    tint = Color(category.colorHex),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = category.name,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = category.type.displayName(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Outlined.DeleteOutline,
-                    contentDescription = "Delete ${category.name}",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TemplateRow(template: SmsTemplate, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 14.dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                val bank = when (template.bank) {
-                    SmsBank.KOTAK -> "Kotak"
-                    SmsBank.BOI -> "Bank of India"
-                    SmsBank.UNKNOWN -> "Other bank"
-                }
-                Text(
-                    "$bank · ${if (template.type == TransactionType.INCOME) "Money received" else "Payment"}",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Text(
-                    template.sample,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete format", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = InkSecondary)
         }
     }
 }

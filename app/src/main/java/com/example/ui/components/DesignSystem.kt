@@ -296,7 +296,12 @@ fun PwTextField(
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = Ink),
-            placeholder = placeholder?.let { { Text(it, style = MaterialTheme.typography.bodyLarge, color = InkTertiary) } },
+            // Written as if/else so the lambda is typed as @Composable from the parameter.
+            placeholder = if (placeholder != null) {
+                { Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = InkTertiary) }
+            } else {
+                null
+            },
             leadingIcon = leadingIcon,
             trailingIcon = trailingIcon,
             isError = errorText != null,

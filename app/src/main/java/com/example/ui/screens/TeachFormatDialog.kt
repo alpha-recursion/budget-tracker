@@ -42,6 +42,7 @@ import com.example.domain.sms.SmsBank
 import com.example.domain.sms.SmsTemplate
 import com.example.domain.sms.SmsTemplateBuilder
 import com.example.domain.sms.TemplateBuildResult
+import com.example.ui.components.PwPrimaryButton
 import com.example.ui.theme.Ink
 import com.example.ui.theme.Negative
 import com.example.ui.theme.PositiveText
@@ -187,15 +188,14 @@ fun TeachFormatDialog(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                    Button(
+                    PwPrimaryButton(
+                        text = "Save format",
                         onClick = { (result as? TemplateBuildResult.Success)?.let { onSave(it.template) } },
                         enabled = result is TemplateBuildResult.Success,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent),
                         modifier = Modifier
                             .weight(1f)
                             .testTag("save_format_button")
-                    ) { Text("Save format", fontWeight = FontWeight.Bold) }
+                    )
                 }
             }
         }
