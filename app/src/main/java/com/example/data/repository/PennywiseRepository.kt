@@ -1,128 +1,27 @@
 package com.example.data.repository
 
-import com.example.data.local.BudgetDao
+import androidx.room.withTransaction
+import com.example.data.backup.BackupData
 import com.example.data.local.BudgetEntity
-import com.example.data.local.TransactionDao
+import com.example.data.local.CustomCategoryEntity
+import com.example.data.local.PennywiseDatabase
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
-import com.example.data.model.TransactionType
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// No demo data is seeded: the app starts empty so it only ever shows the user's own money.
 class PennywiseRepository(
-    private val transactionDao: TransactionDao,
-    private val budgetDao: BudgetDao,
-    private val coroutineScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
+    private val database: PennywiseDatabase
 ) {
+    private val transactionDao = database.transactionDao()
+    private val budgetDao = database.budgetDao()
+    private val categoryDao = database.categoryDao()
+
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
     val allBudgets: Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
-
-    init {
-        coroutineScope.launch {
-            try {
-                seedInitialDataIfEmpty()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    suspend fun seedInitialDataIfEmpty() = withContext(Dispatchers.IO) {
-        if (transactionDao.getTransactionCount() == 0) {
-            val now = System.currentTimeMillis()
-            val oneDayMs = 86_400_000L
-
-            val initialTransactions = listOf(
-                TransactionEntity(
-                    title = "Monthly Salary",
-                    amount = 4500.00,
-                    type = TransactionType.INCOME.name,
-                    category = Category.SALARY.displayName,
-                    date = now - (oneDayMs * 9),
-                    note = "Direct deposit from employer"
-                ),
-                TransactionEntity(
-                    title = "Apartment Rent",
-                    amount = 1200.00,
-                    type = TransactionType.EXPENSE.name,
-                    category = Category.HOUSING.displayName,
-                    date = now - (oneDayMs * 8),
-                    note = "October rent payment"
-                ),
-                TransactionEntity(
-                    title = "Whole Foods Groceries",
-                    amount = 135.50,
-                    type = TransactionType.EXPENSE.name,
-                    category = Category.FOOD_DINING.displayName,
-                    date = now - (oneDayMs * 6),
-                    note = "Weekly grocery run"
-                ),
-                TransactionEntity(
-                    title = "Electric & Water Bill",
-                    amount = 94.20,
-                    type = TransactionType.EXPENSE.name,
-                    category = Category.UTILITIES.displayName,
-                    date = now - (oneDayMs * 5),
-                    note = "City utility payment"
-                ),
-                TransactionEntity(
-                    title = "Freelance UI Design",
-                    amount = 650.00,
-                    type = TransactionType.INCOME.name,
-                    category = Category.FREELANCE.displayName,
-                    date = now - (oneDayMs * 4),
-                    note = "Landing page design client"
-                ),
-                TransactionEntity(
-                    title = "Metro Transit Pass",
-                    amount = 75.00,
-                    type = TransactionType.EXPENSE.name,
-                    category = Category.TRANSPORTATION.displayName,
-                    date = now - (oneDayMs * 3),
-                    note = "Monthly subway card"
-                ),
-                TransactionEntity(
-                    title = "New Headphones",
-                    amount = 129.99,
-                    type = TransactionType.EXPENSE.name,
-                    category = Category.SHOPPING.displayName,
-                    date = now - (oneDayMs * 2),
-                    note = "Noise-cancelling earbuds"
-                ),
-                TransactionEntity(
-                    title = "Movie Night & Snacks",
-                    amount = 42.00,
-                    type = TransactionType.EXPENSE.name,
-                    category = Category.ENTERTAINMENT.displayName,
-                    date = now - oneDayMs,
-                    note = "Weekend cinema"
-                ),
-                TransactionEntity(
-                    title = "Coffee & Bagel",
-                    amount = 8.75,
-                    type = TransactionType.EXPENSE.name,
-                    category = Category.FOOD_DINING.displayName,
-                    date = now,
-                    note = "Morning espresso"
-                )
-            )
-            transactionDao.insertAll(initialTransactions)
-        }
-
-        if (budgetDao.getBudgetCount() == 0) {
-            val initialBudgets = listOf(
-                BudgetEntity(category = Category.FOOD_DINING.displayName, monthlyLimit = 500.00),
-                BudgetEntity(category = Category.HOUSING.displayName, monthlyLimit = 1300.00),
-                BudgetEntity(category = Category.SHOPPING.displayName, monthlyLimit = 300.00),
-                BudgetEntity(category = Category.TRANSPORTATION.displayName, monthlyLimit = 150.00),
-                BudgetEntity(category = Category.UTILITIES.displayName, monthlyLimit = 200.00),
-                BudgetEntity(category = Category.ENTERTAINMENT.displayName, monthlyLimit = 150.00)
-            )
-            budgetDao.insertAll(initialBudgets)
-        }
-    }
+    val customCategories: Flow<List<CustomCategoryEntity>> = categoryDao.getAllCategories()
 
     suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
         transactionDao.insert(transaction)
@@ -142,5 +41,53 @@ class PennywiseRepository(
 
     suspend fun setBudget(category: String, limit: Double) = withContext(Dispatchers.IO) {
         budgetDao.insertOrUpdate(BudgetEntity(category = category, monthlyLimit = limit))
+    }
+
+    suspend fun removeBudget(category: String) = withContext(Dispatchers.IO) {
+        budgetDao.deleteByCategory(category)
+    }
+
+    suspend fun saveCustomCategory(category: CustomCategoryEntity) = withContext(Dispatchers.IO) {
+        categoryDao.insertOrUpdate(category)
+    }
+
+    suspend fun exportBackup(): BackupData = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            BackupData(
+                transactions = transactionDao.getAllTransactionsOnce(),
+                budgets = budgetDao.getAllBudgetsOnce(),
+                categories = categoryDao.getAllCategoriesOnce(),
+                exportedAt = System.currentTimeMillis()
+            )
+        }
+    }
+
+    /** Replaces everything with the backup's contents, all-or-nothing. */
+    suspend fun restoreBackup(data: BackupData) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            clearAllTables()
+            categoryDao.insertAll(data.categories)
+            budgetDao.insertAll(data.budgets)
+            transactionDao.insertAll(data.transactions)
+        }
+    }
+
+    suspend fun eraseAllData() = withContext(Dispatchers.IO) {
+        database.withTransaction { clearAllTables() }
+    }
+
+    private suspend fun clearAllTables() {
+        transactionDao.deleteAll()
+        budgetDao.deleteAll()
+        categoryDao.deleteAll()
+    }
+
+    /** Deletes a custom category; its transactions move to "Other" and its budget is removed. */
+    suspend fun deleteCustomCategory(name: String) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            transactionDao.reassignCategory(from = name, to = Category.OTHER.displayName)
+            budgetDao.deleteByCategory(name)
+            categoryDao.deleteByName(name)
+        }
     }
 }

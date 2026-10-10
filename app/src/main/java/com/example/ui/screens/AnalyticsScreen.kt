@@ -19,15 +19,23 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.CategoryInfo
+import com.example.data.model.TransactionType
 import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
 import com.example.domain.FinancialSummary
@@ -48,14 +58,23 @@ import com.example.ui.theme.VioletOutlineLight
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.theme.VioletPrimaryContainer
 import com.example.ui.util.Formatters
+import com.example.ui.util.LocalCategories
+
+private const val NEW_BUDGET = "\u0000new"
 
 @Composable
 fun AnalyticsScreen(
     summary: FinancialSummary,
     breakdowns: List<CategoryBreakdown>,
     budgetStatuses: List<CategoryBudgetStatus>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSaveBudget: (category: String, rawLimit: String) -> String? = { _, _ -> null },
+    onRemoveBudget: (category: String) -> Unit = {}
 ) {
+    // null = closed, NEW_BUDGET = adding, otherwise the category being edited.
+    var budgetEditorTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    val categories = LocalCategories.current
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -183,17 +202,31 @@ fun AnalyticsScreen(
 
         // Monthly Category Budgets Header
         item {
-            Column {
-                Text(
-                    text = "Category Budgets & Limits",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Spending in " + Formatters.formatMonthYear(System.currentTimeMillis()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Category Budgets & Limits",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Spending in " + Formatters.formatMonthYear(System.currentTimeMillis()) +
+                            if (budgetStatuses.isNotEmpty()) " · tap to edit" else "",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                TextButton(
+                    onClick = { budgetEditorTarget = NEW_BUDGET },
+                    modifier = Modifier.testTag("add_budget_button")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add", color = VioletPrimary, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
 
@@ -206,14 +239,32 @@ fun AnalyticsScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f))
                 ) {
-                    Box(modifier = Modifier.padding(20.dp), contentAlignment = Alignment.Center) {
-                        Text("No active budgets configured", style = MaterialTheme.typography.bodyMedium)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Set monthly limits to see how much you have left in each category.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { budgetEditorTarget = NEW_BUDGET },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary)
+                        ) { Text("Set a budget") }
                     }
                 }
             }
         } else {
             items(budgetStatuses, key = { it.categoryName }) { status ->
-                BudgetProgressCard(status = status)
+                BudgetProgressCard(
+                    status = status,
+                    onClick = { budgetEditorTarget = status.categoryName }
+                )
             }
         }
 
@@ -344,6 +395,20 @@ fun AnalyticsScreen(
         item {
             Spacer(modifier = Modifier.height(72.dp))
         }
+    }
+
+    budgetEditorTarget?.let { target ->
+        val editing = budgetStatuses.firstOrNull { it.categoryName == target }
+        val budgeted = budgetStatuses.map { it.categoryName }.toSet()
+        BudgetEditorDialog(
+            editingCategory = editing?.category,
+            currentLimit = editing?.budgetLimit,
+            availableCategories = CategoryInfo.forType(categories, TransactionType.EXPENSE)
+                .filter { it.name !in budgeted },
+            onSave = onSaveBudget,
+            onRemove = onRemoveBudget,
+            onDismiss = { budgetEditorTarget = null }
+        )
     }
 }
 

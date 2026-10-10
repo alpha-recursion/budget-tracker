@@ -175,6 +175,30 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun testCategoryInfo_resolveAndForType() {
+        val bike = com.example.data.model.CategoryInfo(
+            "Bike & Fuel", "two_wheeler", 0xFF0984E3, TransactionType.EXPENSE, isCustom = true
+        )
+        val all = com.example.data.model.CategoryInfo.builtIns + bike
+
+        assertEquals(bike, com.example.data.model.CategoryInfo.resolve("bike & fuel", all))
+        // Enum constant names from older data still resolve to the built-in.
+        assertEquals("Food & Dining", com.example.data.model.CategoryInfo.resolve("FOOD_DINING", all).name)
+        // A deleted custom category keeps its name but falls back to the "Other" look.
+        val unknown = com.example.data.model.CategoryInfo.resolve("Gym", all)
+        assertEquals("Gym", unknown.name)
+        assertEquals(Category.OTHER.iconKey, unknown.iconKey)
+
+        val expense = com.example.data.model.CategoryInfo.forType(all, TransactionType.EXPENSE).map { it.name }
+        assertTrue("Bike & Fuel" in expense)
+        assertTrue("Other" in expense)
+        assertFalse("Salary & Wages" in expense)
+        val income = com.example.data.model.CategoryInfo.forType(all, TransactionType.INCOME).map { it.name }
+        assertTrue("Other" in income)
+        assertFalse("Bike & Fuel" in income)
+    }
+
+    @Test
     fun testFormValidation_amount() {
         assertTrue(FormValidation.validateAmount("12.50").isValid)
         assertTrue(FormValidation.validateAmount("$45.00").isValid)
@@ -185,6 +209,17 @@ class ExampleUnitTest {
         assertFalse(FormValidation.validateAmount("-5.00").isValid)
         assertFalse(FormValidation.validateAmount("abc").isValid)
         assertFalse(FormValidation.validateAmount("12.999").isValid) // More than 2 decimals
+    }
+
+    @Test
+    fun testFormValidation_acceptsRupeeFormats() {
+        assertTrue(FormValidation.validateAmount("₹1,250").isValid)
+        assertTrue(FormValidation.validateAmount("Rs. 99.50").isValid)
+        assertTrue(FormValidation.validateAmount("Rs.45").isValid)
+        assertTrue(FormValidation.validateAmount("INR 40").isValid)
+        assertEquals(1250.0, FormValidation.parseAmount("₹1,250")!!, 0.001)
+        assertEquals(99.5, FormValidation.parseAmount("Rs. 99.50")!!, 0.001)
+        assertFalse(FormValidation.validateAmount("₹").isValid)
     }
 
     @Test

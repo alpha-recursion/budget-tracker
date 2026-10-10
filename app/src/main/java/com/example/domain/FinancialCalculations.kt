@@ -2,7 +2,7 @@ package com.example.domain
 
 import com.example.data.local.BudgetEntity
 import com.example.data.local.TransactionEntity
-import com.example.data.model.Category
+import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import java.util.Calendar
 import java.util.TimeZone
@@ -17,7 +17,7 @@ data class FinancialSummary(
 
 data class CategoryBreakdown(
     val categoryName: String,
-    val category: Category,
+    val category: CategoryInfo,
     val amount: Double,
     val percentage: Double, // 0.0 to 100.0
     val transactionCount: Int
@@ -25,7 +25,7 @@ data class CategoryBreakdown(
 
 data class CategoryBudgetStatus(
     val categoryName: String,
-    val category: Category,
+    val category: CategoryInfo,
     val spent: Double,
     val budgetLimit: Double,
     val remaining: Double,
@@ -73,7 +73,10 @@ object FinancialCalculations {
         )
     }
 
-    fun calculateCategoryBreakdown(transactions: List<TransactionEntity>): List<CategoryBreakdown> {
+    fun calculateCategoryBreakdown(
+        transactions: List<TransactionEntity>,
+        resolve: (String) -> CategoryInfo = { CategoryInfo.resolve(it) }
+    ): List<CategoryBreakdown> {
         val expenseTransactions = transactions.filter { it.type == TransactionType.EXPENSE.name }
         val totalExpense = expenseTransactions.sumOf { it.amount }
 
@@ -92,7 +95,7 @@ object FinancialCalculations {
             }
             CategoryBreakdown(
                 categoryName = catName,
-                category = Category.fromDisplayName(catName),
+                category = resolve(catName),
                 amount = amount,
                 percentage = percentage,
                 transactionCount = items.size
@@ -122,7 +125,8 @@ object FinancialCalculations {
 
     fun calculateBudgetStatuses(
         budgets: List<BudgetEntity>,
-        transactions: List<TransactionEntity>
+        transactions: List<TransactionEntity>,
+        resolve: (String) -> CategoryInfo = { CategoryInfo.resolve(it) }
     ): List<CategoryBudgetStatus> {
         val expenseTransactions = transactions.filter { it.type == TransactionType.EXPENSE.name }
         val spendingByCategory = expenseTransactions.groupBy { it.category }
@@ -135,7 +139,7 @@ object FinancialCalculations {
             val remaining = limit - spent
             CategoryBudgetStatus(
                 categoryName = budget.category,
-                category = Category.fromDisplayName(budget.category),
+                category = resolve(budget.category),
                 spent = spent,
                 budgetLimit = limit,
                 remaining = remaining,

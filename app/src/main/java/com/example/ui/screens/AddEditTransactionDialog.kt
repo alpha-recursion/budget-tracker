@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
@@ -60,7 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.local.TransactionEntity
-import com.example.data.model.Category
+import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
@@ -86,6 +87,8 @@ fun AddEditTransactionDialog(
     titleError: String?,
     categoryError: String?,
     isSaving: Boolean = false,
+    categories: List<CategoryInfo> = CategoryInfo.builtIns,
+    onCreateCategory: (name: String, type: TransactionType, iconKey: String, colorHex: Long) -> String? = { _, _, _, _ -> null },
     onTypeChange: (TransactionType) -> Unit,
     onAmountChange: (String) -> Unit,
     onTitleChange: (String) -> Unit,
@@ -98,8 +101,9 @@ fun AddEditTransactionDialog(
     if (!isOpen) return
 
     val isEditing = editingTransaction != null
-    val availableCategories = Category.getCategoriesForType(type)
+    val availableCategories = CategoryInfo.forType(categories, type)
     var showDatePicker by remember { mutableStateOf(false) }
+    var showCategoryEditor by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -207,7 +211,7 @@ fun AddEditTransactionDialog(
                         .fillMaxWidth()
                         .testTag("amount_input"),
                     label = { Text("Amount") },
-                    prefix = { Text("$ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = VioletPrimary) },
+                    prefix = { Text("₹ ", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = VioletPrimary) },
                     placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -282,12 +286,12 @@ fun AddEditTransactionDialog(
                         .testTag("category_selector"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(availableCategories, key = { it.displayName }) { cat ->
-                        val isSelected = selectedCategory.equals(cat.displayName, ignoreCase = true)
+                    items(availableCategories, key = { it.name }) { cat ->
+                        val isSelected = selectedCategory.equals(cat.name, ignoreCase = true)
                         Card(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
-                                .clickable { onCategoryChange(cat.displayName) }
+                                .clickable { onCategoryChange(cat.name) }
                                 .testTag("category_option_${cat.name}"),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(
@@ -307,17 +311,47 @@ fun AddEditTransactionDialog(
                             ) {
                                 Icon(
                                     imageVector = getCategoryIcon(cat.iconKey),
-                                    contentDescription = cat.displayName,
+                                    contentDescription = cat.name,
                                     tint = Color(cat.colorHex),
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = cat.displayName,
+                                    text = cat.name,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     ),
                                     color = if (isSelected) Color(cat.colorHex) else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    // Create a category without leaving the form (e.g. "Bike & Fuel").
+                    item(key = "new_category") {
+                        Card(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showCategoryEditor = true }
+                                .testTag("new_category_chip"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = VioletPrimaryContainer)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = VioletPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "New",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                    color = VioletPrimary
                                 )
                             }
                         }
@@ -423,6 +457,18 @@ fun AddEditTransactionDialog(
                     }
                 }
             }
+        }
+
+        if (showCategoryEditor) {
+            CategoryEditorDialog(
+                initialType = type,
+                onSave = { name, newType, iconKey, colorHex ->
+                    val error = onCreateCategory(name, newType, iconKey, colorHex)
+                    if (error == null) showCategoryEditor = false
+                    error
+                },
+                onDismiss = { showCategoryEditor = false }
+            )
         }
 
         // Calendar Date Picker Dialog

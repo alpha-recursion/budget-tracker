@@ -12,6 +12,21 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.LocalGasStation
+import androidx.compose.material.icons.filled.LocalGroceryStore
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -21,7 +36,9 @@ import java.util.Locale
 
 object Formatters {
 
-    private val currencyFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale.US).apply {
+    // Indian rupees with Indian digit grouping (₹1,23,456.00). The symbol is added by hand so
+    // it is always "₹" regardless of what the platform's currency data uses for en-IN.
+    private val rupeeNumberFormat: NumberFormat = NumberFormat.getNumberInstance(Locale("en", "IN")).apply {
         maximumFractionDigits = 2
         minimumFractionDigits = 2
     }
@@ -33,11 +50,15 @@ object Formatters {
     private val monthYearFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
 
     fun formatCurrency(amount: Double): String {
-        return currencyFormat.format(amount)
+        return if (amount < 0) {
+            "-₹" + rupeeNumberFormat.format(-amount)
+        } else {
+            "₹" + rupeeNumberFormat.format(amount)
+        }
     }
 
     fun formatSignedCurrency(amount: Double, type: String): String {
-        val formatted = currencyFormat.format(amount)
+        val formatted = formatCurrency(amount)
         return if (type.equals("INCOME", ignoreCase = true)) {
             "+$formatted"
         } else {
@@ -88,6 +109,21 @@ fun getCategoryIcon(iconKey: String): ImageVector {
         "work" -> Icons.Default.Work
         "laptop" -> Icons.Default.Laptop
         "trending_up" -> Icons.AutoMirrored.Filled.TrendingUp
+        "two_wheeler" -> Icons.Default.TwoWheeler
+        "local_gas_station" -> Icons.Default.LocalGasStation
+        "local_grocery_store" -> Icons.Default.LocalGroceryStore
+        "local_cafe" -> Icons.Default.LocalCafe
+        "checkroom" -> Icons.Default.Checkroom
+        "phone_android" -> Icons.Default.PhoneAndroid
+        "school" -> Icons.Default.School
+        "fitness_center" -> Icons.Default.FitnessCenter
+        "spa" -> Icons.Default.Spa
+        "sports_esports" -> Icons.Default.SportsEsports
+        "flight" -> Icons.Default.Flight
+        "pets" -> Icons.Default.Pets
+        "card_giftcard" -> Icons.Default.CardGiftcard
+        "people" -> Icons.Default.People
+        "savings" -> Icons.Default.Savings
         else -> Icons.Default.MoreHoriz
     }
 }

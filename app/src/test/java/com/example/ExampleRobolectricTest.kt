@@ -37,10 +37,7 @@ class ExampleRobolectricTest {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         database = PennywiseDatabase.createInMemory(context)
-        repository = PennywiseRepository(
-            database.transactionDao(),
-            database.budgetDao()
-        )
+        repository = PennywiseRepository(database)
         viewModel = PennywiseViewModel(context, repository)
     }
 
@@ -153,6 +150,45 @@ class ExampleRobolectricTest {
             Category.getCategoriesForType(TransactionType.INCOME)
                 .any { it.displayName == viewModel.formCategory.value }
         )
+    }
+
+    @Test
+    fun `custom category validation rejects blanks and duplicates`() {
+        assertNotNull(viewModel.addCustomCategory("   ", TransactionType.EXPENSE, "two_wheeler", 0xFF0984E3))
+        // Built-in names are taken, case-insensitively.
+        assertNotNull(viewModel.addCustomCategory("shopping", TransactionType.EXPENSE, "two_wheeler", 0xFF0984E3))
+        assertNull(viewModel.addCustomCategory("Bike & Fuel", TransactionType.EXPENSE, "two_wheeler", 0xFF0984E3))
+    }
+
+    @Test
+    fun `deleting a custom category moves its transactions to Other`() = runBlocking {
+        repository.saveCustomCategory(
+            com.example.data.local.CustomCategoryEntity("Bike & Fuel", "two_wheeler", 0xFF0984E3, TransactionType.EXPENSE.name)
+        )
+        val id = database.transactionDao().insert(
+            TransactionEntity(
+                title = "Petrol",
+                amount = 500.0,
+                type = TransactionType.EXPENSE.name,
+                category = "Bike & Fuel",
+                date = 1000L
+            )
+        )
+        repository.setBudget("Bike & Fuel", 2000.0)
+
+        repository.deleteCustomCategory("Bike & Fuel")
+
+        assertEquals(Category.OTHER.displayName, database.transactionDao().getTransactionById(id)?.category)
+        assertTrue(database.budgetDao().getAllBudgetsOnce().none { it.category == "Bike & Fuel" })
+        assertTrue(database.categoryDao().getAllCategoriesOnce().isEmpty())
+    }
+
+    @Test
+    fun `budget limits are validated before saving`() {
+        assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, ""))
+        assertNotNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, "-100"))
+        assertNotNull(viewModel.saveBudget("", "3000"))
+        assertNull(viewModel.saveBudget(Category.FOOD_DINING.displayName, "₹3,000"))
     }
 
     @Test
