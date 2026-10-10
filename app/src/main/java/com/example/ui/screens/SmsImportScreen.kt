@@ -37,8 +37,6 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -77,6 +75,7 @@ import com.example.domain.sms.ImportCandidate
 import com.example.domain.sms.ImportGroup
 import com.example.ui.SmsImportPhase
 import com.example.ui.SmsImportState
+import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.VioletOutlineLight
@@ -85,6 +84,7 @@ import com.example.ui.theme.VioletPrimaryContainer
 import com.example.ui.theme.WarningAmber
 import com.example.ui.util.DateConversions
 import com.example.ui.util.Formatters
+import com.example.ui.util.getCategoryIcon
 import java.util.Calendar
 
 private const val DAY_MS = 86_400_000L
@@ -502,6 +502,16 @@ private fun GroupCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (group.nameVariants.isNotEmpty()) {
+                        // Same vendor, name cut differently by the bank.
+                        Text(
+                            "Also as: " + group.nameVariants.joinToString(", "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 
@@ -509,7 +519,8 @@ private fun GroupCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 12.dp)
             ) {
-                CategoryDropdown(
+                CategoryButton(
+                    title = group.title,
                     current = category,
                     options = CategoryInfo.forType(categories, group.type),
                     enabled = enabled && !isSelfTransfer,
@@ -596,42 +607,47 @@ private fun Badge(text: String, color: Color) {
 }
 
 @Composable
-private fun CategoryDropdown(
+private fun CategoryButton(
+    title: String,
     current: String,
     options: List<CategoryInfo>,
     enabled: Boolean,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Box(modifier = modifier) {
-        OutlinedButton(
-            onClick = { expanded = true },
-            enabled = enabled,
-            shape = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                current,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Icon(Icons.Default.ArrowDropDown, contentDescription = "Choose category")
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.name) },
-                    onClick = {
-                        onSelect(option.name)
-                        expanded = false
-                    }
-                )
-            }
-        }
+    var showPicker by remember { mutableStateOf(false) }
+    val info = CategoryInfo.resolve(current, options)
+    OutlinedButton(
+        onClick = { showPicker = true },
+        enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+        modifier = modifier
+    ) {
+        Icon(
+            getCategoryIcon(info.iconKey),
+            contentDescription = null,
+            tint = if (enabled) Color(info.colorHex) else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            current,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Icon(Icons.Default.ArrowDropDown, contentDescription = "Choose category")
+    }
+    if (showPicker) {
+        CategoryPickerDialog(
+            title = "Category for $title",
+            categories = options,
+            selected = current,
+            onSelect = onSelect,
+            onDismiss = { showPicker = false }
+        )
     }
 }
 

@@ -68,6 +68,7 @@ import com.example.ui.theme.IncomeGreen
 import com.example.ui.theme.VioletOutlineLight
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.theme.VioletPrimaryContainer
+import com.example.ui.components.CategoryGrid
 import com.example.ui.util.DateConversions
 import com.example.ui.util.Formatters
 import com.example.ui.util.getCategoryIcon
@@ -280,83 +281,13 @@ fun AddEditTransactionDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("category_selector"),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(availableCategories, key = { it.name }) { cat ->
-                        val isSelected = selectedCategory.equals(cat.name, ignoreCase = true)
-                        Card(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { onCategoryChange(cat.name) }
-                                .testTag("category_option_${cat.name}"),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) {
-                                    Color(cat.colorHex).copy(alpha = 0.16f)
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                }
-                            ),
-                            border = if (isSelected) {
-                                BorderStroke(2.dp, Color(cat.colorHex))
-                            } else null
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = getCategoryIcon(cat.iconKey),
-                                    contentDescription = cat.name,
-                                    tint = Color(cat.colorHex),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = cat.name,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    ),
-                                    color = if (isSelected) Color(cat.colorHex) else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-
-                    // Create a category without leaving the form (e.g. "Bike & Fuel").
-                    item(key = "new_category") {
-                        Card(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { showCategoryEditor = true }
-                                .testTag("new_category_chip"),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = VioletPrimaryContainer)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = VioletPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "New",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                    color = VioletPrimary
-                                )
-                            }
-                        }
-                    }
-                }
+                // Grid instead of a sideways-scrolling row: every category is visible at once.
+                CategoryGrid(
+                    categories = availableCategories,
+                    selected = selectedCategory,
+                    onSelect = onCategoryChange,
+                    onCreateNew = { showCategoryEditor = true }
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
 

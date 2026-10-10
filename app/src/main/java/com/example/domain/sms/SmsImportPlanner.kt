@@ -4,6 +4,7 @@ import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
 import com.example.data.model.TransactionType
+import com.example.domain.VendorMatcher
 import java.security.MessageDigest
 import java.util.Calendar
 import java.util.Locale
@@ -45,7 +46,9 @@ data class ImportGroup(
     val ruleKey: String?,
     val items: List<ImportCandidate>,
     val suggestedCategory: String,
-    val suggestedSelfTransfer: Boolean
+    val suggestedSelfTransfer: Boolean,
+    /** Other spellings of the same vendor merged into this group (e.g. truncated names). */
+    val nameVariants: List<String> = emptyList()
 )
 
 /** What a scan saw, so the user can tell why messages were or were not found. */
@@ -195,27 +198,44 @@ object SmsImportPlanner {
             )
         }
 
+        // Same vendor spelled differently (banks truncate names) -> one group per direction.
+        val canonicalByType = TransactionType.entries.associateWith { type ->
+            VendorMatcher.canonicalNames(
+                candidates.filter { it.parsed.type == type }.mapNotNull { it.parsed.counterparty }
+            )
+        }
+
         val groups = candidates
             .groupBy { c ->
-                val rule = c.parsed.counterparty?.let { ruleKey(c.parsed.type, it) }
-                // Messages without a payee are reviewed one by one, so e.g. salary and a
-                // friend's repayment are not forced into the same category.
-                rule ?: "single:${c.dedupeKey}"
+                val payee = c.parsed.counterparty
+                val type = c.parsed.type
+                if (payee != null && VendorMatcher.compact(payee).isNotEmpty()) {
+                    "${type.name.lowercase(Locale.US)}:" + VendorMatcher.groupKey(payee, canonicalByType.getValue(type))
+                } else {
+                    // Messages without a payee are reviewed one by one, so e.g. salary and a
+                    // friend's repayment are not forced into the same category.
+                    "single:${c.dedupeKey}"
+                }
             }
             .map { (key, items) ->
                 val first = items.first()
                 val type = first.parsed.type
-                val ruleKey = first.parsed.counterparty?.let { ruleKey(type, it) }
-                val rule = ruleKey?.let { rulesByKey[it] }
+                val canonical = first.parsed.counterparty?.let { canonicalByType.getValue(type)[it] ?: it }
+                val canonicalKey = canonical?.let { ruleKey(type, it) }
+                val rule = canonical?.let { findRule(type, it, canonicalKey, rulesByKey) }
+                // Update the existing rule for this vendor rather than adding a second spelling:
+                // two rules for one vendor would make the next spelling ambiguous.
+                val ruleKey = rule?.counterpartyKey ?: canonicalKey
                 val category = rule?.category?.takeIf { it in validCategories } ?: Category.OTHER.displayName
                 ImportGroup(
                     key = key,
-                    title = first.title,
+                    title = canonical ?: first.title,
                     type = type,
                     ruleKey = ruleKey,
                     items = items,
                     suggestedCategory = category,
-                    suggestedSelfTransfer = rule?.isSelfTransfer == true || items.all { it.looksLikeSelfTransfer }
+                    suggestedSelfTransfer = rule?.isSelfTransfer == true || items.all { it.looksLikeSelfTransfer },
+                    nameVariants = items.map { it.title }.distinct().filter { it != canonical }
                 )
             }
             .sortedByDescending { group -> group.items.maxOf { it.dateMs } }
@@ -230,6 +250,25 @@ object SmsImportPlanner {
                 unrecognised = unrecognised
             )
         )
+    }
+
+    /**
+     * The remembered choice for a payee: exact key first, otherwise a rule for the same vendor
+     * spelled differently (e.g. saved as "some other t c", now seen as "Some Other T Center").
+     */
+    fun findRule(
+        type: TransactionType,
+        payee: String,
+        exactKey: String?,
+        rulesByKey: Map<String, MerchantRuleEntity>
+    ): MerchantRuleEntity? {
+        exactKey?.let { rulesByKey[it] }?.let { return it }
+        val prefix = "${type.name.lowercase(Locale.US)}:"
+        val sameDirection = rulesByKey.values
+            .filter { it.counterpartyKey.startsWith(prefix) }
+            .associateBy { VendorMatcher.compact(it.counterpartyKey.removePrefix(prefix)) }
+        val match = VendorMatcher.bestMatch(payee, sameDirection.keys) ?: return null
+        return sameDirection[match]
     }
 
     private fun fallbackTitle(parsed: ParsedBankSms): String {

@@ -11,6 +11,7 @@ import com.example.data.backup.BackupSerializer
 import com.example.data.backup.InvalidBackupException
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
+import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.PennywiseDatabase
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
@@ -21,7 +22,10 @@ import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
 import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
+import com.example.domain.CategoryPropagation
 import com.example.domain.FormValidation
+import com.example.domain.VendorSpend
+import com.example.domain.sms.SmsImportPlanner
 import com.example.domain.sms.SmsTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,6 +47,13 @@ enum class SortOption(val label: String) {
 }
 
 enum class Overlay { SETTINGS, SMS_IMPORT }
+
+/** Offer to give other transactions from the same vendor the category just chosen. */
+data class SimilarCategoryPrompt(
+    val category: String,
+    val vendorName: String,
+    val transactions: List<TransactionEntity>
+)
 
 class PennywiseViewModel @JvmOverloads constructor(
     application: Application,
@@ -235,6 +246,26 @@ class PennywiseViewModel @JvmOverloads constructor(
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving
 
+    // True once the user picks a category in the open form; auto-category never overrides that.
+    private var formCategoryChosenByUser = false
+
+    // Remembered vendor -> category choices (from SMS imports and saved transactions).
+    private val merchantRules: StateFlow<List<MerchantRuleEntity>> = repository.merchantRulesFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Where the most money went this month, by vendor (similar spellings combined). */
+    val topVendors: StateFlow<List<VendorSpend>> = allTransactions
+        .map { txs -> FinancialCalculations.topVendors(FinancialCalculations.filterToMonth(txs, System.currentTimeMillis())) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** How often each category is used, for ordering the category picker. */
+    val categoryUsage: StateFlow<Map<String, Int>> = allTransactions
+        .map { txs -> txs.groupingBy { it.category }.eachCount() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    private val _similarPrompt = MutableStateFlow<SimilarCategoryPrompt?>(null)
+    val similarPrompt: StateFlow<SimilarCategoryPrompt?> = _similarPrompt
+
     // Delete Confirmation
     private val _transactionToDelete = MutableStateFlow<TransactionEntity?>(null)
     val transactionToDelete: StateFlow<TransactionEntity?> = _transactionToDelete
@@ -276,6 +307,7 @@ class PennywiseViewModel @JvmOverloads constructor(
         }
         // When created from the transaction form, select the new category straight away.
         if (_isAddEditOpen.value && _formType.value == type) {
+            formCategoryChosenByUser = true
             _formCategory.value = trimmed
             _categoryError.value = null
         }
@@ -427,6 +459,7 @@ class PennywiseViewModel @JvmOverloads constructor(
         _amountError.value = null
         _titleError.value = null
         _categoryError.value = null
+        formCategoryChosenByUser = false
         _isAddEditOpen.value = true
     }
 
@@ -446,6 +479,7 @@ class PennywiseViewModel @JvmOverloads constructor(
         _amountError.value = null
         _titleError.value = null
         _categoryError.value = null
+        formCategoryChosenByUser = true // keep the existing category while editing
         _isAddEditOpen.value = true
     }
 
@@ -461,6 +495,8 @@ class PennywiseViewModel @JvmOverloads constructor(
         if (available.none { it.name.equals(_formCategory.value, ignoreCase = true) }) {
             _formCategory.value = available.firstOrNull()?.name ?: Category.OTHER.displayName
         }
+        // Remembered choices are per direction, so look the vendor up again.
+        suggestCategoryFor(_formTitle.value)
     }
 
     fun updateFormAmount(amount: String) {
@@ -475,9 +511,24 @@ class PennywiseViewModel @JvmOverloads constructor(
         if (_titleError.value != null) {
             _titleError.value = FormValidation.validateTitle(title).errorOrNull
         }
+        suggestCategoryFor(title)
+    }
+
+    /** Pre-selects the remembered category of a known vendor, unless the user chose one already. */
+    private fun suggestCategoryFor(title: String) {
+        if (formCategoryChosenByUser) return
+        val type = _formType.value
+        val rules = merchantRules.value.associateBy { it.counterpartyKey }
+        val rule = SmsImportPlanner.findRule(type, title, SmsImportPlanner.ruleKey(type, title), rules) ?: return
+        if (rule.isSelfTransfer) return
+        if (CategoryInfo.forType(categories.value, type).any { it.name == rule.category }) {
+            _formCategory.value = rule.category
+            _categoryError.value = null
+        }
     }
 
     fun updateFormCategory(category: String) {
+        formCategoryChosenByUser = true
         _formCategory.value = category
         _categoryError.value = null
     }
@@ -524,6 +575,14 @@ class PennywiseViewModel @JvmOverloads constructor(
             note = _formNote.value.trim()
         )
 
+        // Snapshot before saving: used to offer the same category for this vendor's other entries.
+        val categoryChanged = currentEditing != null && currentEditing.category != entity.category
+        val similar = if (categoryChanged) {
+            CategoryPropagation.similarTo(entity, entity.category, allTransactions.value)
+        } else {
+            emptyList()
+        }
+
         _isSaving.value = true
         viewModelScope.launch {
             try {
@@ -532,12 +591,39 @@ class PennywiseViewModel @JvmOverloads constructor(
                 } else {
                     repository.insertTransaction(entity)
                 }
+                // Remember the vendor's category for auto-category and future SMS imports.
+                if (currentEditing == null || categoryChanged) {
+                    repository.rememberCategory(_formType.value, entity.title, entity.category)
+                }
                 dismissAddEditDialog()
+                if (similar.isNotEmpty()) {
+                    _similarPrompt.value = SimilarCategoryPrompt(
+                        category = entity.category,
+                        vendorName = CategoryPropagation.vendorName(entity, similar),
+                        transactions = similar
+                    )
+                }
             } finally {
                 _isSaving.value = false
             }
         }
         return true
+    }
+
+    /** Applies the prompt's category to the chosen transactions ([ids] ticked by the user). */
+    fun applySimilarCategory(ids: Set<Long>) {
+        val prompt = _similarPrompt.value ?: return
+        _similarPrompt.value = null
+        val chosen = prompt.transactions.filter { it.id in ids }.map { it.id }
+        if (chosen.isEmpty()) return
+        viewModelScope.launch {
+            repository.setCategory(chosen, prompt.category)
+            _userMessage.value = "Updated ${chosen.size} more transaction${if (chosen.size == 1) "" else "s"} to ${prompt.category}"
+        }
+    }
+
+    fun dismissSimilarPrompt() {
+        _similarPrompt.value = null
     }
 
     fun promptDelete(transaction: TransactionEntity) {

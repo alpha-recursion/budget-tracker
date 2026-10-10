@@ -169,4 +169,32 @@ class SmsImportPlannerTest {
         // The card alert is shown for teaching; the OTP and the personal message are not.
         assertEquals(listOf(unknownFormat), stats.unrecognised)
     }
+
+    @Test
+    fun truncatedPayeeNamesAreOneGroupWithRememberedCategory() {
+        fun kotak(id: Long, payee: String, amount: String, ref: String) = RawSms(
+            id, "JD-KOTAKB-S",
+            "Sent Rs.$amount from Kotak Bank A/c X0271 to $payee on 30-08-26. UPI Ref $ref. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud",
+            at(30, id.toInt() % 20)
+        )
+        val messages = listOf(
+            kotak(31, "SOME OTHER T CENTER", "20.00", "100000000031"),
+            kotak(32, "SOME OTHER T C", "25.00", "100000000032"),
+            kotak(33, "SOME OTHER T CEN", "30.00", "100000000033"),
+            kotak(34, "ZEPTO", "99.00", "100000000034")
+        )
+        // A choice remembered under a truncated spelling still applies.
+        val rules = listOf(MerchantRuleEntity("expense:some other t c", "Food & Dining", false))
+        val groups = plan(messages, rules = rules).groups.associateBy { it.title }
+
+        val tea = groups.getValue("Some Other T Center")
+        assertEquals(3, tea.items.size)
+        assertEquals(setOf("Some Other T C", "Some Other T Cen"), tea.nameVariants.toSet())
+        assertEquals("Food & Dining", tea.suggestedCategory)
+        // The existing rule is updated rather than a second spelling added.
+        assertEquals("expense:some other t c", tea.ruleKey)
+        // Imported titles keep the bank's own spelling; only the category is shared.
+        assertTrue(tea.items.any { it.title == "Some Other T C" })
+        assertEquals(1, groups.getValue("Zepto").items.size)
+    }
 }

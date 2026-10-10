@@ -10,7 +10,16 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,6 +37,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -59,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
@@ -74,6 +86,8 @@ import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.theme.VioletPrimaryContainer
 import com.example.ui.util.LocalCategories
+import com.example.ui.util.LocalCategoryUsage
+import com.example.ui.util.Formatters
 
 // Screen keys for the main content area: the three tabs plus full screens shown on top of them.
 private const val SETTINGS_SCREEN = 3
@@ -134,6 +148,7 @@ fun PennywiseApp(
     val filteredTransactions by viewModel.filteredTransactions.collectAsStateWithLifecycle()
     val categoryBreakdowns by viewModel.categoryBreakdowns.collectAsStateWithLifecycle()
     val budgetStatuses by viewModel.budgetStatuses.collectAsStateWithLifecycle()
+    val topVendors by viewModel.topVendors.collectAsStateWithLifecycle()
 
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filterType by viewModel.filterType.collectAsStateWithLifecycle()
@@ -149,7 +164,12 @@ fun PennywiseApp(
         if (isOverlayOpen) viewModel.closeOverlay() else viewModel.setTab(0)
     }
 
-    CompositionLocalProvider(LocalCategories provides categories) {
+    val categoryUsage by viewModel.categoryUsage.collectAsStateWithLifecycle()
+
+    CompositionLocalProvider(
+        LocalCategories provides categories,
+        LocalCategoryUsage provides categoryUsage
+    ) {
         Scaffold(
             modifier = modifier.fillMaxSize(),
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -334,6 +354,7 @@ fun PennywiseApp(
                                     summary = summary,
                                     breakdowns = categoryBreakdowns,
                                     budgetStatuses = budgetStatuses,
+                                    topVendors = topVendors,
                                     onSaveBudget = viewModel::saveBudget,
                                     onRemoveBudget = { viewModel.removeBudget(it) }
                                 )
@@ -383,6 +404,7 @@ fun PennywiseApp(
             // Dialogs read their own state so typing in the form does not recompose the whole app.
             AddEditTransactionHost(viewModel = viewModel)
             DeleteConfirmationHost(viewModel = viewModel)
+            SimilarCategoryHost(viewModel = viewModel)
 
             teachText?.let { initial ->
                 TeachFormatDialog(
@@ -477,6 +499,79 @@ private fun DeleteConfirmationHost(viewModel: PennywiseViewModel) {
             ) {
                 Text("Cancel")
             }
+        }
+    )
+}
+
+/** After a category change: "Also set 3 more from Some Other T Center to Food & Dining?" */
+@Composable
+private fun SimilarCategoryHost(viewModel: PennywiseViewModel) {
+    val prompt by viewModel.similarPrompt.collectAsStateWithLifecycle()
+    val current = prompt ?: return
+    // All ticked by default; keyed by the prompt so a new prompt starts fresh.
+    var ticked by remember(current) { mutableStateOf(current.transactions.map { it.id }.toSet()) }
+
+    AlertDialog(
+        onDismissRequest = { viewModel.dismissSimilarPrompt() },
+        modifier = Modifier.testTag("similar_category_dialog"),
+        title = {
+            Text(
+                "Also set ${current.transactions.size} more to ${current.category}?",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    "Other transactions from ${current.vendorName}:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                    items(current.transactions, key = { it.id }) { tx ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    ticked = if (tx.id in ticked) ticked - tx.id else ticked + tx.id
+                                }
+                        ) {
+                            Checkbox(
+                                checked = tx.id in ticked,
+                                onCheckedChange = { on -> ticked = if (on) ticked + tx.id else ticked - tx.id },
+                                colors = CheckboxDefaults.colors(checkedColor = VioletPrimary)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(tx.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    Formatters.formatDate(tx.date) + " · now " + tx.category,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Text(
+                                Formatters.formatCurrency(tx.amount),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { viewModel.applySimilarCategory(ticked) },
+                enabled = ticked.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(containerColor = VioletPrimary),
+                modifier = Modifier.testTag("apply_similar_button")
+            ) { Text("Update ${ticked.size}", fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            TextButton(onClick = { viewModel.dismissSimilarPrompt() }) { Text("Not now") }
         }
     )
 }

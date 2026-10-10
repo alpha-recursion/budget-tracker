@@ -10,6 +10,8 @@ import com.example.data.local.SmsImportEntity
 import com.example.data.local.SmsImportStatus
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
+import com.example.data.model.TransactionType
+import com.example.domain.sms.SmsImportPlanner
 import com.example.data.sms.toDomainOrNull
 import com.example.data.sms.toEntity
 import com.example.domain.sms.SmsTemplate
@@ -32,6 +34,7 @@ class PennywiseRepository(
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
     val allBudgets: Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
     val customCategories: Flow<List<CustomCategoryEntity>> = categoryDao.getAllCategories()
+    val merchantRulesFlow: Flow<List<MerchantRuleEntity>> = merchantRuleDao.getAll()
     val smsTemplates: Flow<List<SmsTemplate>> = smsTemplateDao.getAll()
         .map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
 
@@ -121,6 +124,22 @@ class PennywiseRepository(
 
     suspend fun merchantRules(): List<MerchantRuleEntity> = withContext(Dispatchers.IO) {
         merchantRuleDao.getAllOnce()
+    }
+
+    /** Sets [category] on the given transactions (e.g. all from the same vendor). */
+    suspend fun setCategory(ids: List<Long>, category: String) = withContext(Dispatchers.IO) {
+        if (ids.isNotEmpty()) transactionDao.setCategory(ids, category)
+    }
+
+    /**
+     * Remembers [category] for the vendor [title], for future SMS imports and auto-category
+     * while typing. An existing rule for the same vendor (any spelling) is updated in place.
+     */
+    suspend fun rememberCategory(type: TransactionType, title: String, category: String) = withContext(Dispatchers.IO) {
+        val exactKey = SmsImportPlanner.ruleKey(type, title) ?: return@withContext
+        val rules = merchantRuleDao.getAllOnce().associateBy { it.counterpartyKey }
+        val key = SmsImportPlanner.findRule(type, title, exactKey, rules)?.counterpartyKey ?: exactKey
+        merchantRuleDao.insertAll(listOf(MerchantRuleEntity(key, category, isSelfTransfer = false)))
     }
 
     suspend fun smsTemplatesOnce(): List<SmsTemplate> = withContext(Dispatchers.IO) {

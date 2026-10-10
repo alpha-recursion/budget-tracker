@@ -51,6 +51,7 @@ import com.example.data.model.TransactionType
 import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
 import com.example.domain.FinancialSummary
+import com.example.domain.VendorSpend
 import com.example.ui.components.BudgetProgressCard
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.IncomeGreen
@@ -69,7 +70,8 @@ fun AnalyticsScreen(
     budgetStatuses: List<CategoryBudgetStatus>,
     modifier: Modifier = Modifier,
     onSaveBudget: (category: String, rawLimit: String) -> String? = { _, _ -> null },
-    onRemoveBudget: (category: String) -> Unit = {}
+    onRemoveBudget: (category: String) -> Unit = {},
+    topVendors: List<VendorSpend> = emptyList()
 ) {
     // null = closed, NEW_BUDGET = adding, otherwise the category being edited.
     var budgetEditorTarget by rememberSaveable { mutableStateOf<String?>(null) }
@@ -199,6 +201,9 @@ fun AnalyticsScreen(
                 }
             }
         }
+
+        // Top vendors this month
+        item { TopVendorsCard(topVendors) }
 
         // Monthly Category Budgets Header
         item {
@@ -434,5 +439,101 @@ private fun CashFlowStat(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun TopVendorsCard(vendors: List<VendorSpend>) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("top_vendors_card"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, VioletOutlineLight.copy(alpha = 0.6f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Column {
+                Text(
+                    text = "Top vendors",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Where your money went in " + Formatters.formatMonthYear(System.currentTimeMillis()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (vendors.isEmpty()) {
+                Text(
+                    "No spending recorded this month yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            vendors.forEachIndexed { index, vendor ->
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(VioletPrimaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "${index + 1}",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = VioletPrimary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        // Value first (largest, boldest); vendor and count are secondary.
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                vendor.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                "${vendor.count} payment${if (vendor.count == 1) "" else "s"} · " +
+                                    Formatters.formatPercentage(vendor.percentage),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            Formatters.formatCurrency(vendor.total),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { (vendor.percentage / 100.0).toFloat().coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = VioletPrimary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeCap = StrokeCap.Round,
+                        gapSize = 0.dp,
+                        drawStopIndicator = {}
+                    )
+                }
+            }
+        }
     }
 }

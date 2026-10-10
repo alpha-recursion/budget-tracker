@@ -199,6 +199,27 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun testTopVendors_combinesTruncatedNames() {
+        fun tx(id: Long, title: String, amount: Double, type: String = "EXPENSE") =
+            TransactionEntity(id = id, title = title, amount = amount, type = type, category = "Other", date = id)
+        val result = FinancialCalculations.topVendors(
+            listOf(
+                tx(1, "Some Other T Center", 20.0),
+                tx(2, "Some Other T C", 25.0),
+                tx(3, "Some Other T Cen", 30.0),
+                tx(4, "Zepto", 453.0),
+                tx(5, "Dev Tea", 53.0),
+                tx(6, "Salary", 50000.0, type = "INCOME") // income is not spending
+            ),
+            limit = 2
+        )
+        assertEquals(listOf("Zepto", "Some Other T Center"), result.map { it.name })
+        assertEquals(75.0, result[1].total, 0.001)
+        assertEquals(3, result[1].count)
+        assertEquals(453.0 / 581.0 * 100.0, result[0].percentage, 0.001)
+    }
+
+    @Test
     fun testFormValidation_amount() {
         assertTrue(FormValidation.validateAmount("12.50").isValid)
         assertTrue(FormValidation.validateAmount("₹45.00").isValid)

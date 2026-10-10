@@ -4,11 +4,15 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MerchantRuleDao {
     @Query("SELECT * FROM merchant_rules")
     suspend fun getAllOnce(): List<MerchantRuleEntity>
+
+    @Query("SELECT * FROM merchant_rules")
+    fun getAll(): Flow<List<MerchantRuleEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(rules: List<MerchantRuleEntity>)

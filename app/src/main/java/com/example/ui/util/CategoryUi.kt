@@ -20,3 +20,19 @@ val CategoryColorChoices: List<Long> = listOf(
     0xFFFF7675, 0xFFE17055, 0xFFFDCB6E, 0xFF00B894, 0xFF00CEC9,
     0xFF0984E3, 0xFF6C5CE7, 0xFFA29BFE, 0xFFE84393, 0xFF636E72
 )
+
+/** How many transactions use each category; pickers show the most-used first. */
+val LocalCategoryUsage = compositionLocalOf { emptyMap<String, Int>() }
+
+/** Most-used first (ties keep the original order); "Other" always last. */
+fun orderByUsage(categories: List<CategoryInfo>, usage: Map<String, Int>): List<CategoryInfo> {
+    val other = com.example.data.model.Category.OTHER.displayName
+    return categories
+        .withIndex()
+        .sortedWith(
+            compareBy<IndexedValue<CategoryInfo>> { it.value.name == other }
+                .thenByDescending { usage[it.value.name] ?: 0 }
+                .thenBy { it.index }
+        )
+        .map { it.value }
+}

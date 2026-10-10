@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.model.CategoryInfo
+import com.example.ui.components.CategoryGrid
 import com.example.ui.theme.ExpenseRed
 import com.example.ui.theme.VioletPrimary
 import com.example.ui.util.getCategoryIcon
@@ -76,7 +79,8 @@ fun BudgetEditorDialog(
             )
         },
         text = {
-            Column {
+            // Scrollable: the category grid plus the amount field can exceed small screens.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 if (editingCategory == null) {
                     if (availableCategories.isEmpty()) {
                         Text(
@@ -86,36 +90,11 @@ fun BudgetEditorDialog(
                     } else {
                         Text("Category", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                         Spacer(modifier = Modifier.height(6.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(availableCategories, key = { it.name }) { cat ->
-                                val isSelected = cat.name == selected
-                                Card(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable { selected = cat.name },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected) Color(cat.colorHex).copy(alpha = 0.16f)
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                    ),
-                                    border = if (isSelected) BorderStroke(2.dp, Color(cat.colorHex)) else null
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = getCategoryIcon(cat.iconKey),
-                                            contentDescription = null,
-                                            tint = Color(cat.colorHex),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(cat.name, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                            }
-                        }
+                        CategoryGrid(
+                            categories = availableCategories,
+                            selected = selected,
+                            onSelect = { selected = it }
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
