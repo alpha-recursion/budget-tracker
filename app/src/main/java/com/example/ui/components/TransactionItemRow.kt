@@ -104,10 +104,14 @@ fun TransactionItemRow(
                 Spacer(modifier = Modifier.height(3.dp))
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Category may ellipsize; the date after it must always stay visible.
                     Text(
                         text = transaction.category,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                        color = Color(category.colorHex)
+                        color = Color(category.colorHex),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                     Text(
                         text = " • ",
@@ -117,7 +121,8 @@ fun TransactionItemRow(
                     Text(
                         text = Formatters.formatDate(transaction.date),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
 
@@ -139,7 +144,8 @@ fun TransactionItemRow(
             Text(
                 text = Formatters.formatSignedCurrency(transaction.amount, transaction.type),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = amountColor
+                color = amountColor,
+                maxLines = 1
             )
 
             // Delete Action Button
