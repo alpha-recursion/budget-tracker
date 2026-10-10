@@ -54,5 +54,21 @@ object PennywiseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    /** v2 -> v3: SMS import bookkeeping and remembered payee choices. */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `sms_imports` (" +
+                    "`dedupeKey` TEXT NOT NULL, `status` TEXT NOT NULL, " +
+                    "`transactionId` INTEGER, `receivedAt` INTEGER NOT NULL, PRIMARY KEY(`dedupeKey`))"
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `merchant_rules` (" +
+                    "`counterpartyKey` TEXT NOT NULL, `category` TEXT NOT NULL, " +
+                    "`isSelfTransfer` INTEGER NOT NULL, PRIMARY KEY(`counterpartyKey`))"
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }
