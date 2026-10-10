@@ -220,6 +220,32 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun testWeeklyTotals_mondayStartAndDayBuckets() {
+        val zone = TimeZone.getTimeZone("Asia/Kolkata")
+        fun at(day: Int, hour: Int) = Calendar.getInstance(zone).apply { clear(); set(2026, Calendar.OCTOBER, day, hour, 0, 0) }.timeInMillis
+        // 10 Oct 2026 is a Saturday; its week starts Monday 5 Oct.
+        val start = FinancialCalculations.startOfWeek(at(10, 15), zone)
+        assertEquals(at(5, 0), start)
+        assertEquals(at(5, 0), FinancialCalculations.startOfWeek(at(5, 0), zone)) // Monday itself
+        assertEquals(at(5, 0), FinancialCalculations.startOfWeek(at(11, 23), zone)) // Sunday
+
+        fun tx(id: Long, date: Long, amount: Double, type: String = "EXPENSE") =
+            TransactionEntity(id = id, title = "t", amount = amount, type = type, category = "Other", date = date)
+        val totals = FinancialCalculations.dailyExpenseTotals(
+            listOf(
+                tx(1, at(5, 0), 100.0),     // Monday, first instant
+                tx(2, at(5, 23), 50.0),     // Monday night
+                tx(3, at(7, 12), 30.0),     // Wednesday
+                tx(4, at(11, 23), 20.0),    // Sunday
+                tx(5, at(12, 0), 999.0),    // next Monday: excluded
+                tx(6, at(6, 9), 500.0, type = "INCOME") // income: excluded
+            ),
+            start, 7, zone
+        )
+        assertEquals(listOf(150.0, 0.0, 30.0, 0.0, 0.0, 0.0, 20.0), totals)
+    }
+
+    @Test
     fun testFormValidation_amount() {
         assertTrue(FormValidation.validateAmount("12.50").isValid)
         assertTrue(FormValidation.validateAmount("₹45.00").isValid)

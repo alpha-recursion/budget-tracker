@@ -251,7 +251,9 @@ fun PennywiseApp(
                                     onViewAllTransactions = { viewModel.setTab(1) },
                                     onTransactionClick = { tx -> viewModel.openEditDialog(tx) },
                                     onTransactionDelete = { tx -> viewModel.promptDelete(tx) },
-                                    onImportSms = openSmsImport
+                                    onImportSms = openSmsImport,
+                                    budgetStatuses = budgetStatuses,
+                                    onOpenBudgets = { viewModel.setTab(2) }
                                 )
 
                                 1 -> TransactionsScreen(
