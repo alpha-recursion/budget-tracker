@@ -98,8 +98,10 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 3.1b Goal tracking: "At this pace" finish date (last 8 weeks), savings-over-time
       chart, "free to spend" on Home (balance minus set aside), Achieved shelf with
       "I bought it" (records the expense, releases the money), named checkpoints (DB v7)
-- [ ] 3.1c Round-up jar: spare change from each expense, moved to a goal with one tap
-- [ ] 3.2 Streaks (daily review, no-spend days) with freezes
+- [x] 3.1c Round-up jar: spare change (to the next ₹10 / ₹50 / ₹100) from each expense
+      after switching on, moved to a goal with one tap
+- [x] 3.2a Weekly saving streak with one freeze (earned back after 4 saving weeks)
+- [ ] 3.2b Daily review and no-spend-day streaks
 - [ ] 3.3 XP, levels, badges
 - [ ] 3.4 Monthly challenges + month-end report card
 

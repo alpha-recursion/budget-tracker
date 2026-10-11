@@ -31,6 +31,11 @@ import com.example.domain.sms.CaptureState
 import com.example.domain.DebtKind
 import com.example.domain.GoalProgress
 import com.example.domain.Goals
+import com.example.domain.RoundUpSettings
+import com.example.domain.RoundUps
+import com.example.domain.SavingStreak
+import com.example.domain.Streaks
+import com.example.data.local.RoundUpStore
 import com.example.ui.util.Formatters
 import com.example.data.local.GoalEntity
 import com.example.domain.Lending
@@ -472,6 +477,52 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun dismissCelebration() {
         celebrationQueue.update { it.drop(1) }
+    }
+
+    // --- Round-up jar and saving streak ---
+
+    private val roundUpStore = RoundUpStore(application)
+    val roundUps: StateFlow<RoundUpSettings> = roundUpStore.settings
+        .stateIn(viewModelScope, SharingStarted.Eagerly, roundUpStore.read())
+    val roundUpJar: StateFlow<Double> = combine(roundUps, repository.allTransactions) { settings, txs ->
+        RoundUps.jar(settings, txs)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
+    val savingStreak: StateFlow<SavingStreak> = combine(repository.goals, repository.goalEntries) { goals, entries ->
+        Streaks.saving(goals, entries, System.currentTimeMillis())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, SavingStreak(0, 0, 1, false, 0))
+
+    fun setRoundUpsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val txs = repository.transactionsAllOnce()
+            roundUpStore.update { RoundUps.setEnabled(it, enabled, txs, System.currentTimeMillis()) }
+        }
+    }
+
+    fun setRoundUpUnit(unit: Int) {
+        viewModelScope.launch {
+            val txs = repository.transactionsAllOnce()
+            roundUpStore.update { RoundUps.changeUnit(it, unit, txs, System.currentTimeMillis()) }
+        }
+    }
+
+    /** Empties the jar into [goalId]; the deposit can reach milestones like any other. */
+    fun moveJarToGoal(goalId: Long) {
+        val amount = (roundUpJar.value * 100).toLong() / 100.0 // whole paise
+        if (amount <= 0.0) return
+        val name = goals.value.firstOrNull { it.goal.id == goalId }?.goal?.name ?: return
+        viewModelScope.launch {
+            try {
+                val reached = repository.addToGoal(goalId, amount, System.currentTimeMillis(), "Round-up jar")
+                roundUpStore.update { RoundUps.emptied(it, amount) }
+                showMessage("Moved ${Formatters.formatCurrency(amount)} to $name")
+                val queue = reached.checkpoints.map { Celebration(name, checkpoint = it) } +
+                    listOfNotNull(reached.milestone?.let { Celebration(name, milestone = it) })
+                if (queue.isNotEmpty()) celebrationQueue.update { it + queue }
+            } catch (e: Exception) {
+                showMessage("Could not move the jar. Please try again.")
+            }
+        }
     }
 
     fun addCheckpoint(goalId: Long, name: String, amount: Double) {

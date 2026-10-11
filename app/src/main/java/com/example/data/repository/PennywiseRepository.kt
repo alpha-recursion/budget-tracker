@@ -290,6 +290,10 @@ class PennywiseRepository(
         smsTemplateDao.deleteById(id)
     }
 
+    suspend fun transactionsAllOnce(): List<TransactionEntity> = withContext(Dispatchers.IO) {
+        transactionDao.getAllTransactionsOnce()
+    }
+
     /**
      * Transactions not created from an SMS: what a new bank SMS may duplicate. SMS-created ones
      * are excluded, so two equal payments on one day (two ₹10 teas) are not flagged as duplicates.
