@@ -48,6 +48,7 @@ import com.example.domain.sms.CaptureState
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Savings
 import com.example.domain.GoalProgress
+import com.example.domain.ReportCard
 import com.example.domain.Goals
 import com.example.domain.Lending
 import com.example.domain.PersonBalance
@@ -99,7 +100,10 @@ fun DashboardScreen(
     onOpenLending: (personKey: String?) -> Unit = {},
     goals: List<GoalProgress> = emptyList(),
     onOpenGoals: (goalId: Long?) -> Unit = {},
-    savingStreakWeeks: Int = 0
+    savingStreakWeeks: Int = 0,
+    /** Last month's report card, shown during the first week of a new month. */
+    reportReady: ReportCard? = null,
+    onOpenReport: (monthKey: Int) -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
@@ -116,6 +120,9 @@ fun DashboardScreen(
                 onAddExpense = onAddExpense,
                 onOpenGoals = { onOpenGoals(null) }
             )
+        }
+        reportReady?.let { card ->
+            item(key = "report_ready") { ReportReadyCard(card, onClick = { onOpenReport(card.month.key) }) }
         }
         if (captureState.pendingCount > 0) {
             item(key = "captured") {

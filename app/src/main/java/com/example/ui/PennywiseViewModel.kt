@@ -32,6 +32,14 @@ import com.example.domain.DebtKind
 import com.example.domain.GoalProgress
 import com.example.domain.Goals
 import com.example.domain.AchievementData
+import com.example.domain.ChallengeResult
+import com.example.domain.ChallengeState
+import com.example.domain.ChallengeSuggestion
+import com.example.domain.Challenges
+import com.example.domain.MoneyData
+import com.example.domain.ReportCard
+import com.example.domain.ReportCards
+import com.example.data.local.ChallengeEntity
 import com.example.domain.AchievementProgress
 import com.example.domain.Achievements
 import com.example.data.local.RewardsStore
@@ -69,7 +77,7 @@ enum class SortOption(val label: String) {
     LOWEST_AMOUNT("Lowest ₹")
 }
 
-enum class Overlay { SMS_IMPORT, LENDING, GOALS, BADGES }
+enum class Overlay { SMS_IMPORT, LENDING, GOALS, BADGES, CHALLENGES }
 
 const val SETTINGS_TAB = 3
 
@@ -88,6 +96,8 @@ class PennywiseViewModel @JvmOverloads constructor(
 ) : AndroidViewModel(application) {
 
     companion object {
+        private const val MAX_CHALLENGES_PER_MONTH = 3
+
         fun Factory(application: Application): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -542,6 +552,75 @@ class PennywiseViewModel @JvmOverloads constructor(
         }
     }
 
+    // --- Monthly challenges and report cards ---
+
+    private val moneyData = combine(
+        repository.allTransactions,
+        repository.goals,
+        repository.goalEntries,
+        repository.allBudgets
+    ) { txs, goals, entries, budgets -> MoneyData(txs, goals, entries, budgets) }
+
+    val challengeResults: StateFlow<List<ChallengeResult>> = combine(moneyData, repository.challenges) { data, challenges ->
+        val now = System.currentTimeMillis()
+        challenges.mapNotNull { Challenges.evaluate(it, data, now) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val challengeSuggestions: StateFlow<List<ChallengeSuggestion>> = combine(moneyData, repository.challenges) { data, challenges ->
+        val month = Challenges.month(System.currentTimeMillis())
+        // Up to three challenges a month.
+        val picked = challenges.count { it.month == month.key }
+        if (picked >= MAX_CHALLENGES_PER_MONTH) emptyList() else Challenges.suggest(data, month, challenges).take(MAX_CHALLENGES_PER_MONTH - picked)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Report cards for the last 12 months with data, newest first (the current month included). */
+    val reportCards: StateFlow<List<ReportCard>> = combine(moneyData, challengeResults) { data, results ->
+        val now = System.currentTimeMillis()
+        ReportCards.monthsWithData(data.transactions).mapNotNull { ReportCards.build(data, it, results, now) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Month key of the report card open on the Challenges screen; null shows the list. */
+    private val _selectedReport = MutableStateFlow<Int?>(null)
+    val selectedReport: StateFlow<Int?> = _selectedReport
+    private var challengesFromGoals = false
+
+    fun openChallenges(fromGoals: Boolean, reportMonth: Int? = null) {
+        challengesFromGoals = fromGoals
+        _selectedReport.value = reportMonth
+        _overlay.value = Overlay.CHALLENGES
+    }
+
+    fun showReport(monthKey: Int?) {
+        _selectedReport.value = monthKey
+    }
+
+    fun closeChallenges() {
+        if (challengesFromGoals) _overlay.value = Overlay.GOALS else closeOverlay()
+    }
+
+    fun pickChallenge(suggestion: ChallengeSuggestion) {
+        val now = System.currentTimeMillis()
+        viewModelScope.launch {
+            try {
+                repository.addChallenge(
+                    ChallengeEntity(
+                        month = Challenges.month(now).key,
+                        type = suggestion.type.name,
+                        category = suggestion.category,
+                        target = suggestion.target,
+                        createdAt = now
+                    )
+                )
+            } catch (e: Exception) {
+                showMessage("Could not add the challenge.")
+            }
+        }
+    }
+
+    fun removeChallenge(id: Long) {
+        viewModelScope.launch { repository.deleteChallenge(id) }
+    }
+
     // --- Badges, levels and celebration feedback ---
 
     private val rewardsStore = RewardsStore(application)
@@ -575,12 +654,39 @@ class PennywiseViewModel @JvmOverloads constructor(
     val achievements: StateFlow<AchievementProgress> = combine(
         achievementData,
         repository.allBudgets,
-        savingStreak
-    ) { data, budgets, streak ->
-        Achievements.compute(data.copy(budgets = budgets, bestStreak = streak.best), System.currentTimeMillis())
+        savingStreak,
+        challengeResults
+    ) { data, budgets, streak, challenges ->
+        Achievements.compute(
+            data.copy(
+                budgets = budgets,
+                bestStreak = streak.best,
+                challengesWon = challenges.count { it.state == ChallengeState.WON }
+            ),
+            System.currentTimeMillis()
+        )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, Achievements.compute(AchievementData(), 0L))
 
     init {
+        // A challenge is celebrated once, the first time it shows as won.
+        viewModelScope.launch {
+            isDataLoaded.first { it }
+            challengeResults.collect { results ->
+                val seen = rewardsStore.seenBadges()
+                val won = results.filter { it.state == ChallengeState.WON && "challenge:${it.challenge.id}" !in seen }
+                if (won.isEmpty()) return@collect
+                rewardsStore.markBadgesSeen(won.map { "challenge:${it.challenge.id}" })
+                celebrationQueue.update { queue ->
+                    queue + won.map {
+                        Celebration(
+                            "🥇",
+                            "Challenge won!",
+                            Challenges.title(it.type, it.challenge.category, it.challenge.target) + " · +${Achievements.XP_CHALLENGE} XP"
+                        )
+                    }
+                }
+            }
+        }
         // New badges and level-ups are celebrated once, after the data has loaded.
         viewModelScope.launch {
             isDataLoaded.first { it }
