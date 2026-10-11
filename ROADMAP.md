@@ -110,8 +110,10 @@ lent to others, and use light game mechanics so it gets opened every day.
       graded report card per month (A+ to D), shown on Home in the first week of a month (DB v8)
 
 ### 4. Faster manual entry
-- [ ] 4.1 Quick-add chips and recent merchants
-- [ ] 4.2 Monthly income and salary day
+- [x] 4.1 Quick-add chips on Home: frequent payees (last 60 days) + pinned; tap adds with Undo,
+      hold to change the amount, pin or hide
+- [x] 4.2 Monthly income and payday: "₹X left · ₹Y a day" for the pay cycle (income minus
+      spending and goal deposits since the last payday) and a salary-day card to add it
 
 ### 5. Recurring, subscriptions & bike
 - [ ] 5.1 Recurring payments/subscriptions with alerts; detect recurring payments in SMS
