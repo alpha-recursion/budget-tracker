@@ -51,6 +51,33 @@ interface GoalDao {
     @Query("DELETE FROM goals WHERE id = :id")
     suspend fun deleteGoal(id: Long)
 
+    @Query("SELECT * FROM goal_milestones ORDER BY amount ASC, id ASC")
+    fun getMilestones(): Flow<List<GoalMilestoneEntity>>
+
+    @Query("SELECT * FROM goal_milestones")
+    suspend fun getMilestonesOnce(): List<GoalMilestoneEntity>
+
+    @Query("SELECT * FROM goal_milestones WHERE goalId = :goalId")
+    suspend fun milestonesFor(goalId: Long): List<GoalMilestoneEntity>
+
+    @Insert
+    suspend fun insertMilestone(milestone: GoalMilestoneEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMilestones(milestones: List<GoalMilestoneEntity>)
+
+    @Query("UPDATE goal_milestones SET celebrated = 1 WHERE id IN (:ids)")
+    suspend fun markCelebrated(ids: List<Long>)
+
+    @Query("DELETE FROM goal_milestones WHERE id = :id")
+    suspend fun deleteMilestone(id: Long)
+
+    @Query("DELETE FROM goal_milestones WHERE goalId = :goalId")
+    suspend fun deleteMilestonesFor(goalId: Long)
+
+    @Query("DELETE FROM goal_milestones")
+    suspend fun deleteAllMilestones()
+
     @Query("DELETE FROM goal_entries")
     suspend fun deleteAllEntries()
 

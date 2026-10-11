@@ -15,9 +15,10 @@ import androidx.room.RoomDatabase
         SmsTemplateEntity::class,
         DebtEntryEntity::class,
         GoalEntity::class,
-        GoalEntryEntity::class
+        GoalEntryEntity::class,
+        GoalMilestoneEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class PennywiseDatabase : RoomDatabase() {

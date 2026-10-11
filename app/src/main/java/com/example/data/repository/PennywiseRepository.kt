@@ -8,6 +8,7 @@ import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
 import com.example.data.local.GoalEntryEntity
+import com.example.data.local.GoalMilestoneEntity
 import com.example.domain.Goals
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.PennywiseDatabase
@@ -48,6 +49,7 @@ class PennywiseRepository(
     val debts: Flow<List<DebtEntryEntity>> = debtDao.getAll()
     val goals: Flow<List<GoalEntity>> = goalDao.getGoals()
     val goalEntries: Flow<List<GoalEntryEntity>> = goalDao.getEntries()
+    val goalMilestones: Flow<List<GoalMilestoneEntity>> = goalDao.getMilestones()
 
     suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
         transactionDao.insert(transaction)
@@ -89,6 +91,7 @@ class PennywiseRepository(
                 debts = debtDao.getAllOnce(),
                 goals = goalDao.getGoalsOnce(),
                 goalEntries = goalDao.getEntriesOnce(),
+                goalMilestones = goalDao.getMilestonesOnce(),
                 exportedAt = System.currentTimeMillis()
             )
         }
@@ -107,6 +110,7 @@ class PennywiseRepository(
             debtDao.insertAll(data.debts)
             goalDao.insertGoals(data.goals)
             goalDao.insertEntries(data.goalEntries)
+            goalDao.insertMilestones(data.goalMilestones)
         }
     }
 
@@ -123,6 +127,7 @@ class PennywiseRepository(
         smsTemplateDao.deleteAll()
         debtDao.deleteAll()
         goalDao.deleteAllEntries()
+        goalDao.deleteAllMilestones()
         goalDao.deleteAllGoals()
     }
 
@@ -175,23 +180,59 @@ class PennywiseRepository(
     }
 
     /**
-     * Adds (or with a negative amount takes out) money and returns the milestone to celebrate,
-     * if any. The milestone is recorded in the same transaction so it is only celebrated once.
+     * Adds (or with a negative amount takes out) money and returns what to celebrate: a newly
+     * reached percentage milestone and named checkpoints. They are recorded in the same
+     * transaction, so each is celebrated only once.
      */
-    suspend fun addToGoal(goalId: Long, amount: Double, date: Long, note: String): Int? = withContext(Dispatchers.IO) {
+    suspend fun addToGoal(goalId: Long, amount: Double, date: Long, note: String): GoalReached =
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val goal = goalDao.getGoal(goalId) ?: return@withTransaction GoalReached()
+                goalDao.insertEntry(GoalEntryEntity(goalId = goalId, amount = amount, date = date, note = note))
+                if (amount <= 0.0) return@withTransaction GoalReached()
+                val saved = goalDao.savedFor(goalId)
+                val checkpoints = Goals.checkpointsToCelebrate(goalDao.milestonesFor(goalId), saved)
+                if (checkpoints.isNotEmpty()) goalDao.markCelebrated(checkpoints.map { it.id })
+                val milestone = Goals.milestoneToCelebrate(goal, saved)
+                if (milestone != null) {
+                    goalDao.updateGoal(
+                        goal.copy(
+                            celebratedMilestone = milestone,
+                            completedAt = goal.completedAt ?: if (milestone == 100) date else null
+                        )
+                    )
+                }
+                GoalReached(milestone, checkpoints.map { it.name })
+            }
+        }
+
+    /** A named checkpoint; one that is already reached is not celebrated after the fact. */
+    suspend fun addCheckpoint(goalId: Long, name: String, amount: Double) = withContext(Dispatchers.IO) {
         database.withTransaction {
-            val goal = goalDao.getGoal(goalId) ?: return@withTransaction null
-            goalDao.insertEntry(GoalEntryEntity(goalId = goalId, amount = amount, date = date, note = note))
-            if (amount <= 0.0) return@withTransaction null
             val saved = goalDao.savedFor(goalId)
-            val milestone = Goals.milestoneToCelebrate(goal, saved) ?: return@withTransaction null
-            goalDao.updateGoal(
-                goal.copy(
-                    celebratedMilestone = milestone,
-                    completedAt = goal.completedAt ?: if (milestone == 100) date else null
-                )
+            goalDao.insertMilestone(
+                GoalMilestoneEntity(goalId = goalId, name = name, amount = amount, celebrated = saved >= amount - Goals.EPSILON)
             )
-            milestone
+        }
+    }
+
+    suspend fun deleteCheckpoint(id: Long) = withContext(Dispatchers.IO) {
+        goalDao.deleteMilestone(id)
+    }
+
+    /**
+     * "I bought it": records the purchase as an expense, releases the money set aside (it was
+     * spent) and moves the goal to the Achieved shelf. All or nothing.
+     */
+    suspend fun buyGoal(goalId: Long, purchase: TransactionEntity) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val goal = goalDao.getGoal(goalId) ?: return@withTransaction
+            transactionDao.insert(purchase)
+            val saved = goalDao.savedFor(goalId)
+            if (saved > 0.0) {
+                goalDao.insertEntry(GoalEntryEntity(goalId = goalId, amount = -saved, date = purchase.date, note = "Bought"))
+            }
+            goalDao.updateGoal(goal.copy(purchasedAt = purchase.date, purchasedAmount = purchase.amount))
         }
     }
 
@@ -202,6 +243,7 @@ class PennywiseRepository(
     suspend fun deleteGoal(id: Long) = withContext(Dispatchers.IO) {
         database.withTransaction {
             goalDao.deleteEntriesFor(id)
+            goalDao.deleteMilestonesFor(id)
             goalDao.deleteGoal(id)
         }
     }
@@ -293,6 +335,9 @@ class PennywiseRepository(
             }
         }
 }
+
+/** What a deposit reached: a new percentage milestone and/or named checkpoints. */
+data class GoalReached(val milestone: Int? = null, val checkpoints: List<String> = emptyList())
 
 /**
  * One SMS to record: a [transaction], a lending [debt], or neither for a self transfer
