@@ -29,6 +29,9 @@ import com.example.data.sms.AutoCaptureNotifier
 import com.example.data.sms.AutoCaptureStore
 import com.example.domain.sms.CaptureState
 import com.example.domain.DebtKind
+import com.example.domain.GoalProgress
+import com.example.domain.Goals
+import com.example.data.local.GoalEntity
 import com.example.domain.Lending
 import com.example.domain.PersonBalance
 import com.example.data.local.DebtEntryEntity
@@ -53,7 +56,7 @@ enum class SortOption(val label: String) {
     LOWEST_AMOUNT("Lowest ₹")
 }
 
-enum class Overlay { SMS_IMPORT, LENDING }
+enum class Overlay { SMS_IMPORT, LENDING, GOALS }
 
 const val SETTINGS_TAB = 3
 
@@ -375,6 +378,98 @@ class PennywiseViewModel @JvmOverloads constructor(
     fun deletePerson(personKey: String) {
         if (_lendingPerson.value == personKey) _lendingPerson.value = null
         viewModelScope.launch { repository.deletePerson(personKey) }
+    }
+
+    // --- Savings goals (money set aside, not spending) ---
+
+    val goals: StateFlow<List<GoalProgress>> = combine(repository.goals, repository.goalEntries) { goals, entries ->
+        Goals.all(goals, entries, System.currentTimeMillis())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Goal whose history is open on the Goals screen; null shows all goals. */
+    private val _selectedGoal = MutableStateFlow<Long?>(null)
+    val selectedGoal: StateFlow<Long?> = _selectedGoal
+
+    /** A milestone just reached, shown as a celebration until dismissed. */
+    data class Celebration(val goalName: String, val milestone: Int)
+
+    private val _celebration = MutableStateFlow<Celebration?>(null)
+    val celebration: StateFlow<Celebration?> = _celebration
+
+    fun openGoals(goalId: Long? = null) {
+        _selectedGoal.value = goalId
+        _overlay.value = Overlay.GOALS
+    }
+
+    fun showGoal(goalId: Long?) {
+        _selectedGoal.value = goalId
+    }
+
+    /** Creates a goal ([id] = 0) or edits one; [alreadySaved] is only used for a new goal. */
+    fun saveGoal(id: Long, name: String, target: Double, iconKey: String, colorHex: Long, targetDate: Long?, alreadySaved: Double) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || target <= 0.0) return
+        val existing = goals.value.firstOrNull { it.goal.id == id }
+        val goal = if (existing == null) {
+            val now = System.currentTimeMillis()
+            GoalEntity(
+                name = trimmed,
+                target = target,
+                iconKey = iconKey,
+                colorHex = colorHex,
+                targetDate = targetDate,
+                createdAt = now,
+                // Money already saved when the goal is made is not a milestone to celebrate.
+                celebratedMilestone = Goals.milestone(alreadySaved, target),
+                completedAt = if (alreadySaved >= target) now else null
+            )
+        } else {
+            // A new target can move milestones: celebrate again only what is newly reached.
+            val reached = Goals.milestone(existing.saved, target)
+            existing.goal.copy(
+                name = trimmed,
+                target = target,
+                iconKey = iconKey,
+                colorHex = colorHex,
+                targetDate = targetDate,
+                celebratedMilestone = minOf(existing.goal.celebratedMilestone, reached),
+                completedAt = existing.goal.completedAt.takeIf { reached == 100 }
+            )
+        }
+        viewModelScope.launch {
+            try {
+                repository.saveGoal(goal, if (existing == null) alreadySaved else 0.0)
+            } catch (e: Exception) {
+                showMessage("Could not save the goal. Please try again.")
+            }
+        }
+    }
+
+    /** Puts money into a goal (or takes it out with [takeOut]); celebrates a new milestone. */
+    fun moveGoalMoney(goalId: Long, amount: Double, takeOut: Boolean, note: String) {
+        if (amount <= 0.0) return
+        val name = goals.value.firstOrNull { it.goal.id == goalId }?.goal?.name ?: return
+        viewModelScope.launch {
+            try {
+                val milestone = repository.addToGoal(goalId, if (takeOut) -amount else amount, System.currentTimeMillis(), note.trim())
+                if (milestone != null) _celebration.value = Celebration(name, milestone)
+            } catch (e: Exception) {
+                showMessage("Could not save. Please try again.")
+            }
+        }
+    }
+
+    fun dismissCelebration() {
+        _celebration.value = null
+    }
+
+    fun deleteGoalEntry(id: Long) {
+        viewModelScope.launch { repository.deleteGoalEntry(id) }
+    }
+
+    fun deleteGoal(id: Long) {
+        if (_selectedGoal.value == id) _selectedGoal.value = null
+        viewModelScope.launch { repository.deleteGoal(id) }
     }
 
     /** The transaction being edited was really a loan or repayment: move it to money lent. */

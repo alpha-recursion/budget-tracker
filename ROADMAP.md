@@ -43,7 +43,8 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 0. Foundation | **Built** — ₹ currency, demo data removed, safe DB migrations (v2), custom categories, editable budgets, JSON backup / restore / erase. Needs on-device check. |
 | 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). **Live capture built** (1.5): known payees added automatically, the rest wait for review. Verified credit formats (1.8) pending. Needs on-device check. |
 | 3. Money features | **Lending tracker built** (2.1–2.3): people, lent / got back / borrowed / paid back, balances, due dates and overdue, settle up; SMS and existing transactions can be marked as lending (DB v5). Needs on-device check. |
-| 1, 4, 5 | Not started |
+| 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
+| 1, 5 | Not started |
 
 ## To-do list
 
@@ -91,7 +92,9 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [ ] 2.4 Due-date phone notifications (WorkManager)
 
 ### 3. Goals & gamification
-- [ ] 3.1 Savings goals with 25/50/75/100% milestones
+- [x] 3.1 Savings goals: Home card + Goals screen; add / take out money (set aside, not
+      spending); 25/50/75/100% milestone badges, each celebrated once with confetti; optional
+      target date with "save ₹X/week" and on track / behind / date passed
 - [ ] 3.2 Streaks (daily review, no-spend days) with freezes
 - [ ] 3.3 XP, levels, badges
 - [ ] 3.4 Monthly challenges + month-end report card

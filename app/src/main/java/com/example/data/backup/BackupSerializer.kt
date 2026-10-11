@@ -2,6 +2,8 @@ package com.example.data.backup
 
 import com.example.data.local.BudgetEntity
 import com.example.data.local.DebtEntryEntity
+import com.example.data.local.GoalEntity
+import com.example.data.local.GoalEntryEntity
 import com.example.domain.DebtKind
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
@@ -22,6 +24,8 @@ data class BackupData(
     val merchantRules: List<MerchantRuleEntity> = emptyList(),
     val smsTemplates: List<SmsTemplateEntity> = emptyList(),
     val debts: List<DebtEntryEntity> = emptyList(),
+    val goals: List<GoalEntity> = emptyList(),
+    val goalEntries: List<GoalEntryEntity> = emptyList(),
     val exportedAt: Long = 0L
 )
 
@@ -129,6 +133,34 @@ object BackupSerializer {
                     )
                 }
             })
+            .put("goals", JSONArray().apply {
+                data.goals.forEach { g ->
+                    put(
+                        JSONObject()
+                            .put("id", g.id)
+                            .put("name", g.name)
+                            .put("target", g.target)
+                            .put("iconKey", g.iconKey)
+                            .put("colorHex", g.colorHex)
+                            .put("targetDate", g.targetDate ?: JSONObject.NULL)
+                            .put("createdAt", g.createdAt)
+                            .put("celebratedMilestone", g.celebratedMilestone)
+                            .put("completedAt", g.completedAt ?: JSONObject.NULL)
+                    )
+                }
+            })
+            .put("goalEntries", JSONArray().apply {
+                data.goalEntries.forEach { e ->
+                    put(
+                        JSONObject()
+                            .put("id", e.id)
+                            .put("goalId", e.goalId)
+                            .put("amount", e.amount)
+                            .put("date", e.date)
+                            .put("note", e.note)
+                    )
+                }
+            })
         return root.toString(2)
     }
 
@@ -227,6 +259,31 @@ object BackupSerializer {
                 )
             }.orEmpty()
 
+            val goals = root.optJSONArray("goals")?.objects()?.map { o ->
+                GoalEntity(
+                    id = o.getLong("id"),
+                    name = o.getString("name"),
+                    target = o.getDouble("target"),
+                    iconKey = o.getString("iconKey"),
+                    colorHex = o.getLong("colorHex"),
+                    targetDate = if (o.isNull("targetDate")) null else o.getLong("targetDate"),
+                    createdAt = o.getLong("createdAt"),
+                    celebratedMilestone = o.optInt("celebratedMilestone", 0),
+                    completedAt = if (o.isNull("completedAt")) null else o.getLong("completedAt")
+                )
+            }.orEmpty()
+            val goalIds = goals.map { it.id }.toSet()
+            // Entries of a goal that is not in the file would be invisible; leave them out.
+            val goalEntries = root.optJSONArray("goalEntries")?.objects()?.map { o ->
+                GoalEntryEntity(
+                    id = o.getLong("id"),
+                    goalId = o.getLong("goalId"),
+                    amount = o.getDouble("amount"),
+                    date = o.getLong("date"),
+                    note = o.optString("note", "")
+                )
+            }.orEmpty().filter { it.goalId in goalIds }
+
             return BackupData(
                 transactions = transactions,
                 budgets = budgets,
@@ -235,6 +292,8 @@ object BackupSerializer {
                 merchantRules = merchantRules,
                 smsTemplates = smsTemplates,
                 debts = debts,
+                goals = goals,
+                goalEntries = goalEntries,
                 exportedAt = root.optLong("exportedAt", 0L)
             )
         } catch (e: JSONException) {
