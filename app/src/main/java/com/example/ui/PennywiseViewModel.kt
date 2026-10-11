@@ -31,6 +31,7 @@ import com.example.domain.sms.CaptureState
 import com.example.domain.DebtKind
 import com.example.domain.GoalProgress
 import com.example.domain.Goals
+import com.example.ui.util.Formatters
 import com.example.data.local.GoalEntity
 import com.example.domain.Lending
 import com.example.domain.PersonBalance
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -382,19 +384,26 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     // --- Savings goals (money set aside, not spending) ---
 
-    val goals: StateFlow<List<GoalProgress>> = combine(repository.goals, repository.goalEntries) { goals, entries ->
-        Goals.all(goals, entries, System.currentTimeMillis())
+    val goals: StateFlow<List<GoalProgress>> = combine(
+        repository.goals,
+        repository.goalEntries,
+        repository.goalMilestones
+    ) { goals, entries, milestones ->
+        Goals.all(goals, entries, System.currentTimeMillis(), milestones)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Goal whose history is open on the Goals screen; null shows all goals. */
     private val _selectedGoal = MutableStateFlow<Long?>(null)
     val selectedGoal: StateFlow<Long?> = _selectedGoal
 
-    /** A milestone just reached, shown as a celebration until dismissed. */
-    data class Celebration(val goalName: String, val milestone: Int)
+    /** Something just reached: a percentage [milestone] or a named [checkpoint]. */
+    data class Celebration(val goalName: String, val milestone: Int? = null, val checkpoint: String? = null)
 
-    private val _celebration = MutableStateFlow<Celebration?>(null)
-    val celebration: StateFlow<Celebration?> = _celebration
+    // Several can be reached by one deposit; they are shown one after another.
+    private val celebrationQueue = MutableStateFlow<List<Celebration>>(emptyList())
+    val celebration: StateFlow<Celebration?> = celebrationQueue
+        .map { it.firstOrNull() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun openGoals(goalId: Long? = null) {
         _selectedGoal.value = goalId
@@ -451,8 +460,10 @@ class PennywiseViewModel @JvmOverloads constructor(
         val name = goals.value.firstOrNull { it.goal.id == goalId }?.goal?.name ?: return
         viewModelScope.launch {
             try {
-                val milestone = repository.addToGoal(goalId, if (takeOut) -amount else amount, System.currentTimeMillis(), note.trim())
-                if (milestone != null) _celebration.value = Celebration(name, milestone)
+                val reached = repository.addToGoal(goalId, if (takeOut) -amount else amount, System.currentTimeMillis(), note.trim())
+                val queue = reached.checkpoints.map { Celebration(name, checkpoint = it) } +
+                    listOfNotNull(reached.milestone?.let { Celebration(name, milestone = it) })
+                if (queue.isNotEmpty()) celebrationQueue.update { it + queue }
             } catch (e: Exception) {
                 showMessage("Could not save. Please try again.")
             }
@@ -460,7 +471,47 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     fun dismissCelebration() {
-        _celebration.value = null
+        celebrationQueue.update { it.drop(1) }
+    }
+
+    fun addCheckpoint(goalId: Long, name: String, amount: Double) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || amount <= 0.0) return
+        viewModelScope.launch {
+            try {
+                repository.addCheckpoint(goalId, trimmed, amount)
+            } catch (e: Exception) {
+                showMessage("Could not save the checkpoint.")
+            }
+        }
+    }
+
+    fun deleteCheckpoint(id: Long) {
+        viewModelScope.launch { repository.deleteCheckpoint(id) }
+    }
+
+    /** "I bought it": the purchase becomes an expense in [category]; the money set aside is released. */
+    fun buyGoal(goalId: Long, amount: Double, category: String) {
+        val progress = goals.value.firstOrNull { it.goal.id == goalId } ?: return
+        if (amount <= 0.0 || category.isBlank()) return
+        viewModelScope.launch {
+            try {
+                repository.buyGoal(
+                    goalId,
+                    TransactionEntity(
+                        title = progress.goal.name.take(60),
+                        amount = amount,
+                        type = TransactionType.EXPENSE.name,
+                        category = category,
+                        date = System.currentTimeMillis(),
+                        note = "Bought with savings goal"
+                    )
+                )
+                showMessage("${progress.goal.name} bought · ${Formatters.formatCurrency(amount)} added to $category")
+            } catch (e: Exception) {
+                showMessage("Could not save. Nothing was changed.")
+            }
+        }
     }
 
     fun deleteGoalEntry(id: Long) {
