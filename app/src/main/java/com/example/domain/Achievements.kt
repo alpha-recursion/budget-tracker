@@ -24,7 +24,8 @@ enum class Badge(val emoji: String, val title: String, val howTo: String) {
     STREAK_3("🔥", "On a roll", "Save 3 weeks in a row"),
     STREAK_8("☄️", "Unstoppable", "Save 8 weeks in a row"),
     BUDGET_KEEPER("🛡️", "Budget keeper", "Finish a month within all your budgets"),
-    SETTLED("🤝", "Settled up", "Get a loan fully repaid or repay one")
+    SETTLED("🤝", "Settled up", "Get a loan fully repaid or repay one"),
+    CHALLENGER("🥇", "Challenger", "Win a monthly challenge")
 }
 
 /** Everything the badges and XP are worked out from. */
@@ -35,7 +36,8 @@ data class AchievementData(
     val goalMilestones: List<GoalMilestoneEntity> = emptyList(),
     val debts: List<DebtEntryEntity> = emptyList(),
     val budgets: List<BudgetEntity> = emptyList(),
-    val bestStreak: Int = 0
+    val bestStreak: Int = 0,
+    val challengesWon: Int = 0
 )
 
 data class Level(val number: Int, val name: String, val startXp: Int, val nextXp: Int?) {
@@ -63,6 +65,7 @@ object Achievements {
     const val XP_CHECKPOINT = 15
     const val XP_STREAK_WEEK = 20
     const val XP_BADGE = 50
+    const val XP_CHALLENGE = 100
 
     /** Only the first 1,000 transactions earn XP, so bulk imports cannot run away with it. */
     private const val MAX_TRANSACTIONS_FOR_XP = 1000
@@ -83,6 +86,7 @@ object Achievements {
             milestones * XP_MILESTONE +
             checkpoints * XP_CHECKPOINT +
             data.bestStreak * XP_STREAK_WEEK +
+            data.challengesWon * XP_CHALLENGE +
             earned.size * XP_BADGE
         return AchievementProgress(xp, level(xp), earned)
     }
@@ -109,6 +113,7 @@ object Achievements {
         if (keptLastMonthsBudgets(data, nowMs, timeZone)) earned += Badge.BUDGET_KEEPER
         val settled = Lending.balances(data.debts, nowMs).any { it.isSettled && it.entries.size >= 2 }
         if (settled) earned += Badge.SETTLED
+        if (data.challengesWon > 0) earned += Badge.CHALLENGER
         return earned
     }
 

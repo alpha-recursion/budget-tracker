@@ -1,6 +1,8 @@
 package com.example.data.backup
 
 import com.example.data.local.BudgetEntity
+import com.example.data.local.ChallengeEntity
+import com.example.domain.ChallengeType
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
 import com.example.data.local.GoalEntryEntity
@@ -28,6 +30,7 @@ data class BackupData(
     val goals: List<GoalEntity> = emptyList(),
     val goalEntries: List<GoalEntryEntity> = emptyList(),
     val goalMilestones: List<GoalMilestoneEntity> = emptyList(),
+    val challenges: List<ChallengeEntity> = emptyList(),
     val exportedAt: Long = 0L
 )
 
@@ -177,6 +180,19 @@ object BackupSerializer {
                     )
                 }
             })
+            .put("challenges", JSONArray().apply {
+                data.challenges.forEach { c ->
+                    put(
+                        JSONObject()
+                            .put("id", c.id)
+                            .put("month", c.month)
+                            .put("type", c.type)
+                            .put("category", c.category ?: JSONObject.NULL)
+                            .put("target", c.target)
+                            .put("createdAt", c.createdAt)
+                    )
+                }
+            })
         return root.toString(2)
     }
 
@@ -311,6 +327,18 @@ object BackupSerializer {
                 )
             }.orEmpty().filter { it.goalId in goalIds }
 
+            // Challenge kinds this version does not know are left out rather than failing the restore.
+            val challenges = root.optJSONArray("challenges")?.objects()?.mapNotNull { o ->
+                ChallengeEntity(
+                    id = o.getLong("id"),
+                    month = o.getInt("month"),
+                    type = o.getString("type"),
+                    category = if (o.isNull("category")) null else o.getString("category"),
+                    target = o.getDouble("target"),
+                    createdAt = o.getLong("createdAt")
+                ).takeIf { c -> ChallengeType.entries.any { it.name == c.type } }
+            }.orEmpty()
+
             return BackupData(
                 transactions = transactions,
                 budgets = budgets,
@@ -322,6 +350,7 @@ object BackupSerializer {
                 goals = goals,
                 goalEntries = goalEntries,
                 goalMilestones = goalMilestones,
+                challenges = challenges,
                 exportedAt = root.optLong("exportedAt", 0L)
             )
         } catch (e: JSONException) {
