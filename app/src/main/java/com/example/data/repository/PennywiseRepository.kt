@@ -6,6 +6,9 @@ import com.example.data.backup.BackupData
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.DebtEntryEntity
+import com.example.data.local.GoalEntity
+import com.example.data.local.GoalEntryEntity
+import com.example.domain.Goals
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.PennywiseDatabase
 import com.example.data.local.SmsImportEntity
@@ -34,6 +37,7 @@ class PennywiseRepository(
     private val merchantRuleDao = database.merchantRuleDao()
     private val smsTemplateDao = database.smsTemplateDao()
     private val debtDao = database.debtDao()
+    private val goalDao = database.goalDao()
 
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
     val allBudgets: Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
@@ -42,6 +46,8 @@ class PennywiseRepository(
     val smsTemplates: Flow<List<SmsTemplate>> = smsTemplateDao.getAll()
         .map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
     val debts: Flow<List<DebtEntryEntity>> = debtDao.getAll()
+    val goals: Flow<List<GoalEntity>> = goalDao.getGoals()
+    val goalEntries: Flow<List<GoalEntryEntity>> = goalDao.getEntries()
 
     suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
         transactionDao.insert(transaction)
@@ -81,6 +87,8 @@ class PennywiseRepository(
                 merchantRules = merchantRuleDao.getAllOnce(),
                 smsTemplates = smsTemplateDao.getAllOnce(),
                 debts = debtDao.getAllOnce(),
+                goals = goalDao.getGoalsOnce(),
+                goalEntries = goalDao.getEntriesOnce(),
                 exportedAt = System.currentTimeMillis()
             )
         }
@@ -97,6 +105,8 @@ class PennywiseRepository(
             merchantRuleDao.insertAll(data.merchantRules)
             smsTemplateDao.insertAll(data.smsTemplates)
             debtDao.insertAll(data.debts)
+            goalDao.insertGoals(data.goals)
+            goalDao.insertEntries(data.goalEntries)
         }
     }
 
@@ -112,6 +122,8 @@ class PennywiseRepository(
         merchantRuleDao.deleteAll()
         smsTemplateDao.deleteAll()
         debtDao.deleteAll()
+        goalDao.deleteAllEntries()
+        goalDao.deleteAllGoals()
     }
 
     /** Deletes a custom category; its transactions move to "Other" and its budget is removed. */
@@ -144,6 +156,53 @@ class PennywiseRepository(
             transactionDao.deleteById(transactionId)
             smsImportDao.markMovedToLending(transactionId)
             debtDao.insert(entry)
+        }
+    }
+
+    // --- Savings goals ---
+
+    suspend fun saveGoal(goal: GoalEntity, initialAmount: Double) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            if (goal.id == 0L) {
+                val id = goalDao.insertGoal(goal)
+                if (initialAmount > 0.0) {
+                    goalDao.insertEntry(GoalEntryEntity(goalId = id, amount = initialAmount, date = goal.createdAt, note = "Already saved"))
+                }
+            } else {
+                goalDao.updateGoal(goal)
+            }
+        }
+    }
+
+    /**
+     * Adds (or with a negative amount takes out) money and returns the milestone to celebrate,
+     * if any. The milestone is recorded in the same transaction so it is only celebrated once.
+     */
+    suspend fun addToGoal(goalId: Long, amount: Double, date: Long, note: String): Int? = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val goal = goalDao.getGoal(goalId) ?: return@withTransaction null
+            goalDao.insertEntry(GoalEntryEntity(goalId = goalId, amount = amount, date = date, note = note))
+            if (amount <= 0.0) return@withTransaction null
+            val saved = goalDao.savedFor(goalId)
+            val milestone = Goals.milestoneToCelebrate(goal, saved) ?: return@withTransaction null
+            goalDao.updateGoal(
+                goal.copy(
+                    celebratedMilestone = milestone,
+                    completedAt = goal.completedAt ?: if (milestone == 100) date else null
+                )
+            )
+            milestone
+        }
+    }
+
+    suspend fun deleteGoalEntry(id: Long) = withContext(Dispatchers.IO) {
+        goalDao.deleteEntry(id)
+    }
+
+    suspend fun deleteGoal(id: Long) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            goalDao.deleteEntriesFor(id)
+            goalDao.deleteGoal(id)
         }
     }
 
