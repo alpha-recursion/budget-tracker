@@ -5,6 +5,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Celebration
+import com.example.domain.AchievementProgress
+import com.example.domain.Badge
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.remember
@@ -103,7 +107,11 @@ fun SettingsScreen(
     onDeleteFormat: (Long) -> Unit = {},
     autoCaptureEnabled: Boolean = false,
     onAutoCaptureChange: (Boolean) -> Unit = {},
-    onAutoCapturePermissionDenied: () -> Unit = {}
+    onAutoCapturePermissionDenied: () -> Unit = {},
+    achievements: AchievementProgress? = null,
+    onOpenBadges: () -> Unit = {},
+    celebrationFeedback: Boolean = true,
+    onCelebrationFeedbackChange: (Boolean) -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
@@ -142,6 +150,40 @@ fun SettingsScreen(
                     onChange = onAutoCaptureChange,
                     onPermissionDenied = onAutoCapturePermissionDenied
                 )
+            }
+        }
+
+        item { GroupLabel("Rewards") }
+        item {
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                SettingsRow(
+                    icon = Icons.Default.EmojiEvents,
+                    tint = Accent,
+                    title = "Badges & level",
+                    subtitle = achievements?.let { "Level ${it.level.number} · ${it.earnedCount} of ${Badge.entries.size} badges" },
+                    onClick = onOpenBadges,
+                    modifier = Modifier.testTag("settings_badges_button")
+                )
+                PwDivider()
+                PwListRow(
+                    title = "Celebration sound & vibration",
+                    subtitle = "Plays on milestones and badges (silent when your phone is)",
+                    leading = { PwIconBadge(Icons.Default.Celebration, Accent) },
+                    onClick = { onCelebrationFeedbackChange(!celebrationFeedback) },
+                    modifier = Modifier.testTag("settings_celebration_feedback_row")
+                ) {
+                    Switch(
+                        checked = celebrationFeedback,
+                        onCheckedChange = onCelebrationFeedbackChange,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = Accent,
+                            checkedThumbColor = SurfaceWhite,
+                            uncheckedTrackColor = Hairline,
+                            uncheckedThumbColor = SurfaceWhite,
+                            uncheckedBorderColor = Hairline
+                        )
+                    )
+                }
             }
         }
 

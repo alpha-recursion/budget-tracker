@@ -51,6 +51,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import com.example.domain.RoundUpSettings
 import com.example.domain.RoundUps
+import com.example.domain.AchievementProgress
+import com.example.domain.Achievements
+import com.example.domain.Badge
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import com.example.domain.SavingStreak
 import com.example.ui.theme.Accent
 import androidx.compose.material3.Text
@@ -131,7 +135,9 @@ fun GoalsScreen(
     jar: Double = 0.0,
     onRoundUpsEnabled: (Boolean) -> Unit = {},
     onRoundUpUnit: (Int) -> Unit = {},
-    onMoveJar: (goalId: Long) -> Unit = {}
+    onMoveJar: (goalId: Long) -> Unit = {},
+    achievements: AchievementProgress? = null,
+    onOpenBadges: () -> Unit = {}
 ) {
     var chooseJarGoal by rememberSaveable { mutableStateOf(false) }
     var buyFor by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -153,6 +159,8 @@ fun GoalsScreen(
     Box(modifier = modifier.fillMaxSize().testTag("goals_screen")) {
         if (selected == null) {
             GoalList(
+                achievements = achievements,
+                onOpenBadges = onOpenBadges,
                 streak = streak,
                 roundUps = roundUps,
                 jar = jar,
@@ -313,6 +321,8 @@ fun GoalsScreen(
 
 @Composable
 private fun GoalList(
+    achievements: AchievementProgress?,
+    onOpenBadges: () -> Unit,
     streak: SavingStreak,
     roundUps: RoundUpSettings,
     jar: Double,
@@ -351,6 +361,7 @@ private fun GoalList(
                 )
             }
         }
+        achievements?.let { progress -> item { LevelCard(progress, onClick = onOpenBadges) } }
         if (goals.isNotEmpty()) {
             item { StreakCard(streak) }
             item {
@@ -640,6 +651,108 @@ private fun GoalDetail(
                 Text("Delete goal", color = Negative, style = MaterialTheme.typography.labelLarge)
             }
         }
+    }
+}
+
+/** Level, XP towards the next level and badges earned; opens the Badges screen. */
+@Composable
+internal fun LevelCard(progress: AchievementProgress, onClick: () -> Unit) {
+    val level = progress.level
+    PwCard(onClick = onClick, modifier = Modifier.testTag("level_card")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GoalRing(fraction = level.fraction(progress.xp), color = Accent, size = 56.dp, stroke = 6.dp) {
+                Text("${level.number}", style = MaterialTheme.typography.titleLarge, color = Ink)
+            }
+            Spacer(modifier = Modifier.width(Space.l))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Level ${level.number} · ${level.name}", style = MaterialTheme.typography.titleMedium, color = Ink)
+                Text(
+                    level.nextXp?.let { "${progress.xp} / $it XP" } ?: "${progress.xp} XP · top level",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkSecondary
+                )
+                Text(
+                    "🏅 ${progress.earnedCount} of ${Badge.entries.size} badges",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Accent
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "See badges", tint = InkTertiary)
+        }
+    }
+}
+
+/** Every badge: earned ones in colour, locked ones greyed with how to earn them. */
+@Composable
+fun BadgesScreen(progress: AchievementProgress, modifier: Modifier = Modifier) {
+    LazyColumn(
+        contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
+        verticalArrangement = Arrangement.spacedBy(Space.section),
+        modifier = modifier.fillMaxSize().testTag("badges_screen")
+    ) {
+        item {
+            PwCard {
+                Text("Level ${progress.level.number}", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
+                Text(progress.level.name, style = MaterialTheme.typography.headlineSmall, color = Ink)
+                Spacer(modifier = Modifier.height(Space.m))
+                val fraction = progress.level.fraction(progress.xp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(SurfaceMuted)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Accent)
+                    )
+                }
+                Spacer(modifier = Modifier.height(Space.s))
+                Text(
+                    progress.level.nextXp?.let { "${progress.xp} XP · ${it - progress.xp} XP to level ${progress.level.number + 1}" }
+                        ?: "${progress.xp} XP · you've reached the top level",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkSecondary
+                )
+                Spacer(modifier = Modifier.height(Space.s))
+                Text(
+                    "XP: ${Achievements.XP_TRANSACTION} per transaction · ${Achievements.XP_DEPOSIT} per goal deposit · " +
+                        "${Achievements.XP_MILESTONE} per milestone · ${Achievements.XP_CHECKPOINT} per checkpoint · " +
+                        "${Achievements.XP_STREAK_WEEK} per week of your best streak · ${Achievements.XP_BADGE} per badge",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = InkTertiary
+                )
+            }
+        }
+        item { Text("Badges · ${progress.earnedCount} of ${Badge.entries.size}", style = MaterialTheme.typography.titleMedium, color = Ink) }
+        items(Badge.entries.chunked(2)) { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+                pair.forEach { badge -> BadgeTile(badge, earned = badge in progress.earned, modifier = Modifier.weight(1f)) }
+                if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BadgeTile(badge: Badge, earned: Boolean, modifier: Modifier = Modifier) {
+    PwCard(
+        color = if (earned) SurfaceWhite else SurfaceMuted,
+        contentPadding = PaddingValues(Space.l),
+        modifier = modifier.testTag("badge_${badge.name}")
+    ) {
+        Text(
+            if (earned) badge.emoji else "🔒",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.graphicsLayer { alpha = if (earned) 1f else 0.6f }
+        )
+        Spacer(modifier = Modifier.height(Space.s))
+        Text(badge.title, style = MaterialTheme.typography.titleSmall, color = if (earned) Ink else InkSecondary)
+        Text(badge.howTo, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
     }
 }
 
@@ -1091,14 +1204,18 @@ private fun GoalMoneyDialog(
 }
 
 /**
- * Full-screen celebration when a milestone is reached: confetti over a dimmed app and a card.
- * Shown above everything (not in a dialog window) so the confetti covers the whole screen.
+ * Full-screen celebration (goal milestone, checkpoint, badge or level): confetti over a dimmed
+ * app and a card. Shown above everything, not in a dialog window, so the confetti covers the
+ * whole screen. [onShown] runs once when it appears (sound and vibration).
  */
 @Composable
-fun MilestoneCelebration(goalName: String, milestone: Int?, checkpoint: String?, onDismiss: () -> Unit) {
+fun CelebrationOverlay(emoji: String, title: String, message: String, onShown: () -> Unit, onDismiss: () -> Unit) {
     BackHandler(onBack = onDismiss)
     val scale = remember { Animatable(0.85f) }
-    LaunchedEffect(Unit) { scale.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 400f)) }
+    LaunchedEffect(Unit) {
+        onShown()
+        scale.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 400f))
+    }
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -1123,25 +1240,16 @@ fun MilestoneCelebration(goalName: String, milestone: Int?, checkpoint: String?,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(Space.xxl)
             ) {
-                Text(if (milestone == 100) "🏆" else if (checkpoint != null) "🚩" else "🎉", style = MaterialTheme.typography.displayLarge)
+                Text(emoji, style = MaterialTheme.typography.displayLarge)
                 Spacer(modifier = Modifier.height(Space.m))
                 Text(
-                    if (checkpoint != null) "Checkpoint reached!" else Goals.milestoneTitle(milestone ?: 0),
+                    title,
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     color = Ink,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(Space.s))
-                Text(
-                    when {
-                        checkpoint != null -> "\"$checkpoint\" on $goalName. Keep going!"
-                        milestone == 100 -> "You saved the full amount for $goalName."
-                        else -> "You've saved $milestone% of $goalName. Keep going!"
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = InkSecondary,
-                    textAlign = TextAlign.Center
-                )
+                Text(message, style = MaterialTheme.typography.bodyLarge, color = InkSecondary, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(Space.xl))
                 PwPrimaryButton(text = "Nice!", onClick = onDismiss, modifier = Modifier.fillMaxWidth().testTag("celebration_ok_button"))
             }

@@ -106,7 +106,11 @@ import com.example.ui.screens.AddEditTransactionDialog
 import com.example.ui.screens.LendingPersonDialog
 import com.example.ui.screens.LendingScreen
 import com.example.ui.screens.GoalsScreen
-import com.example.ui.screens.MilestoneCelebration
+import com.example.ui.screens.CelebrationOverlay
+import com.example.ui.screens.BadgesScreen
+import com.example.ui.util.CelebrationSound
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
@@ -125,6 +129,7 @@ private const val SETTINGS_SCREEN = SETTINGS_TAB
 private const val SMS_IMPORT_SCREEN = 4
 private const val LENDING_SCREEN = 5
 private const val GOALS_SCREEN = 6
+private const val BADGES_SCREEN = 7
 
 private fun tabTitle(tab: Int): String = when (tab) {
     1 -> "Transactions"
@@ -133,6 +138,7 @@ private fun tabTitle(tab: Int): String = when (tab) {
     SMS_IMPORT_SCREEN -> "Import from SMS"
     LENDING_SCREEN -> "Money lent"
     GOALS_SCREEN -> "Savings goals"
+    BADGES_SCREEN -> "Badges"
     else -> "Pennywise"
 }
 
@@ -165,6 +171,7 @@ fun PennywiseApp(
         Overlay.SMS_IMPORT -> SMS_IMPORT_SCREEN
         Overlay.LENDING -> LENDING_SCREEN
         Overlay.GOALS -> GOALS_SCREEN
+        Overlay.BADGES -> BADGES_SCREEN
         null -> selectedTab
     }
     val goals by viewModel.goals.collectAsStateWithLifecycle()
@@ -172,6 +179,8 @@ fun PennywiseApp(
     val savingStreak by viewModel.savingStreak.collectAsStateWithLifecycle()
     val roundUps by viewModel.roundUps.collectAsStateWithLifecycle()
     val roundUpJar by viewModel.roundUpJar.collectAsStateWithLifecycle()
+    val achievements by viewModel.achievements.collectAsStateWithLifecycle()
+    val celebrationFeedback by viewModel.celebrationFeedback.collectAsStateWithLifecycle()
     val lendingBalances by viewModel.lendingBalances.collectAsStateWithLifecycle()
     val lendingPerson by viewModel.lendingPerson.collectAsStateWithLifecycle()
     // Back from a person's history returns to the people list before leaving the screen.
@@ -179,6 +188,7 @@ fun PennywiseApp(
         when {
             overlay == Overlay.LENDING && lendingPerson != null -> viewModel.showLendingPerson(null)
             overlay == Overlay.GOALS && selectedGoal != null -> viewModel.showGoal(null)
+            overlay == Overlay.BADGES -> viewModel.closeBadges()
             isOverlayOpen -> viewModel.closeOverlay()
             else -> viewModel.setTab(0)
         }
@@ -361,7 +371,11 @@ fun PennywiseApp(
                                     onAutoCaptureChange = { viewModel.setAutoCapture(it) },
                                     onAutoCapturePermissionDenied = {
                                         viewModel.showMessage("Auto-detect needs SMS permission")
-                                    }
+                                    },
+                                    achievements = achievements,
+                                    onOpenBadges = { viewModel.openBadges(fromGoals = false) },
+                                    celebrationFeedback = celebrationFeedback,
+                                    onCelebrationFeedbackChange = { viewModel.setCelebrationFeedback(it) }
                                 )
 
                                 SMS_IMPORT_SCREEN -> SmsImportScreen(
@@ -417,8 +431,12 @@ fun PennywiseApp(
                                     jar = roundUpJar,
                                     onRoundUpsEnabled = { viewModel.setRoundUpsEnabled(it) },
                                     onRoundUpUnit = { viewModel.setRoundUpUnit(it) },
-                                    onMoveJar = { viewModel.moveJarToGoal(it) }
+                                    onMoveJar = { viewModel.moveJarToGoal(it) },
+                                    achievements = achievements,
+                                    onOpenBadges = { viewModel.openBadges(fromGoals = true) }
                                 )
+
+                                BADGES_SCREEN -> BadgesScreen(progress = achievements)
                             }
                         }
                     }
@@ -452,12 +470,20 @@ fun PennywiseApp(
         // Goal milestone reached: confetti over everything.
         val celebration by viewModel.celebration.collectAsStateWithLifecycle()
         celebration?.let {
-            // Keyed so each queued celebration plays its own confetti.
+            val haptics = LocalHapticFeedback.current
+            val context = LocalContext.current
+            // Keyed so each queued celebration plays its own confetti, sound and vibration.
             androidx.compose.runtime.key(it) {
-                MilestoneCelebration(
-                    goalName = it.goalName,
-                    milestone = it.milestone,
-                    checkpoint = it.checkpoint,
+                CelebrationOverlay(
+                    emoji = it.emoji,
+                    title = it.title,
+                    message = it.message,
+                    onShown = {
+                        if (celebrationFeedback) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            CelebrationSound.play(context)
+                        }
+                    },
                     onDismiss = { viewModel.dismissCelebration() }
                 )
             }
