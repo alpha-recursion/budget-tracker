@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.DatePicker
@@ -104,7 +105,9 @@ fun AddEditTransactionDialog(
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    /** Editing only: this payment was really money lent or repaid. */
+    onMoveToLending: (() -> Unit)? = null
 ) {
     if (!isOpen) return
 
@@ -262,6 +265,23 @@ fun AddEditTransactionDialog(
                     maxLines = 3,
                     modifier = Modifier.testTag("note_input")
                 )
+            }
+            if (onMoveToLending != null) {
+                Spacer(modifier = Modifier.height(Space.s))
+                TextButton(
+                    onClick = onMoveToLending,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("move_to_lending_button")
+                ) {
+                    Icon(Icons.Default.Handshake, contentDescription = null, tint = Accent, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(Space.s))
+                    Text(
+                        if (type == TransactionType.EXPENSE) "This was money I lent or paid back" else "This was money I got back or borrowed",
+                        color = Accent,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(Space.l))
         }
