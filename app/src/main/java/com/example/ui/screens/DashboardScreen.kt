@@ -98,7 +98,8 @@ fun DashboardScreen(
     lending: List<PersonBalance> = emptyList(),
     onOpenLending: (personKey: String?) -> Unit = {},
     goals: List<GoalProgress> = emptyList(),
-    onOpenGoals: (goalId: Long?) -> Unit = {}
+    onOpenGoals: (goalId: Long?) -> Unit = {},
+    savingStreakWeeks: Int = 0
 ) {
     LazyColumn(
         modifier = modifier
@@ -122,7 +123,7 @@ fun DashboardScreen(
             }
         }
         item { BudgetCard(statuses = budgetStatuses, onOpenBudgets = onOpenBudgets) }
-        item { GoalsCard(goals = goals, onOpen = onOpenGoals) }
+        item { GoalsCard(goals = goals, streakWeeks = savingStreakWeeks, onOpen = onOpenGoals) }
         item { LendingCard(balances = lending, onOpen = onOpenLending) }
         item { WeeklySpendingCard(transactions = recentTransactions) }
         item { ImportSmsCard(onImportSms = onImportSms) }
@@ -434,7 +435,7 @@ private fun CapturedPaymentsCard(state: CaptureState, onReview: () -> Unit, onDi
 
 /** The nearest unfinished goal and the total set aside; a one-line invitation until first use. */
 @Composable
-private fun GoalsCard(goals: List<GoalProgress>, onOpen: (goalId: Long?) -> Unit) {
+private fun GoalsCard(goals: List<GoalProgress>, streakWeeks: Int, onOpen: (goalId: Long?) -> Unit) {
     if (goals.isEmpty()) {
         PwCard(
             onClick = { onOpen(null) },
@@ -456,7 +457,8 @@ private fun GoalsCard(goals: List<GoalProgress>, onOpen: (goalId: Long?) -> Unit
     Column(modifier = Modifier.testTag("goals_card")) {
         PwSectionTitle(
             title = "Savings goals",
-            subtitle = "${Formatters.formatCurrency(Goals.totalSetAside(goals))} set aside",
+            subtitle = "${Formatters.formatCurrency(Goals.totalSetAside(goals))} set aside" +
+                if (streakWeeks > 0) " · 🔥 $streakWeeks-week streak" else "",
             action = "See all",
             onAction = { onOpen(null) },
             modifier = Modifier.padding(horizontal = Space.xs)

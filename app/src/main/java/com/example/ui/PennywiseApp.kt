@@ -169,6 +169,9 @@ fun PennywiseApp(
     }
     val goals by viewModel.goals.collectAsStateWithLifecycle()
     val selectedGoal by viewModel.selectedGoal.collectAsStateWithLifecycle()
+    val savingStreak by viewModel.savingStreak.collectAsStateWithLifecycle()
+    val roundUps by viewModel.roundUps.collectAsStateWithLifecycle()
+    val roundUpJar by viewModel.roundUpJar.collectAsStateWithLifecycle()
     val lendingBalances by viewModel.lendingBalances.collectAsStateWithLifecycle()
     val lendingPerson by viewModel.lendingPerson.collectAsStateWithLifecycle()
     // Back from a person's history returns to the people list before leaving the screen.
@@ -313,7 +316,8 @@ fun PennywiseApp(
                                     lending = lendingBalances,
                                     onOpenLending = { viewModel.openLending(it) },
                                     goals = goals,
-                                    onOpenGoals = { viewModel.openGoals(it) }
+                                    onOpenGoals = { viewModel.openGoals(it) },
+                                    savingStreakWeeks = savingStreak.current
                                 )
 
                                 1 -> TransactionsScreen(
@@ -407,7 +411,13 @@ fun PennywiseApp(
                                     onDeleteGoal = { viewModel.deleteGoal(it) },
                                     onAddCheckpoint = { id, name, amount -> viewModel.addCheckpoint(id, name, amount) },
                                     onDeleteCheckpoint = { viewModel.deleteCheckpoint(it) },
-                                    onBuy = { id, amount, category -> viewModel.buyGoal(id, amount, category) }
+                                    onBuy = { id, amount, category -> viewModel.buyGoal(id, amount, category) },
+                                    streak = savingStreak,
+                                    roundUps = roundUps,
+                                    jar = roundUpJar,
+                                    onRoundUpsEnabled = { viewModel.setRoundUpsEnabled(it) },
+                                    onRoundUpUnit = { viewModel.setRoundUpUnit(it) },
+                                    onMoveJar = { viewModel.moveJarToGoal(it) }
                                 )
                             }
                         }

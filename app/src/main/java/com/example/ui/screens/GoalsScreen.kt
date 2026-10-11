@@ -47,6 +47,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import com.example.domain.RoundUpSettings
+import com.example.domain.RoundUps
+import com.example.domain.SavingStreak
+import com.example.ui.theme.Accent
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -119,8 +125,15 @@ fun GoalsScreen(
     modifier: Modifier = Modifier,
     onAddCheckpoint: (goalId: Long, name: String, amount: Double) -> Unit = { _, _, _ -> },
     onDeleteCheckpoint: (Long) -> Unit = {},
-    onBuy: (goalId: Long, amount: Double, category: String) -> Unit = { _, _, _ -> }
+    onBuy: (goalId: Long, amount: Double, category: String) -> Unit = { _, _, _ -> },
+    streak: SavingStreak = SavingStreak(0, 0, 1, false, 0),
+    roundUps: RoundUpSettings = RoundUpSettings(),
+    jar: Double = 0.0,
+    onRoundUpsEnabled: (Boolean) -> Unit = {},
+    onRoundUpUnit: (Int) -> Unit = {},
+    onMoveJar: (goalId: Long) -> Unit = {}
 ) {
+    var chooseJarGoal by rememberSaveable { mutableStateOf(false) }
     var buyFor by rememberSaveable { mutableStateOf<Long?>(null) }
     var checkpointFor by rememberSaveable { mutableStateOf<Long?>(null) }
     var deleteCheckpoint by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -140,6 +153,15 @@ fun GoalsScreen(
     Box(modifier = modifier.fillMaxSize().testTag("goals_screen")) {
         if (selected == null) {
             GoalList(
+                streak = streak,
+                roundUps = roundUps,
+                jar = jar,
+                onRoundUpsEnabled = onRoundUpsEnabled,
+                onRoundUpUnit = onRoundUpUnit,
+                onMoveJar = {
+                    val active = goals.filterNot { it.isAchieved }
+                    if (active.size == 1) onMoveJar(active.first().goal.id) else chooseJarGoal = true
+                },
                 goals = goals,
                 onOpen = { onSelect(it) },
                 onAdd = { openMoney(it, false) },
@@ -185,6 +207,37 @@ fun GoalsScreen(
                 onDismiss = { moneyFor = null }
             )
         }
+    }
+
+    if (chooseJarGoal) {
+        AlertDialog(
+            onDismissRequest = { chooseJarGoal = false },
+            title = { Text("Move ${Formatters.formatCurrency(jar)} to…") },
+            text = {
+                Column {
+                    goals.filterNot { it.isAchieved }.forEach { g ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    onMoveJar(g.goal.id)
+                                    chooseJarGoal = false
+                                }
+                                .padding(vertical = Space.s)
+                        ) {
+                            GoalRing(fraction = g.fraction, color = Color(g.goal.colorHex), size = 36.dp, stroke = 4.dp)
+                            Spacer(modifier = Modifier.width(Space.m))
+                            Text(g.goal.name, style = MaterialTheme.typography.titleSmall, color = Ink, modifier = Modifier.weight(1f))
+                            Text(Formatters.formatCurrency(g.remaining) + " to go", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { chooseJarGoal = false }) { Text("Cancel", color = Ink) } }
+        )
     }
 
     buyFor?.let { id ->
@@ -259,7 +312,18 @@ fun GoalsScreen(
 }
 
 @Composable
-private fun GoalList(goals: List<GoalProgress>, onOpen: (Long) -> Unit, onAdd: (Long) -> Unit, onNew: () -> Unit) {
+private fun GoalList(
+    streak: SavingStreak,
+    roundUps: RoundUpSettings,
+    jar: Double,
+    onRoundUpsEnabled: (Boolean) -> Unit,
+    onRoundUpUnit: (Int) -> Unit,
+    onMoveJar: () -> Unit,
+    goals: List<GoalProgress>,
+    onOpen: (Long) -> Unit,
+    onAdd: (Long) -> Unit,
+    onNew: () -> Unit
+) {
     LazyColumn(
         contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
         verticalArrangement = Arrangement.spacedBy(Space.section),
@@ -284,6 +348,19 @@ private fun GoalList(goals: List<GoalProgress>, onOpen: (Long) -> Unit, onAdd: (
                     onClick = onNew,
                     icon = Icons.Default.Add,
                     modifier = Modifier.fillMaxWidth().testTag("new_goal_button")
+                )
+            }
+        }
+        if (goals.isNotEmpty()) {
+            item { StreakCard(streak) }
+            item {
+                RoundUpJarCard(
+                    settings = roundUps,
+                    jar = jar,
+                    canMove = goals.any { !it.isAchieved },
+                    onEnabled = onRoundUpsEnabled,
+                    onUnit = onRoundUpUnit,
+                    onMove = onMoveJar
                 )
             }
         }
@@ -562,6 +639,89 @@ private fun GoalDetail(
             TextButton(onClick = onDeleteGoal, modifier = Modifier.fillMaxWidth()) {
                 Text("Delete goal", color = Negative, style = MaterialTheme.typography.labelLarge)
             }
+        }
+    }
+}
+
+/** Weeks in a row with money added to a goal, the best run, and the freeze. */
+@Composable
+private fun StreakCard(streak: SavingStreak) {
+    PwCard(modifier = Modifier.testTag("saving_streak_card")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(if (streak.current > 0) "🔥" else "🌱", style = MaterialTheme.typography.displaySmall)
+            Spacer(modifier = Modifier.width(Space.l))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    when (streak.current) {
+                        0 -> "Start a saving streak"
+                        1 -> "1-week saving streak"
+                        else -> "${streak.current}-week saving streak"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Ink
+                )
+                Text(
+                    if (streak.savedThisWeek) "Saved this week ✓" else "Add any amount to a goal this week to keep it going",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (streak.savedThisWeek) PositiveText else InkSecondary
+                )
+                val details = listOfNotNull(
+                    "Best: ${streak.best} week${if (streak.best == 1) "" else "s"}".takeIf { streak.best > 0 },
+                    if (streak.freezes > 0) "🧊 1 freeze ready" else "🧊 freeze back in ${streak.weeksToFreeze} saving week${if (streak.weeksToFreeze == 1) "" else "s"}"
+                )
+                Text(details.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = InkTertiary)
+            }
+        }
+    }
+}
+
+/** Spare change from expenses, collected until the owner moves it into a goal. */
+@Composable
+private fun RoundUpJarCard(
+    settings: RoundUpSettings,
+    jar: Double,
+    canMove: Boolean,
+    onEnabled: (Boolean) -> Unit,
+    onUnit: (Int) -> Unit,
+    onMove: () -> Unit
+) {
+    PwCard(modifier = Modifier.testTag("round_up_jar_card")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Round-up jar", style = MaterialTheme.typography.titleMedium, color = Ink)
+                Text(
+                    if (settings.enabled) "Each expense rounds up to the next ₹${settings.unit}; the change lands here"
+                    else "Collect the spare change from every expense",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkSecondary
+                )
+            }
+            Spacer(modifier = Modifier.width(Space.s))
+            Switch(
+                checked = settings.enabled,
+                onCheckedChange = onEnabled,
+                colors = SwitchDefaults.colors(checkedTrackColor = Accent, checkedThumbColor = SurfaceWhite),
+                modifier = Modifier.testTag("round_up_switch")
+            )
+        }
+        if (settings.enabled || jar > 0.0) {
+            Spacer(modifier = Modifier.height(Space.m))
+            Text(Formatters.formatCurrency(jar), style = MaterialTheme.typography.headlineSmall, color = Ink, modifier = Modifier.testTag("round_up_jar_amount"))
+            if (settings.enabled) {
+                Spacer(modifier = Modifier.height(Space.s))
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                    RoundUps.UNITS.forEach { unit ->
+                        PwChip("₹$unit", settings.unit == unit, { onUnit(unit) })
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(Space.m))
+            PwPrimaryButton(
+                text = if (canMove) "Move to a goal" else "Create a goal to move it",
+                onClick = onMove,
+                enabled = canMove && jar >= 1.0,
+                modifier = Modifier.fillMaxWidth().testTag("move_jar_button")
+            )
         }
     }
 }
