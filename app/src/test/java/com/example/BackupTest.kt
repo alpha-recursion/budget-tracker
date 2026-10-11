@@ -6,6 +6,7 @@ import com.example.data.backup.BackupData
 import com.example.data.backup.BackupSerializer
 import com.example.data.backup.InvalidBackupException
 import com.example.data.local.BudgetEntity
+import com.example.data.local.ChallengeEntity
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
 import com.example.data.local.GoalEntryEntity
@@ -77,6 +78,10 @@ class BackupTest {
             GoalEntity(8L, "Helmet", 3000.0, "two_wheeler", 0xFF00B894, null, 1_786_000_000_000L, 100, 1_786_500_000_000L, 1_786_600_000_000L, 2800.0)
         ),
         goalMilestones = listOf(GoalMilestoneEntity(1L, 7L, "First ₹1,000", 1000.0, true)),
+        challenges = listOf(
+            ChallengeEntity(1L, 202610, "CATEGORY_LIMIT", "Food & Dining", 2700.0, 1_790_000_000_000L),
+            ChallengeEntity(2L, 202610, "NO_SPEND_DAYS", null, 8.0, 1_790_000_000_000L)
+        ),
         goalEntries = listOf(
             GoalEntryEntity(1L, 7L, 6000.0, 1_787_000_000_000L, "Already saved"),
             GoalEntryEntity(2L, 7L, -500.0, 1_787_200_000_000L, "")

@@ -108,6 +108,9 @@ import com.example.ui.screens.LendingScreen
 import com.example.ui.screens.GoalsScreen
 import com.example.ui.screens.CelebrationOverlay
 import com.example.ui.screens.BadgesScreen
+import com.example.ui.screens.ChallengesScreen
+import com.example.domain.Challenges
+import com.example.domain.ReportCard
 import com.example.ui.util.CelebrationSound
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -130,6 +133,7 @@ private const val SMS_IMPORT_SCREEN = 4
 private const val LENDING_SCREEN = 5
 private const val GOALS_SCREEN = 6
 private const val BADGES_SCREEN = 7
+private const val CHALLENGES_SCREEN = 8
 
 private fun tabTitle(tab: Int): String = when (tab) {
     1 -> "Transactions"
@@ -139,6 +143,7 @@ private fun tabTitle(tab: Int): String = when (tab) {
     LENDING_SCREEN -> "Money lent"
     GOALS_SCREEN -> "Savings goals"
     BADGES_SCREEN -> "Badges"
+    CHALLENGES_SCREEN -> "Challenges"
     else -> "Pennywise"
 }
 
@@ -172,6 +177,7 @@ fun PennywiseApp(
         Overlay.LENDING -> LENDING_SCREEN
         Overlay.GOALS -> GOALS_SCREEN
         Overlay.BADGES -> BADGES_SCREEN
+        Overlay.CHALLENGES -> CHALLENGES_SCREEN
         null -> selectedTab
     }
     val goals by viewModel.goals.collectAsStateWithLifecycle()
@@ -181,6 +187,10 @@ fun PennywiseApp(
     val roundUpJar by viewModel.roundUpJar.collectAsStateWithLifecycle()
     val achievements by viewModel.achievements.collectAsStateWithLifecycle()
     val celebrationFeedback by viewModel.celebrationFeedback.collectAsStateWithLifecycle()
+    val challengeResults by viewModel.challengeResults.collectAsStateWithLifecycle()
+    val challengeSuggestions by viewModel.challengeSuggestions.collectAsStateWithLifecycle()
+    val reportCards by viewModel.reportCards.collectAsStateWithLifecycle()
+    val selectedReport by viewModel.selectedReport.collectAsStateWithLifecycle()
     val lendingBalances by viewModel.lendingBalances.collectAsStateWithLifecycle()
     val lendingPerson by viewModel.lendingPerson.collectAsStateWithLifecycle()
     // Back from a person's history returns to the people list before leaving the screen.
@@ -189,6 +199,8 @@ fun PennywiseApp(
             overlay == Overlay.LENDING && lendingPerson != null -> viewModel.showLendingPerson(null)
             overlay == Overlay.GOALS && selectedGoal != null -> viewModel.showGoal(null)
             overlay == Overlay.BADGES -> viewModel.closeBadges()
+            overlay == Overlay.CHALLENGES && selectedReport != null -> viewModel.showReport(null)
+            overlay == Overlay.CHALLENGES -> viewModel.closeChallenges()
             isOverlayOpen -> viewModel.closeOverlay()
             else -> viewModel.setTab(0)
         }
@@ -327,7 +339,9 @@ fun PennywiseApp(
                                     onOpenLending = { viewModel.openLending(it) },
                                     goals = goals,
                                     onOpenGoals = { viewModel.openGoals(it) },
-                                    savingStreakWeeks = savingStreak.current
+                                    savingStreakWeeks = savingStreak.current,
+                                    reportReady = lastMonthReportIfNew(reportCards),
+                                    onOpenReport = { viewModel.openChallenges(fromGoals = false, reportMonth = it) }
                                 )
 
                                 1 -> TransactionsScreen(
@@ -433,10 +447,23 @@ fun PennywiseApp(
                                     onRoundUpUnit = { viewModel.setRoundUpUnit(it) },
                                     onMoveJar = { viewModel.moveJarToGoal(it) },
                                     achievements = achievements,
-                                    onOpenBadges = { viewModel.openBadges(fromGoals = true) }
+                                    onOpenBadges = { viewModel.openBadges(fromGoals = true) },
+                                    challenges = challengeResults,
+                                    hasChallengeSuggestions = challengeSuggestions.isNotEmpty(),
+                                    onOpenChallenges = { viewModel.openChallenges(fromGoals = true) }
                                 )
 
                                 BADGES_SCREEN -> BadgesScreen(progress = achievements)
+
+                                CHALLENGES_SCREEN -> ChallengesScreen(
+                                    results = challengeResults,
+                                    suggestions = challengeSuggestions,
+                                    reports = reportCards,
+                                    selectedReport = selectedReport,
+                                    onPick = { viewModel.pickChallenge(it) },
+                                    onRemove = { viewModel.removeChallenge(it) },
+                                    onSelectReport = { viewModel.showReport(it) }
+                                )
                             }
                         }
                     }
@@ -490,6 +517,14 @@ fun PennywiseApp(
         }
         }
     }
+}
+
+/** Last month's report card during the first 7 days of a month; otherwise null. */
+private fun lastMonthReportIfNew(reports: List<ReportCard>, nowMs: Long = System.currentTimeMillis()): ReportCard? {
+    val thisMonth = Challenges.month(nowMs)
+    if (nowMs - thisMonth.start >= 7 * 86_400_000L) return null
+    val last = Challenges.previous(thisMonth)
+    return reports.firstOrNull { it.month.key == last.key }
 }
 
 private const val TAB_FADE_OUT_MS = 90

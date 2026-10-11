@@ -52,6 +52,7 @@ import androidx.compose.material3.SwitchDefaults
 import com.example.domain.RoundUpSettings
 import com.example.domain.RoundUps
 import com.example.domain.AchievementProgress
+import com.example.domain.ChallengeResult
 import com.example.domain.Achievements
 import com.example.domain.Badge
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -137,7 +138,10 @@ fun GoalsScreen(
     onRoundUpUnit: (Int) -> Unit = {},
     onMoveJar: (goalId: Long) -> Unit = {},
     achievements: AchievementProgress? = null,
-    onOpenBadges: () -> Unit = {}
+    onOpenBadges: () -> Unit = {},
+    challenges: List<ChallengeResult> = emptyList(),
+    hasChallengeSuggestions: Boolean = false,
+    onOpenChallenges: () -> Unit = {}
 ) {
     var chooseJarGoal by rememberSaveable { mutableStateOf(false) }
     var buyFor by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -159,6 +163,9 @@ fun GoalsScreen(
     Box(modifier = modifier.fillMaxSize().testTag("goals_screen")) {
         if (selected == null) {
             GoalList(
+                challenges = challenges,
+                hasChallengeSuggestions = hasChallengeSuggestions,
+                onOpenChallenges = onOpenChallenges,
                 achievements = achievements,
                 onOpenBadges = onOpenBadges,
                 streak = streak,
@@ -321,6 +328,9 @@ fun GoalsScreen(
 
 @Composable
 private fun GoalList(
+    challenges: List<ChallengeResult>,
+    hasChallengeSuggestions: Boolean,
+    onOpenChallenges: () -> Unit,
     achievements: AchievementProgress?,
     onOpenBadges: () -> Unit,
     streak: SavingStreak,
@@ -362,6 +372,7 @@ private fun GoalList(
             }
         }
         achievements?.let { progress -> item { LevelCard(progress, onClick = onOpenBadges) } }
+        item { ChallengesSummaryCard(challenges, hasChallengeSuggestions, onClick = onOpenChallenges) }
         if (goals.isNotEmpty()) {
             item { StreakCard(streak) }
             item {

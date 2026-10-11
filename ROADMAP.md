@@ -105,7 +105,9 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 3.3 XP, 10 levels and 14 badges, all worked out from the owner's data; new badges and
       level-ups are celebrated once; Badges screen (Goals → level card, or Settings → Rewards)
 - [x] 3.3b Celebration chime + vibration (silent when the phone is; switch in Settings)
-- [ ] 3.4 Monthly challenges + month-end report card
+- [x] 3.4 Monthly challenges (3 suggested from last month, pick any; category limit, total
+      spend, save into goals, no-spend days; +100 XP and the Challenger badge per win) and a
+      graded report card per month (A+ to D), shown on Home in the first week of a month (DB v8)
 
 ### 4. Faster manual entry
 - [ ] 4.1 Quick-add chips and recent merchants

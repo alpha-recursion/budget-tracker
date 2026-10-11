@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.example.data.model.CategoryInfo
 import com.example.data.backup.BackupData
 import com.example.data.local.BudgetEntity
+import com.example.data.local.ChallengeEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
@@ -39,6 +40,7 @@ class PennywiseRepository(
     private val smsTemplateDao = database.smsTemplateDao()
     private val debtDao = database.debtDao()
     private val goalDao = database.goalDao()
+    private val challengeDao = database.challengeDao()
 
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
     val allBudgets: Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
@@ -50,6 +52,7 @@ class PennywiseRepository(
     val goals: Flow<List<GoalEntity>> = goalDao.getGoals()
     val goalEntries: Flow<List<GoalEntryEntity>> = goalDao.getEntries()
     val goalMilestones: Flow<List<GoalMilestoneEntity>> = goalDao.getMilestones()
+    val challenges: Flow<List<ChallengeEntity>> = challengeDao.getAll()
 
     suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
         transactionDao.insert(transaction)
@@ -92,6 +95,7 @@ class PennywiseRepository(
                 goals = goalDao.getGoalsOnce(),
                 goalEntries = goalDao.getEntriesOnce(),
                 goalMilestones = goalDao.getMilestonesOnce(),
+                challenges = challengeDao.getAllOnce(),
                 exportedAt = System.currentTimeMillis()
             )
         }
@@ -111,6 +115,7 @@ class PennywiseRepository(
             goalDao.insertGoals(data.goals)
             goalDao.insertEntries(data.goalEntries)
             goalDao.insertMilestones(data.goalMilestones)
+            challengeDao.insertAll(data.challenges)
         }
     }
 
@@ -129,6 +134,7 @@ class PennywiseRepository(
         goalDao.deleteAllEntries()
         goalDao.deleteAllMilestones()
         goalDao.deleteAllGoals()
+        challengeDao.deleteAll()
     }
 
     /** Deletes a custom category; its transactions move to "Other" and its budget is removed. */
@@ -246,6 +252,16 @@ class PennywiseRepository(
             goalDao.deleteMilestonesFor(id)
             goalDao.deleteGoal(id)
         }
+    }
+
+    // --- Monthly challenges ---
+
+    suspend fun addChallenge(challenge: ChallengeEntity): Long = withContext(Dispatchers.IO) {
+        challengeDao.insert(challenge)
+    }
+
+    suspend fun deleteChallenge(id: Long) = withContext(Dispatchers.IO) {
+        challengeDao.delete(id)
     }
 
     // --- SMS import ---
