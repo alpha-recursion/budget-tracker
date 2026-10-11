@@ -404,7 +404,10 @@ fun PennywiseApp(
                                     },
                                     onMoveMoney = { id, amount, out, note -> viewModel.moveGoalMoney(id, amount, out, note) },
                                     onDeleteEntry = { viewModel.deleteGoalEntry(it) },
-                                    onDeleteGoal = { viewModel.deleteGoal(it) }
+                                    onDeleteGoal = { viewModel.deleteGoal(it) },
+                                    onAddCheckpoint = { id, name, amount -> viewModel.addCheckpoint(id, name, amount) },
+                                    onDeleteCheckpoint = { viewModel.deleteCheckpoint(it) },
+                                    onBuy = { id, amount, category -> viewModel.buyGoal(id, amount, category) }
                                 )
                             }
                         }
@@ -439,7 +442,15 @@ fun PennywiseApp(
         // Goal milestone reached: confetti over everything.
         val celebration by viewModel.celebration.collectAsStateWithLifecycle()
         celebration?.let {
-            MilestoneCelebration(goalName = it.goalName, milestone = it.milestone, onDismiss = { viewModel.dismissCelebration() })
+            // Keyed so each queued celebration plays its own confetti.
+            androidx.compose.runtime.key(it) {
+                MilestoneCelebration(
+                    goalName = it.goalName,
+                    milestone = it.milestone,
+                    checkpoint = it.checkpoint,
+                    onDismiss = { viewModel.dismissCelebration() }
+                )
+            }
         }
         }
     }

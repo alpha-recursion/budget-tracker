@@ -95,6 +95,10 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 3.1 Savings goals: Home card + Goals screen; add / take out money (set aside, not
       spending); 25/50/75/100% milestone badges, each celebrated once with confetti; optional
       target date with "save ₹X/week" and on track / behind / date passed
+- [x] 3.1b Goal tracking: "At this pace" finish date (last 8 weeks), savings-over-time
+      chart, "free to spend" on Home (balance minus set aside), Achieved shelf with
+      "I bought it" (records the expense, releases the money), named checkpoints (DB v7)
+- [ ] 3.1c Round-up jar: spare change from each expense, moved to a goal with one tap
 - [ ] 3.2 Streaks (daily review, no-spend days) with freezes
 - [ ] 3.3 XP, levels, badges
 - [ ] 3.4 Monthly challenges + month-end report card

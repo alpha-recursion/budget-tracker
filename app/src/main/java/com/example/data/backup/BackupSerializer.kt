@@ -4,6 +4,7 @@ import com.example.data.local.BudgetEntity
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
 import com.example.data.local.GoalEntryEntity
+import com.example.data.local.GoalMilestoneEntity
 import com.example.domain.DebtKind
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
@@ -26,6 +27,7 @@ data class BackupData(
     val debts: List<DebtEntryEntity> = emptyList(),
     val goals: List<GoalEntity> = emptyList(),
     val goalEntries: List<GoalEntryEntity> = emptyList(),
+    val goalMilestones: List<GoalMilestoneEntity> = emptyList(),
     val exportedAt: Long = 0L
 )
 
@@ -146,6 +148,8 @@ object BackupSerializer {
                             .put("createdAt", g.createdAt)
                             .put("celebratedMilestone", g.celebratedMilestone)
                             .put("completedAt", g.completedAt ?: JSONObject.NULL)
+                            .put("purchasedAt", g.purchasedAt ?: JSONObject.NULL)
+                            .put("purchasedAmount", g.purchasedAmount ?: JSONObject.NULL)
                     )
                 }
             })
@@ -158,6 +162,18 @@ object BackupSerializer {
                             .put("amount", e.amount)
                             .put("date", e.date)
                             .put("note", e.note)
+                    )
+                }
+            })
+            .put("goalMilestones", JSONArray().apply {
+                data.goalMilestones.forEach { m ->
+                    put(
+                        JSONObject()
+                            .put("id", m.id)
+                            .put("goalId", m.goalId)
+                            .put("name", m.name)
+                            .put("amount", m.amount)
+                            .put("celebrated", m.celebrated)
                     )
                 }
             })
@@ -269,7 +285,9 @@ object BackupSerializer {
                     targetDate = if (o.isNull("targetDate")) null else o.getLong("targetDate"),
                     createdAt = o.getLong("createdAt"),
                     celebratedMilestone = o.optInt("celebratedMilestone", 0),
-                    completedAt = if (o.isNull("completedAt")) null else o.getLong("completedAt")
+                    completedAt = if (o.isNull("completedAt")) null else o.getLong("completedAt"),
+                    purchasedAt = if (!o.has("purchasedAt") || o.isNull("purchasedAt")) null else o.getLong("purchasedAt"),
+                    purchasedAmount = if (!o.has("purchasedAmount") || o.isNull("purchasedAmount")) null else o.getDouble("purchasedAmount")
                 )
             }.orEmpty()
             val goalIds = goals.map { it.id }.toSet()
@@ -283,6 +301,15 @@ object BackupSerializer {
                     note = o.optString("note", "")
                 )
             }.orEmpty().filter { it.goalId in goalIds }
+            val goalMilestones = root.optJSONArray("goalMilestones")?.objects()?.map { o ->
+                GoalMilestoneEntity(
+                    id = o.getLong("id"),
+                    goalId = o.getLong("goalId"),
+                    name = o.getString("name"),
+                    amount = o.getDouble("amount"),
+                    celebrated = o.optBoolean("celebrated", false)
+                )
+            }.orEmpty().filter { it.goalId in goalIds }
 
             return BackupData(
                 transactions = transactions,
@@ -294,6 +321,7 @@ object BackupSerializer {
                 debts = debts,
                 goals = goals,
                 goalEntries = goalEntries,
+                goalMilestones = goalMilestones,
                 exportedAt = root.optLong("exportedAt", 0L)
             )
         } catch (e: JSONException) {

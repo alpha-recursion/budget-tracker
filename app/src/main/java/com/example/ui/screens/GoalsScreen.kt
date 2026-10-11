@@ -35,6 +35,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ShoppingBag
+import com.example.data.model.CategoryInfo
+import com.example.data.model.TransactionType
+import com.example.ui.components.CategoryGrid
+import com.example.ui.components.GoalSavingsChart
+import com.example.ui.components.PwSectionTitle
+import com.example.ui.util.LocalCategories
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -108,8 +116,14 @@ fun GoalsScreen(
     onMoveMoney: (goalId: Long, amount: Double, takeOut: Boolean, note: String) -> Unit,
     onDeleteEntry: (Long) -> Unit,
     onDeleteGoal: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAddCheckpoint: (goalId: Long, name: String, amount: Double) -> Unit = { _, _, _ -> },
+    onDeleteCheckpoint: (Long) -> Unit = {},
+    onBuy: (goalId: Long, amount: Double, category: String) -> Unit = { _, _, _ -> }
 ) {
+    var buyFor by rememberSaveable { mutableStateOf<Long?>(null) }
+    var checkpointFor by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deleteCheckpoint by rememberSaveable { mutableStateOf<Long?>(null) }
     // 0 = new goal; otherwise the id of the goal being edited.
     var editing by rememberSaveable { mutableStateOf<Long?>(null) }
     // Goal id and direction of the money dialog.
@@ -138,7 +152,10 @@ fun GoalsScreen(
                 onTakeOut = { openMoney(selected.goal.id, true) },
                 onEdit = { editing = selected.goal.id },
                 onDeleteEntry = { deleteEntry = it },
-                onDeleteGoal = { deleteGoal = true }
+                onDeleteGoal = { deleteGoal = true },
+                onBuy = { buyFor = selected.goal.id },
+                onAddCheckpoint = { checkpointFor = selected.goal.id },
+                onDeleteCheckpoint = { deleteCheckpoint = it }
             )
         }
     }
@@ -168,6 +185,46 @@ fun GoalsScreen(
                 onDismiss = { moneyFor = null }
             )
         }
+    }
+
+    buyFor?.let { id ->
+        goals.firstOrNull { it.goal.id == id }?.let { goal ->
+            BuyGoalDialog(
+                progress = goal,
+                onBuy = { amount, category ->
+                    onBuy(id, amount, category)
+                    buyFor = null
+                },
+                onDismiss = { buyFor = null }
+            )
+        }
+    }
+
+    checkpointFor?.let { id ->
+        goals.firstOrNull { it.goal.id == id }?.let { goal ->
+            CheckpointDialog(
+                progress = goal,
+                onSave = { name, amount ->
+                    onAddCheckpoint(id, name, amount)
+                    checkpointFor = null
+                },
+                onDismiss = { checkpointFor = null }
+            )
+        }
+    }
+
+    deleteCheckpoint?.let { id ->
+        AlertDialog(
+            onDismissRequest = { deleteCheckpoint = null },
+            title = { Text("Delete this checkpoint?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteCheckpoint(id)
+                    deleteCheckpoint = null
+                }) { Text("Delete", color = Negative) }
+            },
+            dismissButton = { TextButton(onClick = { deleteCheckpoint = null }) { Text("Cancel", color = Ink) } }
+        )
     }
 
     deleteEntry?.let { id ->
@@ -240,8 +297,23 @@ private fun GoalList(goals: List<GoalProgress>, onOpen: (Long) -> Unit, onAdd: (
                 )
             }
         }
-        items(goals, key = { it.goal.id }) { progress ->
+        val active = goals.filterNot { it.isAchieved }
+        val achieved = goals.filter { it.isAchieved }
+        items(active, key = { it.goal.id }) { progress ->
             GoalCard(progress = progress, onClick = { onOpen(progress.goal.id) }, onAdd = { onAdd(progress.goal.id) })
+        }
+        if (achieved.isNotEmpty()) {
+            item(key = "achieved_header") {
+                Text(
+                    "Achieved 🏆 · ${achieved.size}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Ink,
+                    modifier = Modifier.padding(start = Space.xs, top = Space.s)
+                )
+            }
+            items(achieved, key = { it.goal.id }) { progress ->
+                GoalCard(progress = progress, onClick = { onOpen(progress.goal.id) }, onAdd = null)
+            }
         }
     }
 }
@@ -286,7 +358,11 @@ internal fun GoalCard(progress: GoalProgress, onClick: () -> Unit, onAdd: (() ->
 @Composable
 private fun PlanLine(progress: GoalProgress) {
     val (text, color) = when {
-        progress.isComplete -> "Completed 🎉" to PositiveText
+        progress.isPurchased -> {
+            val bought = progress.goal.purchasedAt?.let { Formatters.formatDate(it) }.orEmpty()
+            "Bought $bought" + (progress.goal.purchasedAmount?.let { " for ${Formatters.formatCurrency(it)}" } ?: "") + " 🛍️" to PositiveText
+        }
+        progress.isComplete -> "Completed 🎉 · tap to mark as bought" to PositiveText
         progress.pace == GoalPace.MISSED -> "Target date passed · ${Formatters.formatCurrency(progress.remaining)} to go" to Negative
         progress.weeklyNeeded != null -> {
             val pace = if (progress.pace == GoalPace.BEHIND) "behind" else "on track"
@@ -329,7 +405,10 @@ private fun GoalDetail(
     onTakeOut: () -> Unit,
     onEdit: () -> Unit,
     onDeleteEntry: (Long) -> Unit,
-    onDeleteGoal: () -> Unit
+    onDeleteGoal: () -> Unit,
+    onBuy: () -> Unit,
+    onAddCheckpoint: () -> Unit,
+    onDeleteCheckpoint: (Long) -> Unit
 ) {
     val color = Color(progress.goal.colorHex)
     LazyColumn(
@@ -344,7 +423,7 @@ private fun GoalDetail(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(getCategoryIcon(progress.goal.iconKey), contentDescription = null, tint = color, modifier = Modifier.size(28.dp))
                             Text(
-                                "${(progress.fraction * 100).toInt()}%",
+                                if (progress.isPurchased) "🛍️" else "${(progress.fraction * 100).toInt()}%",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = Ink
                             )
@@ -352,40 +431,122 @@ private fun GoalDetail(
                     }
                     Spacer(modifier = Modifier.height(Space.l))
                     Text(progress.goal.name, style = MaterialTheme.typography.titleLarge, color = Ink, textAlign = TextAlign.Center)
-                    Text(
-                        "${Formatters.formatCurrency(progress.saved)} of ${Formatters.formatCurrency(progress.goal.target)}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = InkSecondary
-                    )
-                    progress.goal.targetDate?.let {
+                    if (!progress.isPurchased) {
+                        Text(
+                            "${Formatters.formatCurrency(progress.saved)} of ${Formatters.formatCurrency(progress.goal.target)}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = InkSecondary
+                        )
+                    }
+                    progress.goal.targetDate?.takeIf { !progress.isAchieved }?.let {
                         Text("By ${Formatters.formatDate(it)}", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                     }
                     Spacer(modifier = Modifier.height(Space.xs))
                     PlanLine(progress)
+                    ForecastLine(progress)
+                    Goals.nextCheckpoint(progress)?.let { next ->
+                        Text(
+                            "Next: ${next.name} · ${Formatters.formatCurrency(next.toGo)} to go",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = InkSecondary,
+                            modifier = Modifier.testTag("goal_next_checkpoint")
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(Space.l))
                 MilestoneRow(progress.milestone, color)
-                Spacer(modifier = Modifier.height(Space.l))
-                Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-                    PwPrimaryButton(
-                        text = "Add money",
-                        onClick = onAdd,
-                        icon = Icons.Default.Add,
-                        modifier = Modifier.weight(1f).testTag("goal_add_money_button")
-                    )
-                    PwSecondaryButton(
-                        text = "Take out",
-                        onClick = onTakeOut,
-                        enabled = progress.saved > 0.0,
-                        icon = Icons.Default.Remove,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                TextButton(onClick = onEdit, modifier = Modifier.fillMaxWidth().testTag("edit_goal_button")) {
-                    Text("Edit goal", color = Ink, style = MaterialTheme.typography.labelLarge)
+                if (!progress.isPurchased) {
+                    Spacer(modifier = Modifier.height(Space.l))
+                    Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+                        if (progress.isComplete) {
+                            PwPrimaryButton(
+                                text = "I bought it",
+                                onClick = onBuy,
+                                icon = Icons.Default.ShoppingBag,
+                                modifier = Modifier.weight(1f).testTag("goal_buy_button")
+                            )
+                        } else {
+                            PwPrimaryButton(
+                                text = "Add money",
+                                onClick = onAdd,
+                                icon = Icons.Default.Add,
+                                modifier = Modifier.weight(1f).testTag("goal_add_money_button")
+                            )
+                        }
+                        PwSecondaryButton(
+                            text = "Take out",
+                            onClick = onTakeOut,
+                            enabled = progress.saved > 0.0,
+                            icon = Icons.Default.Remove,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = onEdit, modifier = Modifier.weight(1f).testTag("edit_goal_button")) {
+                            Text("Edit goal", color = Ink, style = MaterialTheme.typography.labelLarge)
+                        }
+                        // Bought before reaching the target: still record it.
+                        if (!progress.isComplete && progress.saved > 0.0) {
+                            TextButton(onClick = onBuy, modifier = Modifier.weight(1f)) {
+                                Text("Bought it already", color = Ink, style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
                 }
             }
         }
+
+        val timeline = Goals.timeline(progress.entries)
+        if (timeline.isNotEmpty()) {
+            item {
+                PwCard {
+                    Text("Savings over time", style = MaterialTheme.typography.titleMedium, color = Ink)
+                    Spacer(modifier = Modifier.height(Space.m))
+                    GoalSavingsChart(
+                        points = timeline,
+                        target = progress.goal.target,
+                        color = color,
+                        todayMs = FinancialCalculations.startOfDay(System.currentTimeMillis())
+                    )
+                }
+            }
+        }
+
+        if (!progress.isPurchased) {
+            item {
+                PwCard(contentPadding = PaddingValues(vertical = Space.l)) {
+                    PwSectionTitle(
+                        title = "Checkpoints",
+                        subtitle = "Your own milestones, celebrated when reached",
+                        action = "Add",
+                        onAction = onAddCheckpoint,
+                        modifier = Modifier
+                            .padding(horizontal = Space.xl)
+                            .testTag("add_checkpoint_button")
+                    )
+                    if (progress.checkpoints.isEmpty()) {
+                        Text(
+                            "e.g. \"First ₹1,000\" or \"Half the deposit\".",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = InkSecondary,
+                            modifier = Modifier.padding(horizontal = Space.xl, vertical = Space.s)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(Space.s))
+                        progress.checkpoints.forEach { checkpoint ->
+                            CheckpointRow(
+                                name = checkpoint.name,
+                                amount = checkpoint.amount,
+                                reached = progress.saved >= checkpoint.amount - Goals.EPSILON || progress.isAchieved,
+                                color = color,
+                                onLongClick = { onDeleteCheckpoint(checkpoint.id) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (progress.entries.isNotEmpty()) {
             item { Text("History · hold an entry to delete it", style = MaterialTheme.typography.labelLarge, color = InkSecondary) }
             item {
@@ -402,6 +563,129 @@ private fun GoalDetail(
                 Text("Delete goal", color = Negative, style = MaterialTheme.typography.labelLarge)
             }
         }
+    }
+}
+
+/** "At this pace: Feb 12, 2027", amber when that is after the target date. */
+@Composable
+private fun ForecastLine(progress: GoalProgress) {
+    if (progress.isAchieved) return
+    val forecast = progress.forecastDate
+    val due = progress.goal.targetDate
+    val (text, color) = when {
+        forecast == null && progress.entries.isEmpty() -> return
+        forecast == null -> "Keep adding money to see when you'll get there" to InkSecondary
+        due != null && forecast > due -> "At this pace: ${Formatters.formatDate(forecast)} (after your date)" to WarningText
+        else -> "At this pace: ${Formatters.formatDate(forecast)}" to InkSecondary
+    }
+    Text(text, style = MaterialTheme.typography.bodySmall, color = color, modifier = Modifier.testTag("goal_forecast"))
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CheckpointRow(name: String, amount: Double, reached: Boolean, color: Color, onLongClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = {}, onLongClick = onLongClick)
+            .padding(horizontal = Space.xl, vertical = Space.s)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(if (reached) color else SurfaceMuted)
+        ) {
+            if (reached) Icon(Icons.Default.Check, contentDescription = "Reached", tint = SurfaceWhite, modifier = Modifier.size(16.dp))
+        }
+        Spacer(modifier = Modifier.width(Space.m))
+        Text(name, style = MaterialTheme.typography.titleSmall, color = if (reached) Ink else InkSecondary, modifier = Modifier.weight(1f))
+        Text(Formatters.formatCurrency(amount), style = MaterialTheme.typography.titleSmall, color = if (reached) Ink else InkSecondary)
+    }
+}
+
+/** "I bought it": record the purchase as an expense and release the money set aside. */
+@Composable
+private fun BuyGoalDialog(progress: GoalProgress, onBuy: (amount: Double, category: String) -> Unit, onDismiss: () -> Unit) {
+    val categories = CategoryInfo.forType(LocalCategories.current, TransactionType.EXPENSE)
+    val initial = if (progress.saved > 0.0) progress.saved else progress.goal.target
+    var amountText by rememberSaveable { mutableStateOf(plainNumber(initial)) }
+    var category by rememberSaveable { mutableStateOf<String?>(null) }
+    val amount = FormValidation.parseAmount(amountText)
+    val error = FormValidation.validateAmount(amountText).errorOrNull
+
+    LendingDialogFrame(title = "Bought ${progress.goal.name}?", onDismiss = onDismiss, tag = "buy_goal_dialog") {
+        Text(
+            "Adds the price as an expense and releases the ${Formatters.formatCurrency(progress.saved)} you set aside. " +
+                "The goal moves to Achieved.",
+            style = MaterialTheme.typography.bodySmall,
+            color = InkSecondary
+        )
+        PwTextField(
+            value = amountText,
+            onValueChange = { amountText = it },
+            label = "What it cost (₹)",
+            errorText = error,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.testTag("buy_amount_input")
+        )
+        Text("Category", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
+        CategoryGrid(categories = categories, selected = category, onSelect = { category = it })
+        DialogButtons(
+            confirm = "Mark as bought",
+            enabled = error == null && amount != null && category != null,
+            onConfirm = {
+                val c = category ?: return@DialogButtons
+                amount?.let { onBuy(it, c) }
+            },
+            onDismiss = onDismiss
+        )
+    }
+}
+
+/** A named checkpoint, e.g. "First ₹1,000". */
+@Composable
+private fun CheckpointDialog(progress: GoalProgress, onSave: (name: String, amount: Double) -> Unit, onDismiss: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var amountText by rememberSaveable { mutableStateOf("") }
+    var touched by rememberSaveable { mutableStateOf(false) }
+    val amount = FormValidation.parseAmount(amountText)
+    val error = FormValidation.validateAmount(amountText).errorOrNull
+        ?: if (amount != null && amount > progress.goal.target + Goals.EPSILON) {
+            "Must be at most the target (${Formatters.formatCurrency(progress.goal.target)})"
+        } else {
+            null
+        }
+
+    LendingDialogFrame(title = "New checkpoint", onDismiss = onDismiss, tag = "checkpoint_dialog") {
+        PwTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = "Name",
+            placeholder = "e.g. First ₹1,000",
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            modifier = Modifier.testTag("checkpoint_name_input")
+        )
+        PwTextField(
+            value = amountText,
+            onValueChange = {
+                amountText = it
+                touched = true
+            },
+            label = "When saved reaches (₹)",
+            placeholder = "1000",
+            errorText = error.takeIf { touched },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.testTag("checkpoint_amount_input")
+        )
+        DialogButtons(
+            confirm = "Add",
+            enabled = name.isNotBlank() && name.trim().length <= 40 && error == null && amount != null,
+            onConfirm = { amount?.let { onSave(name, it) } },
+            onDismiss = onDismiss
+        )
     }
 }
 
@@ -651,7 +935,7 @@ private fun GoalMoneyDialog(
  * Shown above everything (not in a dialog window) so the confetti covers the whole screen.
  */
 @Composable
-fun MilestoneCelebration(goalName: String, milestone: Int, onDismiss: () -> Unit) {
+fun MilestoneCelebration(goalName: String, milestone: Int?, checkpoint: String?, onDismiss: () -> Unit) {
     BackHandler(onBack = onDismiss)
     val scale = remember { Animatable(0.85f) }
     LaunchedEffect(Unit) { scale.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 400f)) }
@@ -679,17 +963,21 @@ fun MilestoneCelebration(goalName: String, milestone: Int, onDismiss: () -> Unit
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(Space.xxl)
             ) {
-                Text(if (milestone == 100) "🏆" else "🎉", style = MaterialTheme.typography.displayLarge)
+                Text(if (milestone == 100) "🏆" else if (checkpoint != null) "🚩" else "🎉", style = MaterialTheme.typography.displayLarge)
                 Spacer(modifier = Modifier.height(Space.m))
                 Text(
-                    Goals.milestoneTitle(milestone),
+                    if (checkpoint != null) "Checkpoint reached!" else Goals.milestoneTitle(milestone ?: 0),
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     color = Ink,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(Space.s))
                 Text(
-                    if (milestone == 100) "You saved the full amount for $goalName." else "You've saved $milestone% of $goalName. Keep going!",
+                    when {
+                        checkpoint != null -> "\"$checkpoint\" on $goalName. Keep going!"
+                        milestone == 100 -> "You saved the full amount for $goalName."
+                        else -> "You've saved $milestone% of $goalName. Keep going!"
+                    },
                     style = MaterialTheme.typography.bodyLarge,
                     color = InkSecondary,
                     textAlign = TextAlign.Center

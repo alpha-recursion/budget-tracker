@@ -22,8 +22,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.domain.SavingsPoint
+import com.example.ui.theme.InkSecondary
+import com.example.ui.theme.InkTertiary
+import com.example.ui.util.ChartMath
+import com.example.ui.util.Formatters
 import com.example.ui.theme.Accent
 import com.example.ui.theme.Hairline
 import com.example.ui.theme.Positive
@@ -116,5 +130,79 @@ fun ConfettiBurst(modifier: Modifier = Modifier, durationMs: Int = 2600) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Saved amount over time as a step line (money moves in jumps on the days it is added), with
+ * the target as a dashed line. [points] come from Goals.timeline; the line starts at zero the
+ * day before the first deposit and runs flat to [todayMs].
+ */
+@Composable
+fun GoalSavingsChart(
+    points: List<SavingsPoint>,
+    target: Double,
+    color: Color,
+    todayMs: Long,
+    modifier: Modifier = Modifier
+) {
+    if (points.isEmpty()) return
+    val measurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = InkTertiary)
+    val targetStyle = MaterialTheme.typography.labelSmall.copy(color = InkSecondary)
+    val day = 86_400_000L
+    val series = buildList {
+        add(SavingsPoint(points.first().dayMs - day, 0.0))
+        addAll(points)
+        if (todayMs > points.last().dayMs) add(SavingsPoint(todayMs, points.last().saved))
+    }
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(170.dp)
+            .testTag("goal_savings_chart")
+    ) {
+        val bottomInset = 20.dp.toPx()
+        val topInset = 18.dp.toPx()
+        val plotHeight = size.height - bottomInset - topInset
+        val start = series.first().dayMs
+        val end = series.last().dayMs.coerceAtLeast(start + 1)
+        val top = maxOf(target, series.maxOf { it.saved }) * 1.08
+        fun x(ms: Long) = size.width * ((ms - start).toFloat() / (end - start).toFloat())
+        fun y(v: Double) = topInset + plotHeight * (1f - (v / top).toFloat())
+
+        // Target line and label.
+        val ty = y(target)
+        drawLine(
+            InkTertiary, Offset(0f, ty), Offset(size.width, ty),
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 6.dp.toPx()))
+        )
+        val targetText = measurer.measure("Target " + ChartMath.compactRupees(target), targetStyle)
+        drawText(targetText, topLeft = Offset(size.width - targetText.size.width, ty - targetText.size.height - 2.dp.toPx()))
+
+        // Step line: flat until the day money moved, then straight up (or down).
+        val line = Path().apply {
+            moveTo(x(series.first().dayMs), y(series.first().saved))
+            for (i in 1 until series.size) {
+                lineTo(x(series[i].dayMs), y(series[i - 1].saved))
+                lineTo(x(series[i].dayMs), y(series[i].saved))
+            }
+        }
+        val fill = Path().apply {
+            addPath(line)
+            lineTo(x(series.last().dayMs), y(0.0))
+            lineTo(x(series.first().dayMs), y(0.0))
+            close()
+        }
+        drawPath(fill, Brush.verticalGradient(listOf(color.copy(alpha = 0.25f), color.copy(alpha = 0f)), startY = topInset, endY = y(0.0)))
+        drawPath(line, color, style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round))
+        drawLine(Hairline, Offset(0f, y(0.0)), Offset(size.width, y(0.0)), strokeWidth = 1.dp.toPx())
+
+        // First and last date.
+        val first = measurer.measure(Formatters.formatShortDate(points.first().dayMs), labelStyle)
+        drawText(first, topLeft = Offset(0f, size.height - first.size.height))
+        val last = measurer.measure(Formatters.formatShortDate(series.last().dayMs), labelStyle)
+        drawText(last, topLeft = Offset(size.width - last.size.width, size.height - last.size.height))
     }
 }

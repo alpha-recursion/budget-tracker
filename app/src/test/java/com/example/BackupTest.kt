@@ -9,6 +9,7 @@ import com.example.data.local.BudgetEntity
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
 import com.example.data.local.GoalEntryEntity
+import com.example.data.local.GoalMilestoneEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.SmsImportEntity
@@ -72,8 +73,10 @@ class BackupTest {
             DebtEntryEntity(2L, "Rahul", "rahul", "GOT_BACK", 500.0, 1_787_100_000_000L, null, "", null)
         ),
         goals = listOf(
-            GoalEntity(7L, "New phone", 20000.0, "phone_android", 0xFF0984E3, 1_790_000_000_000L, 1_787_000_000_000L, 25, null)
+            GoalEntity(7L, "New phone", 20000.0, "phone_android", 0xFF0984E3, 1_790_000_000_000L, 1_787_000_000_000L, 25, null),
+            GoalEntity(8L, "Helmet", 3000.0, "two_wheeler", 0xFF00B894, null, 1_786_000_000_000L, 100, 1_786_500_000_000L, 1_786_600_000_000L, 2800.0)
         ),
+        goalMilestones = listOf(GoalMilestoneEntity(1L, 7L, "First ₹1,000", 1000.0, true)),
         goalEntries = listOf(
             GoalEntryEntity(1L, 7L, 6000.0, 1_787_000_000_000L, "Already saved"),
             GoalEntryEntity(2L, 7L, -500.0, 1_787_200_000_000L, "")

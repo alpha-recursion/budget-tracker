@@ -18,7 +18,10 @@ data class GoalEntity(
     /** Highest milestone (0, 25, 50, 75, 100) already celebrated, so each is celebrated once. */
     val celebratedMilestone: Int = 0,
     /** When the goal first reached its target. */
-    val completedAt: Long? = null
+    val completedAt: Long? = null,
+    /** "I bought it": when, and what it cost (recorded as an expense; the money set aside is released). */
+    val purchasedAt: Long? = null,
+    val purchasedAmount: Double? = null
 )
 
 /** Money put into (positive [amount]) or taken out of (negative) a goal. Not spending. */
@@ -30,4 +33,15 @@ data class GoalEntryEntity(
     val amount: Double,
     val date: Long,
     val note: String = ""
+)
+
+/** A named checkpoint the owner set on a goal, e.g. "First ₹1,000"; celebrated once when reached. */
+@Entity(tableName = "goal_milestones")
+data class GoalMilestoneEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val goalId: Long,
+    val name: String,
+    val amount: Double,
+    val celebrated: Boolean = false
 )

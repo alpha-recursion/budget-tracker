@@ -107,7 +107,15 @@ fun DashboardScreen(
         contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
         verticalArrangement = Arrangement.spacedBy(Space.section)
     ) {
-        item { BalanceHero(summary = summary, onAddIncome = onAddIncome, onAddExpense = onAddExpense) }
+        item {
+            BalanceHero(
+                summary = summary,
+                setAside = Goals.totalSetAside(goals),
+                onAddIncome = onAddIncome,
+                onAddExpense = onAddExpense,
+                onOpenGoals = { onOpenGoals(null) }
+            )
+        }
         if (captureState.pendingCount > 0) {
             item(key = "captured") {
                 CapturedPaymentsCard(state = captureState, onReview = onReviewCaptured, onDismiss = onDismissCaptured)
@@ -133,7 +141,13 @@ fun DashboardScreen(
 
 /** Dark hero card: the balance is the dominant number on the screen. */
 @Composable
-private fun BalanceHero(summary: FinancialSummary, onAddIncome: () -> Unit, onAddExpense: () -> Unit) {
+private fun BalanceHero(
+    summary: FinancialSummary,
+    setAside: Double,
+    onAddIncome: () -> Unit,
+    onAddExpense: () -> Unit,
+    onOpenGoals: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -153,6 +167,30 @@ private fun BalanceHero(summary: FinancialSummary, onAddIncome: () -> Unit, onAd
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.testTag("net_balance_text")
         )
+        // Money set aside for goals is still in the balance; show what is really free to spend.
+        if (setAside > 0.0) {
+            Spacer(modifier = Modifier.height(Space.s))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SurfaceWhite.copy(alpha = 0.12f))
+                    .clickable(onClick = onOpenGoals)
+                    .padding(horizontal = Space.m, vertical = 6.dp)
+                    .testTag("free_to_spend")
+            ) {
+                Text(
+                    "${Formatters.formatCurrency(summary.netBalance - setAside)} free to spend",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = SurfaceWhite
+                )
+                Text(
+                    " · ${Formatters.formatCurrency(setAside)} in goals",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = SurfaceWhite.copy(alpha = 0.7f)
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(Space.xl))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.l)) {
             HeroStat(

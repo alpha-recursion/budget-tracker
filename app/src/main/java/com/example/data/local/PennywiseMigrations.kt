@@ -113,5 +113,20 @@ object PennywiseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+    /** v6 -> v7: "I bought it" on goals and named goal checkpoints. */
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `goals` ADD COLUMN `purchasedAt` INTEGER")
+            db.execSQL("ALTER TABLE `goals` ADD COLUMN `purchasedAmount` REAL")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `goal_milestones` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `goalId` INTEGER NOT NULL, " +
+                    "`name` TEXT NOT NULL, `amount` REAL NOT NULL, `celebrated` INTEGER NOT NULL)"
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+    )
 }
