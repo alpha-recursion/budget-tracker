@@ -32,6 +32,14 @@ import com.example.domain.DebtKind
 import com.example.domain.GoalProgress
 import com.example.domain.Goals
 import com.example.domain.AchievementData
+import com.example.domain.PayCycle
+import com.example.domain.PayCycleStatus
+import com.example.domain.PaySettings
+import com.example.domain.QuickAdd
+import com.example.domain.QuickChip
+import com.example.domain.QuickPin
+import com.example.data.local.PlanningPrefs
+import com.example.data.local.PlanningStore
 import com.example.domain.ChallengeResult
 import com.example.domain.ChallengeState
 import com.example.domain.ChallengeSuggestion
@@ -551,6 +559,120 @@ class PennywiseViewModel @JvmOverloads constructor(
             }
         }
     }
+
+    // --- Quick-add chips and payday ---
+
+    private val planningStore = PlanningStore(application)
+    val planning: StateFlow<PlanningPrefs> = planningStore.updates
+        .stateIn(viewModelScope, SharingStarted.Eagerly, planningStore.read())
+
+    val quickChips: StateFlow<List<QuickChip>> = combine(repository.allTransactions, planning) { txs, prefs ->
+        QuickAdd.chips(txs, prefs.pins, prefs.hidden, System.currentTimeMillis())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val payCycle: StateFlow<PayCycleStatus?> = combine(
+        repository.allTransactions,
+        repository.goals,
+        repository.goalEntries,
+        planning
+    ) { txs, goals, entries, prefs ->
+        PayCycle.status(prefs.pay, txs, goals, entries, System.currentTimeMillis())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** A quick-add that can still be undone from the snackbar. */
+    data class UndoQuickAdd(val transactionId: Long, val message: String)
+
+    private val _undoQuickAdd = MutableStateFlow<UndoQuickAdd?>(null)
+    val undoQuickAdd: StateFlow<UndoQuickAdd?> = _undoQuickAdd
+
+    /** One tap: adds the chip's expense now; the snackbar offers Undo. */
+    fun quickAdd(chip: QuickChip) {
+        viewModelScope.launch {
+            try {
+                val id = repository.insertTransaction(
+                    TransactionEntity(
+                        title = chip.title.take(60),
+                        amount = chip.amount,
+                        type = TransactionType.EXPENSE.name,
+                        category = chip.category,
+                        date = System.currentTimeMillis()
+                    )
+                )
+                _undoQuickAdd.value = UndoQuickAdd(id, "Added ${chip.title} ${Formatters.formatCurrency(chip.amount)}")
+            } catch (e: Exception) {
+                showMessage("Could not add it. Please try again.")
+            }
+        }
+    }
+
+    fun undoQuickAdd(transactionId: Long) {
+        viewModelScope.launch { repository.deleteTransactionById(transactionId) }
+    }
+
+    fun consumeUndoQuickAdd() {
+        _undoQuickAdd.value = null
+    }
+
+    /** Opens Add expense filled in from the chip, to change the amount before saving. */
+    fun quickAddWithChanges(chip: QuickChip) {
+        openAddDialog(TransactionType.EXPENSE)
+        updateFormTitle(chip.title)
+        updateFormAmount(plainAmount(chip.amount))
+        updateFormCategory(chip.category)
+    }
+
+    fun pinChip(chip: QuickChip) = planningStore.update { prefs ->
+        prefs.copy(
+            pins = prefs.pins.filterNot { it.key == chip.key } + QuickPin(chip.title, chip.amount, chip.category),
+            hidden = prefs.hidden - chip.key
+        )
+    }
+
+    fun unpinChip(chip: QuickChip) = planningStore.update { prefs ->
+        prefs.copy(pins = prefs.pins.filterNot { it.key == chip.key })
+    }
+
+    fun hideChip(chip: QuickChip) = planningStore.update { prefs ->
+        prefs.copy(pins = prefs.pins.filterNot { it.key == chip.key }, hidden = prefs.hidden + chip.key)
+    }
+
+    fun savePaySettings(monthlyIncome: Double, payday: Int) = planningStore.update {
+        it.copy(pay = PaySettings(monthlyIncome, payday))
+    }
+
+    /** Payday card: records the usual salary as income now. */
+    fun addSalary() {
+        val pay = planning.value.pay
+        if (!pay.isSet) return
+        viewModelScope.launch {
+            repository.insertTransaction(
+                TransactionEntity(
+                    title = "Salary",
+                    amount = pay.monthlyIncome,
+                    type = TransactionType.INCOME.name,
+                    category = Category.SALARY.displayName,
+                    date = System.currentTimeMillis()
+                )
+            )
+            showMessage("Salary added: ${Formatters.formatCurrency(pay.monthlyIncome)}")
+        }
+    }
+
+    /** Payday card, salary differed: Add income with the usual details filled in. */
+    fun addSalaryWithChanges() {
+        openAddDialog(TransactionType.INCOME)
+        updateFormTitle("Salary")
+        updateFormAmount(plainAmount(planning.value.pay.monthlyIncome))
+        updateFormCategory(Category.SALARY.displayName)
+    }
+
+    fun dismissSalaryCard() {
+        val cycle = payCycle.value ?: return
+        planningStore.update { it.copy(salaryDismissedCycle = cycle.cycleStart) }
+    }
+
+    private fun plainAmount(value: Double): String =
+        if (value % 1.0 == 0.0) value.toLong().toString() else String.format(Locale.US, "%.2f", value)
 
     // --- Monthly challenges and report cards ---
 

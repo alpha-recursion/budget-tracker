@@ -109,6 +109,9 @@ import com.example.ui.screens.GoalsScreen
 import com.example.ui.screens.CelebrationOverlay
 import com.example.ui.screens.BadgesScreen
 import com.example.ui.screens.ChallengesScreen
+import com.example.ui.screens.PaySettingsDialog
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import com.example.domain.Challenges
 import com.example.domain.ReportCard
 import com.example.ui.util.CelebrationSound
@@ -191,6 +194,18 @@ fun PennywiseApp(
     val challengeSuggestions by viewModel.challengeSuggestions.collectAsStateWithLifecycle()
     val reportCards by viewModel.reportCards.collectAsStateWithLifecycle()
     val selectedReport by viewModel.selectedReport.collectAsStateWithLifecycle()
+    val quickChips by viewModel.quickChips.collectAsStateWithLifecycle()
+    val payCycle by viewModel.payCycle.collectAsStateWithLifecycle()
+    val planning by viewModel.planning.collectAsStateWithLifecycle()
+    val undoQuickAdd by viewModel.undoQuickAdd.collectAsStateWithLifecycle()
+    var showPayDialog by rememberSaveable { mutableStateOf(false) }
+    // Quick add: a snackbar with Undo for every one-tap expense.
+    LaunchedEffect(undoQuickAdd) {
+        val event = undoQuickAdd ?: return@LaunchedEffect
+        viewModel.consumeUndoQuickAdd()
+        val result = snackbarHostState.showSnackbar(event.message, actionLabel = "Undo", duration = SnackbarDuration.Short)
+        if (result == SnackbarResult.ActionPerformed) viewModel.undoQuickAdd(event.transactionId)
+    }
     val lendingBalances by viewModel.lendingBalances.collectAsStateWithLifecycle()
     val lendingPerson by viewModel.lendingPerson.collectAsStateWithLifecycle()
     // Back from a person's history returns to the people list before leaving the screen.
@@ -341,7 +356,20 @@ fun PennywiseApp(
                                     onOpenGoals = { viewModel.openGoals(it) },
                                     savingStreakWeeks = savingStreak.current,
                                     reportReady = lastMonthReportIfNew(reportCards),
-                                    onOpenReport = { viewModel.openChallenges(fromGoals = false, reportMonth = it) }
+                                    onOpenReport = { viewModel.openChallenges(fromGoals = false, reportMonth = it) },
+                                    quickChips = quickChips,
+                                    onQuickAdd = { viewModel.quickAdd(it) },
+                                    onQuickAddWithChanges = { viewModel.quickAddWithChanges(it) },
+                                    onPinChip = { viewModel.pinChip(it) },
+                                    onUnpinChip = { viewModel.unpinChip(it) },
+                                    onHideChip = { viewModel.hideChip(it) },
+                                    payCycle = payCycle,
+                                    showSalaryCard = payCycle?.let { it.salaryDue && planning.salaryDismissedCycle != it.cycleStart } == true,
+                                    salaryAmount = planning.pay.monthlyIncome,
+                                    onAddSalary = { viewModel.addSalary() },
+                                    onSalaryOtherAmount = { viewModel.addSalaryWithChanges() },
+                                    onDismissSalary = { viewModel.dismissSalaryCard() },
+                                    onEditPay = { showPayDialog = true }
                                 )
 
                                 1 -> TransactionsScreen(
@@ -389,7 +417,13 @@ fun PennywiseApp(
                                     achievements = achievements,
                                     onOpenBadges = { viewModel.openBadges(fromGoals = false) },
                                     celebrationFeedback = celebrationFeedback,
-                                    onCelebrationFeedbackChange = { viewModel.setCelebrationFeedback(it) }
+                                    onCelebrationFeedbackChange = { viewModel.setCelebrationFeedback(it) },
+                                    paySummary = if (planning.pay.isSet) {
+                                        "${Formatters.formatCurrency(planning.pay.monthlyIncome)} on day ${planning.pay.payday}"
+                                    } else {
+                                        null
+                                    },
+                                    onEditPay = { showPayDialog = true }
                                 )
 
                                 SMS_IMPORT_SCREEN -> SmsImportScreen(
@@ -468,6 +502,17 @@ fun PennywiseApp(
                         }
                     }
                 }
+            }
+
+            if (showPayDialog) {
+                PaySettingsDialog(
+                    current = planning.pay,
+                    onSave = { income, day ->
+                        viewModel.savePaySettings(income, day)
+                        showPayDialog = false
+                    },
+                    onDismiss = { showPayDialog = false }
+                )
             }
 
             // Dialogs read their own state so typing in the form does not recompose the whole app.

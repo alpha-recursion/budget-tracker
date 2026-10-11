@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Celebration
 import com.example.domain.AchievementProgress
 import com.example.domain.Badge
@@ -111,7 +112,9 @@ fun SettingsScreen(
     achievements: AchievementProgress? = null,
     onOpenBadges: () -> Unit = {},
     celebrationFeedback: Boolean = true,
-    onCelebrationFeedbackChange: (Boolean) -> Unit = {}
+    onCelebrationFeedbackChange: (Boolean) -> Unit = {},
+    paySummary: String? = null,
+    onEditPay: () -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
@@ -149,6 +152,20 @@ fun SettingsScreen(
                     enabled = autoCaptureEnabled,
                     onChange = onAutoCaptureChange,
                     onPermissionDenied = onAutoCapturePermissionDenied
+                )
+            }
+        }
+
+        item { GroupLabel("Income") }
+        item {
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                SettingsRow(
+                    icon = Icons.Default.Payments,
+                    tint = Accent,
+                    title = "Income & payday",
+                    subtitle = paySummary ?: "Set it to see what's left until payday",
+                    onClick = onEditPay,
+                    modifier = Modifier.testTag("settings_pay_button")
                 )
             }
         }
