@@ -31,6 +31,11 @@ import com.example.domain.sms.CaptureState
 import com.example.domain.DebtKind
 import com.example.domain.GoalProgress
 import com.example.domain.Goals
+import com.example.domain.AchievementData
+import com.example.domain.AchievementProgress
+import com.example.domain.Achievements
+import com.example.data.local.RewardsStore
+import com.example.data.repository.GoalReached
 import com.example.domain.RoundUpSettings
 import com.example.domain.RoundUps
 import com.example.domain.SavingStreak
@@ -47,6 +52,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -63,7 +69,7 @@ enum class SortOption(val label: String) {
     LOWEST_AMOUNT("Lowest ₹")
 }
 
-enum class Overlay { SMS_IMPORT, LENDING, GOALS }
+enum class Overlay { SMS_IMPORT, LENDING, GOALS, BADGES }
 
 const val SETTINGS_TAB = 3
 
@@ -402,7 +408,20 @@ class PennywiseViewModel @JvmOverloads constructor(
     val selectedGoal: StateFlow<Long?> = _selectedGoal
 
     /** Something just reached: a percentage [milestone] or a named [checkpoint]. */
-    data class Celebration(val goalName: String, val milestone: Int? = null, val checkpoint: String? = null)
+    data class Celebration(val emoji: String, val title: String, val message: String)
+
+    /** Celebrations for what one deposit into [goalName] reached: checkpoints first, then the milestone. */
+    private fun goalCelebrations(goalName: String, reached: GoalReached): List<Celebration> =
+        reached.checkpoints.map { Celebration("🚩", "Checkpoint reached!", "\"$it\" on $goalName. Keep going!") } +
+            listOfNotNull(
+                reached.milestone?.let { m ->
+                    Celebration(
+                        if (m == 100) "🏆" else "🎉",
+                        Goals.milestoneTitle(m),
+                        if (m == 100) "You saved the full amount for $goalName." else "You've saved $m% of $goalName. Keep going!"
+                    )
+                }
+            )
 
     // Several can be reached by one deposit; they are shown one after another.
     private val celebrationQueue = MutableStateFlow<List<Celebration>>(emptyList())
@@ -466,8 +485,7 @@ class PennywiseViewModel @JvmOverloads constructor(
         viewModelScope.launch {
             try {
                 val reached = repository.addToGoal(goalId, if (takeOut) -amount else amount, System.currentTimeMillis(), note.trim())
-                val queue = reached.checkpoints.map { Celebration(name, checkpoint = it) } +
-                    listOfNotNull(reached.milestone?.let { Celebration(name, milestone = it) })
+                val queue = goalCelebrations(name, reached)
                 if (queue.isNotEmpty()) celebrationQueue.update { it + queue }
             } catch (e: Exception) {
                 showMessage("Could not save. Please try again.")
@@ -516,11 +534,79 @@ class PennywiseViewModel @JvmOverloads constructor(
                 val reached = repository.addToGoal(goalId, amount, System.currentTimeMillis(), "Round-up jar")
                 roundUpStore.update { RoundUps.emptied(it, amount) }
                 showMessage("Moved ${Formatters.formatCurrency(amount)} to $name")
-                val queue = reached.checkpoints.map { Celebration(name, checkpoint = it) } +
-                    listOfNotNull(reached.milestone?.let { Celebration(name, milestone = it) })
+                val queue = goalCelebrations(name, reached)
                 if (queue.isNotEmpty()) celebrationQueue.update { it + queue }
             } catch (e: Exception) {
                 showMessage("Could not move the jar. Please try again.")
+            }
+        }
+    }
+
+    // --- Badges, levels and celebration feedback ---
+
+    private val rewardsStore = RewardsStore(application)
+    val celebrationFeedback: StateFlow<Boolean> = rewardsStore.feedbackEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, rewardsStore.isFeedbackEnabled())
+
+    fun setCelebrationFeedback(enabled: Boolean) = rewardsStore.setFeedbackEnabled(enabled)
+
+    // Back from Badges returns to where it was opened from (Goals or Settings).
+    private var badgesFromGoals = false
+
+    fun openBadges(fromGoals: Boolean) {
+        badgesFromGoals = fromGoals
+        _overlay.value = Overlay.BADGES
+    }
+
+    fun closeBadges() {
+        if (badgesFromGoals) _overlay.value = Overlay.GOALS else closeOverlay()
+    }
+
+    private val achievementData = combine(
+        repository.allTransactions,
+        repository.goals,
+        repository.goalEntries,
+        repository.goalMilestones,
+        repository.debts
+    ) { txs, goals, entries, milestones, debts ->
+        AchievementData(txs, goals, entries, milestones, debts)
+    }
+
+    val achievements: StateFlow<AchievementProgress> = combine(
+        achievementData,
+        repository.allBudgets,
+        savingStreak
+    ) { data, budgets, streak ->
+        Achievements.compute(data.copy(budgets = budgets, bestStreak = streak.best), System.currentTimeMillis())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, Achievements.compute(AchievementData(), 0L))
+
+    init {
+        // New badges and level-ups are celebrated once, after the data has loaded.
+        viewModelScope.launch {
+            isDataLoaded.first { it }
+            achievements.collect { progress ->
+                val fresh = Achievements.newBadges(progress, rewardsStore.seenBadges())
+                val levelUp = progress.level.number > rewardsStore.lastLevel()
+                if (fresh.isEmpty() && !levelUp) return@collect
+                rewardsStore.markBadgesSeen(fresh.map { it.name })
+                if (levelUp) rewardsStore.setLastLevel(progress.level.number)
+                val queue = buildList {
+                    when (fresh.size) {
+                        0 -> Unit
+                        1 -> add(Celebration(fresh[0].emoji, "Badge earned: ${fresh[0].title}", fresh[0].howTo + ". Nice work!"))
+                        else -> add(
+                            Celebration(
+                                "🏅",
+                                "${fresh.size} new badges!",
+                                fresh.joinToString(" · ") { "${it.emoji} ${it.title}" }
+                            )
+                        )
+                    }
+                    if (levelUp) {
+                        add(Celebration("⭐", "Level ${progress.level.number}: ${progress.level.name}", "You've earned ${progress.xp} XP so far. Keep it up!"))
+                    }
+                }
+                celebrationQueue.update { it + queue }
             }
         }
     }

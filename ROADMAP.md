@@ -102,7 +102,9 @@ lent to others, and use light game mechanics so it gets opened every day.
       after switching on, moved to a goal with one tap
 - [x] 3.2a Weekly saving streak with one freeze (earned back after 4 saving weeks)
 - [ ] 3.2b Daily review and no-spend-day streaks
-- [ ] 3.3 XP, levels, badges
+- [x] 3.3 XP, 10 levels and 14 badges, all worked out from the owner's data; new badges and
+      level-ups are celebrated once; Badges screen (Goals → level card, or Settings → Rewards)
+- [x] 3.3b Celebration chime + vibration (silent when the phone is; switch in Settings)
 - [ ] 3.4 Monthly challenges + month-end report card
 
 ### 4. Faster manual entry
