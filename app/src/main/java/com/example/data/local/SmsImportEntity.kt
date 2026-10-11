@@ -21,5 +21,8 @@ enum class SmsImportStatus {
     IMPORTED,
 
     /** Money moved between the owner's own accounts; excluded from spending and income. */
-    SELF_TRANSFER
+    SELF_TRANSFER,
+
+    /** Money lent, borrowed or repaid; recorded in `debts`, not as a transaction. */
+    LENDING
 }

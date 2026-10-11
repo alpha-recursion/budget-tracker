@@ -1,6 +1,8 @@
 package com.example.data.backup
 
 import com.example.data.local.BudgetEntity
+import com.example.data.local.DebtEntryEntity
+import com.example.domain.DebtKind
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.SmsImportEntity
@@ -19,6 +21,7 @@ data class BackupData(
     val smsImports: List<SmsImportEntity> = emptyList(),
     val merchantRules: List<MerchantRuleEntity> = emptyList(),
     val smsTemplates: List<SmsTemplateEntity> = emptyList(),
+    val debts: List<DebtEntryEntity> = emptyList(),
     val exportedAt: Long = 0L
 )
 
@@ -110,6 +113,22 @@ object BackupSerializer {
                     )
                 }
             })
+            .put("debts", JSONArray().apply {
+                data.debts.forEach { d ->
+                    put(
+                        JSONObject()
+                            .put("id", d.id)
+                            .put("person", d.person)
+                            .put("personKey", d.personKey)
+                            .put("kind", d.kind)
+                            .put("amount", d.amount)
+                            .put("date", d.date)
+                            .put("dueDate", d.dueDate ?: JSONObject.NULL)
+                            .put("note", d.note)
+                            .put("smsKey", d.smsKey ?: JSONObject.NULL)
+                    )
+                }
+            })
         return root.toString(2)
     }
 
@@ -190,6 +209,24 @@ object BackupSerializer {
                 ).takeIf { it.toDomainOrNull() != null }
             }.orEmpty()
 
+            val debts = root.optJSONArray("debts")?.objects()?.map { o ->
+                val kind = o.getString("kind")
+                if (DebtKind.fromName(kind) == null) {
+                    throw InvalidBackupException("Backup contains an unknown kind of loan entry")
+                }
+                DebtEntryEntity(
+                    id = o.getLong("id"),
+                    person = o.getString("person"),
+                    personKey = o.getString("personKey"),
+                    kind = kind,
+                    amount = o.getDouble("amount"),
+                    date = o.getLong("date"),
+                    dueDate = if (o.isNull("dueDate")) null else o.getLong("dueDate"),
+                    note = o.optString("note", ""),
+                    smsKey = if (o.isNull("smsKey")) null else o.getString("smsKey")
+                )
+            }.orEmpty()
+
             return BackupData(
                 transactions = transactions,
                 budgets = budgets,
@@ -197,6 +234,7 @@ object BackupSerializer {
                 smsImports = smsImports,
                 merchantRules = merchantRules,
                 smsTemplates = smsTemplates,
+                debts = debts,
                 exportedAt = root.optLong("exportedAt", 0L)
             )
         } catch (e: JSONException) {
