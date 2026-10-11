@@ -16,6 +16,10 @@ interface SmsImportDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(records: List<SmsImportEntity>)
 
+    /** The transaction an SMS became was moved to money lent; keep the SMS marked as handled. */
+    @Query("UPDATE sms_imports SET status = 'LENDING', transactionId = NULL WHERE transactionId = :transactionId")
+    suspend fun markMovedToLending(transactionId: Long)
+
     @Query("DELETE FROM sms_imports")
     suspend fun deleteAll()
 }

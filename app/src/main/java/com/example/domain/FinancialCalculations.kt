@@ -138,6 +138,16 @@ object FinancialCalculations {
         }.sortedByDescending { it.amount }
     }
 
+    /** Local midnight of the day containing [referenceMs]. */
+    fun startOfDay(referenceMs: Long, timeZone: TimeZone = TimeZone.getDefault()): Long =
+        Calendar.getInstance(timeZone).apply {
+            timeInMillis = referenceMs
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
     /** Local midnight of the Monday of the week containing [referenceMs]. */
     fun startOfWeek(referenceMs: Long, timeZone: TimeZone = TimeZone.getDefault()): Long =
         Calendar.getInstance(timeZone).apply {

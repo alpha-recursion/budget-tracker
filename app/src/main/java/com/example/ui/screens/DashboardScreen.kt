@@ -45,6 +45,9 @@ import com.example.data.local.TransactionEntity
 import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
 import com.example.domain.sms.CaptureState
+import androidx.compose.material.icons.filled.Handshake
+import com.example.domain.Lending
+import com.example.domain.PersonBalance
 import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
 import com.example.ui.components.BudgetGauge
@@ -64,6 +67,7 @@ import com.example.ui.theme.Ink
 import com.example.ui.theme.InkSecondary
 import com.example.ui.theme.InkTertiary
 import com.example.ui.theme.Negative
+import com.example.ui.theme.PositiveText
 import com.example.ui.theme.Positive
 import com.example.ui.theme.SurfaceWhite
 import com.example.ui.theme.Warning
@@ -87,7 +91,9 @@ fun DashboardScreen(
     onOpenBudgets: () -> Unit = {},
     captureState: CaptureState = CaptureState(),
     onReviewCaptured: () -> Unit = {},
-    onDismissCaptured: () -> Unit = {}
+    onDismissCaptured: () -> Unit = {},
+    lending: List<PersonBalance> = emptyList(),
+    onOpenLending: (personKey: String?) -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
@@ -103,6 +109,7 @@ fun DashboardScreen(
             }
         }
         item { BudgetCard(statuses = budgetStatuses, onOpenBudgets = onOpenBudgets) }
+        item { LendingCard(balances = lending, onOpen = onOpenLending) }
         item { WeeklySpendingCard(transactions = recentTransactions) }
         item { ImportSmsCard(onImportSms = onImportSms) }
         item { SpendingDonutChart(breakdowns = breakdowns, totalExpense = summary.totalExpense) }
@@ -377,6 +384,56 @@ private fun CapturedPaymentsCard(state: CaptureState, onReview: () -> Unit, onDi
                     .weight(1f)
                     .testTag("captured_review_button")
             )
+        }
+    }
+}
+
+/** Who owes the owner and whom the owner owes; a one-line invitation until first use. */
+@Composable
+private fun LendingCard(balances: List<PersonBalance>, onOpen: (personKey: String?) -> Unit) {
+    if (balances.isEmpty()) {
+        PwCard(
+            onClick = { onOpen(null) },
+            contentPadding = PaddingValues(Space.l),
+            modifier = Modifier.testTag("lending_card")
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PwIconBadge(icon = Icons.Default.Handshake, tint = Accent)
+                Spacer(modifier = Modifier.width(Space.m))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Money lent", style = MaterialTheme.typography.titleSmall, color = Ink)
+                    Text("Track who owes you and whom you owe", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
+            }
+        }
+        return
+    }
+    val totals = Lending.totals(balances)
+    val open = balances.filterNot { it.isSettled }
+    PwCard(contentPadding = PaddingValues(vertical = Space.l), modifier = Modifier.testTag("lending_card")) {
+        PwSectionTitle(
+            title = "Money lent",
+            action = "See all",
+            onAction = { onOpen(null) },
+            modifier = Modifier.padding(horizontal = Space.xl)
+        )
+        Spacer(modifier = Modifier.height(Space.m))
+        Row(modifier = Modifier.padding(horizontal = Space.xl)) {
+            TotalStat("People owe you", Formatters.formatCurrency(totals.owedToMe), PositiveText, Modifier.weight(1f))
+            TotalStat("You owe", Formatters.formatCurrency(totals.iOwe), Ink, Modifier.weight(1f))
+        }
+        if (totals.overdueCount > 0) {
+            Text(
+                "${totals.overdueCount} overdue",
+                style = MaterialTheme.typography.labelLarge,
+                color = Negative,
+                modifier = Modifier.padding(start = Space.xl, end = Space.xl, top = Space.s)
+            )
+        }
+        if (open.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(Space.s))
+            open.take(3).forEach { person -> PersonRow(person = person, onClick = { onOpen(person.key) }) }
         }
     }
 }

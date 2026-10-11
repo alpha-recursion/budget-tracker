@@ -83,5 +83,17 @@ object PennywiseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    /** v4 -> v5: money lent and borrowed (DebtEntryEntity). */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `debts` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `person` TEXT NOT NULL, " +
+                    "`personKey` TEXT NOT NULL, `kind` TEXT NOT NULL, `amount` REAL NOT NULL, " +
+                    "`date` INTEGER NOT NULL, `dueDate` INTEGER, `note` TEXT NOT NULL, `smsKey` TEXT)"
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }

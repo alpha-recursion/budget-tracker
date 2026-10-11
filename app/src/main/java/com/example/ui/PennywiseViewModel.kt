@@ -28,6 +28,10 @@ import com.example.domain.VendorSpend
 import com.example.data.sms.AutoCaptureNotifier
 import com.example.data.sms.AutoCaptureStore
 import com.example.domain.sms.CaptureState
+import com.example.domain.DebtKind
+import com.example.domain.Lending
+import com.example.domain.PersonBalance
+import com.example.data.local.DebtEntryEntity
 import com.example.domain.sms.SmsImportPlanner
 import com.example.domain.sms.SmsTemplate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,7 +53,7 @@ enum class SortOption(val label: String) {
     LOWEST_AMOUNT("Lowest ₹")
 }
 
-enum class Overlay { SMS_IMPORT }
+enum class Overlay { SMS_IMPORT, LENDING }
 
 const val SETTINGS_TAB = 3
 
@@ -312,6 +316,90 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun dismissPendingCapture() {
         viewModelScope.launch { captureStore.update { it.dismissPending() } }
+    }
+
+    // --- Money lent and borrowed (kept out of spending and income) ---
+
+    /** Everyone the owner lent to or borrowed from; recomputed whenever an entry changes. */
+    val lendingBalances: StateFlow<List<PersonBalance>> = repository.debts
+        .map { entries -> Lending.balances(entries, FinancialCalculations.startOfDay(System.currentTimeMillis())) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Person whose history is open on the Money lent screen; null shows the list. */
+    private val _lendingPerson = MutableStateFlow<String?>(null)
+    val lendingPerson: StateFlow<String?> = _lendingPerson
+
+    fun openLending(personKey: String? = null) {
+        _lendingPerson.value = personKey
+        _overlay.value = Overlay.LENDING
+    }
+
+    fun showLendingPerson(personKey: String?) {
+        _lendingPerson.value = personKey
+    }
+
+    fun addDebt(person: String, kind: DebtKind, amount: Double, date: Long, dueDate: Long?, note: String) {
+        val name = Lending.displayName(person)
+        if (name.isEmpty() || amount <= 0.0) return
+        viewModelScope.launch {
+            try {
+                repository.addDebt(
+                    DebtEntryEntity(
+                        person = name,
+                        personKey = Lending.personKey(name),
+                        kind = kind.name,
+                        amount = amount,
+                        date = date,
+                        dueDate = dueDate.takeIf { kind.canHaveDueDate },
+                        note = note.trim()
+                    )
+                )
+            } catch (e: Exception) {
+                showMessage("Could not save. Please try again.")
+            }
+        }
+    }
+
+    /** Records a repayment of whatever is still outstanding, in either direction. */
+    fun settleUp(person: PersonBalance) {
+        if (person.isSettled) return
+        val kind = if (person.theyOweMe) DebtKind.GOT_BACK else DebtKind.PAID_BACK
+        addDebt(person.name, kind, kotlin.math.abs(person.balance), System.currentTimeMillis(), null, "Settled up")
+        showMessage("Settled up with ${person.name}")
+    }
+
+    fun deleteDebt(id: Long) {
+        viewModelScope.launch { repository.deleteDebt(id) }
+    }
+
+    fun deletePerson(personKey: String) {
+        if (_lendingPerson.value == personKey) _lendingPerson.value = null
+        viewModelScope.launch { repository.deletePerson(personKey) }
+    }
+
+    /** The transaction being edited was really a loan or repayment: move it to money lent. */
+    fun moveTransactionToLending(transaction: TransactionEntity, person: String, kind: DebtKind) {
+        val name = Lending.displayName(person)
+        if (name.isEmpty() || transaction.id == 0L) return
+        dismissAddEditDialog()
+        viewModelScope.launch {
+            try {
+                repository.moveTransactionToDebt(
+                    transaction.id,
+                    DebtEntryEntity(
+                        person = name,
+                        personKey = Lending.personKey(name),
+                        kind = kind.name,
+                        amount = transaction.amount,
+                        date = transaction.date,
+                        note = transaction.note.ifBlank { transaction.title }
+                    )
+                )
+                showMessage("Moved to money lent: ${kind.label.lowercase()} · $name")
+            } catch (e: Exception) {
+                showMessage("Could not move it. Nothing was changed.")
+            }
+        }
     }
 
     fun closeOverlay() {

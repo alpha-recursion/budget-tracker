@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.DebtEntryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.PennywiseDatabase
 import com.example.data.model.TransactionType
@@ -12,6 +13,8 @@ import com.example.data.repository.PennywiseRepository
 import com.example.data.repository.SmsImportItem
 import com.example.data.sms.AutoCaptureStore
 import com.example.data.sms.SmsInboxReader
+import com.example.domain.DebtKind
+import com.example.domain.Lending
 import com.example.domain.sms.ImportCandidate
 import com.example.domain.sms.ImportGroup
 import com.example.domain.sms.ImportPlan
@@ -26,6 +29,9 @@ import kotlinx.coroutines.withContext
 
 enum class SmsImportPhase { CHOOSE_PERIOD, SCANNING, REVIEW, IMPORTING }
 
+/** A payee group marked as money lent / repaid: recorded under [person], not as spending. */
+data class LendingChoice(val person: String, val kind: DebtKind)
+
 data class SmsImportState(
     val phase: SmsImportPhase = SmsImportPhase.CHOOSE_PERIOD,
     val plan: ImportPlan? = null,
@@ -33,6 +39,8 @@ data class SmsImportState(
     val selected: Set<String> = emptySet(),
     val categoryByGroup: Map<String, String> = emptyMap(),
     val selfTransferGroups: Set<String> = emptySet(),
+    /** Groups recorded in Money lent instead of as transactions. */
+    val lendingByGroup: Map<String, LendingChoice> = emptyMap(),
     val error: String? = null,
     /** When nothing new was found: arrival time of the newest Kotak/BOI alert before the period. */
     val newestOlderAlertAt: Long? = null,
@@ -45,15 +53,23 @@ data class SmsImportState(
 
     val selectedCount: Int get() = selected.size
 
-    /** Totals of what will actually be counted (self transfers excluded). */
+    private fun ImportGroup.isCounted(): Boolean = key !in selfTransferGroups && key !in lendingByGroup
+
+    /** Totals of what will actually be counted (self transfers and lending excluded). */
     val selectedSpent: Double
         get() = plan?.groups.orEmpty()
-            .filter { it.type == TransactionType.EXPENSE && it.key !in selfTransferGroups }
+            .filter { it.type == TransactionType.EXPENSE && it.isCounted() }
             .sumOf { group -> group.selectedItems().sumOf { it.parsed.amount } }
 
     val selectedReceived: Double
         get() = plan?.groups.orEmpty()
-            .filter { it.type == TransactionType.INCOME && it.key !in selfTransferGroups }
+            .filter { it.type == TransactionType.INCOME && it.isCounted() }
+            .sumOf { group -> group.selectedItems().sumOf { it.parsed.amount } }
+
+    /** Ticked money going to Money lent (either direction). */
+    val selectedLending: Double
+        get() = plan?.groups.orEmpty()
+            .filter { it.key in lendingByGroup }
             .sumOf { group -> group.selectedItems().sumOf { it.parsed.amount } }
 }
 
@@ -164,7 +180,18 @@ class SmsImportViewModel(
     }
 
     fun setGroupSelfTransfer(groupKey: String, isSelfTransfer: Boolean) = _state.update { s ->
-        s.copy(selfTransferGroups = if (isSelfTransfer) s.selfTransferGroups + groupKey else s.selfTransferGroups - groupKey)
+        s.copy(
+            selfTransferGroups = if (isSelfTransfer) s.selfTransferGroups + groupKey else s.selfTransferGroups - groupKey,
+            lendingByGroup = if (isSelfTransfer) s.lendingByGroup - groupKey else s.lendingByGroup
+        )
+    }
+
+    /** Marks a group as money lent / repaid ([choice]), or back to normal spending (null). */
+    fun setGroupLending(groupKey: String, choice: LendingChoice?) = _state.update { s ->
+        s.copy(
+            lendingByGroup = if (choice == null) s.lendingByGroup - groupKey else s.lendingByGroup + (groupKey to choice),
+            selfTransferGroups = if (choice != null) s.selfTransferGroups - groupKey else s.selfTransferGroups
+        )
     }
 
     /** Imports the ticked items; [onDone] receives a summary message for the user. */
@@ -179,6 +206,27 @@ class SmsImportViewModel(
         for (group in plan.groups) {
             val chosen = group.items.filter { it.dedupeKey in current.selected }
             if (chosen.isEmpty()) continue
+            val lending = current.lendingByGroup[group.key]
+            if (lending != null) {
+                // Lending is a one-off decision: the payee's remembered category is left as is.
+                val name = Lending.displayName(lending.person)
+                chosen.forEach { item ->
+                    items += SmsImportItem(
+                        dedupeKey = item.dedupeKey,
+                        receivedAt = item.receivedAt,
+                        transaction = null,
+                        debt = DebtEntryEntity(
+                            person = name,
+                            personKey = Lending.personKey(name),
+                            kind = lending.kind.name,
+                            amount = item.parsed.amount,
+                            date = item.dateMs,
+                            note = item.toTransaction("").note
+                        )
+                    )
+                }
+                continue
+            }
             val isSelfTransfer = group.key in current.selfTransferGroups
             val category = current.categoryByGroup[group.key] ?: group.suggestedCategory
             chosen.forEach { item ->
@@ -194,7 +242,8 @@ class SmsImportViewModel(
         viewModelScope.launch {
             try {
                 val created = repository.importFromSms(items, rules)
-                val selfTransfers = items.count { it.transaction == null }
+                val selfTransfers = items.count { it.transaction == null && it.debt == null }
+                val lent = items.count { it.debt != null }
                 val from = current.lastSinceMs
                 val at = current.scannedAtMs
                 if (from != null && at != null) captureStore.update { it.afterReview(from, at) }
@@ -202,6 +251,7 @@ class SmsImportViewModel(
                 onDone(
                     buildString {
                         append("Imported $created transaction${if (created == 1) "" else "s"}")
+                        if (lent > 0) append(", $lent to money lent")
                         if (selfTransfers > 0) append(", $selfTransfers self transfer${if (selfTransfers == 1) "" else "s"} skipped")
                     }
                 )

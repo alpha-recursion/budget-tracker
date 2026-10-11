@@ -42,7 +42,8 @@ lent to others, and use light game mechanics so it gets opened every day.
 |---|---|
 | 0. Foundation | **Built** — ₹ currency, demo data removed, safe DB migrations (v2), custom categories, editable budgets, JSON backup / restore / erase. Needs on-device check. |
 | 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). **Live capture built** (1.5): known payees added automatically, the rest wait for review. Verified credit formats (1.8) pending. Needs on-device check. |
-| 1, 3, 4, 5 | Not started |
+| 3. Money features | **Lending tracker built** (2.1–2.3): people, lent / got back / borrowed / paid back, balances, due dates and overdue, settle up; SMS and existing transactions can be marked as lending (DB v5). Needs on-device check. |
+| 1, 4, 5 | Not started |
 
 ## To-do list
 
@@ -79,10 +80,15 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] Home: dark balance hero, budget gauge, smooth weekly spending chart, rounded donut
 - [x] Transactions grouped by day; full-screen Add/Edit page; Insights and Settings restyled
 
-### 2. Lending tracker
-- [ ] 2.1 People + lent/borrowed ledger
-- [ ] 2.2 Partial repayments, mark as paid, due-date reminder
-- [ ] 2.3 Suggest "mark as paid" when an SMS shows money received from that person
+### 2. Lending tracker (done, in-app reminders only)
+- [x] 2.1 People + lent/borrowed ledger: "Money lent" screen (Home card → people list →
+      person history); kept out of spending, income and budgets (DB v5 `debts` table)
+- [x] 2.2 Partial repayments, settle up, due dates with overdue shown in red (no phone
+      notification yet: would need WorkManager)
+- [x] 2.3 SMS review: Spending / Lending / Self transfer per payee; the person and direction
+      are guessed from the payee name and who owes whom. Edit page: "This was money I lent"
+      moves an imported payment to Money lent
+- [ ] 2.4 Due-date phone notifications (WorkManager)
 
 ### 3. Goals & gamification
 - [ ] 3.1 Savings goals with 25/50/75/100% milestones

@@ -77,6 +77,10 @@ import com.example.ui.SmsImportPhase
 import com.example.ui.SmsImportState
 import com.example.ui.components.CategoryPickerDialog
 import com.example.ui.components.PwPrimaryButton
+import com.example.domain.Lending
+import com.example.domain.PersonBalance
+import com.example.ui.LendingChoice
+import com.example.ui.components.PwChip
 import com.example.ui.components.PwSecondaryButton
 import com.example.ui.components.Space
 import com.example.ui.theme.Ink
@@ -107,7 +111,9 @@ fun SmsImportScreen(
     onStartOver: () -> Unit,
     modifier: Modifier = Modifier,
     /** Opens "Teach this format" with the given SMS text; null hides the button. */
-    onTeach: ((String) -> Unit)? = null
+    onTeach: ((String) -> Unit)? = null,
+    people: List<PersonBalance> = emptyList(),
+    onSetLending: (groupKey: String, LendingChoice?) -> Unit = { _, _ -> }
 ) {
     var granted by remember { mutableStateOf(hasPermission()) }
     // The user may grant access from system settings and come back.
@@ -138,7 +144,9 @@ fun SmsImportScreen(
                 onImport = onImport,
                 onStartOver = onStartOver,
                 onScan = onScan,
-                onTeach = onTeach
+                onTeach = onTeach,
+                people = people,
+                onSetLending = onSetLending
             )
         }
     }
@@ -336,7 +344,9 @@ private fun ReviewStep(
     onImport: () -> Unit,
     onStartOver: () -> Unit,
     onScan: (Long) -> Unit,
-    onTeach: ((String) -> Unit)?
+    onTeach: ((String) -> Unit)?,
+    people: List<PersonBalance>,
+    onSetLending: (String, LendingChoice?) -> Unit
 ) {
     val plan = state.plan ?: return
     val importing = state.phase == SmsImportPhase.IMPORTING
@@ -377,7 +387,10 @@ private fun ReviewStep(
                     onToggleItem = onToggleItem,
                     onToggleGroup = { onToggleGroup(group) },
                     onSetCategory = { onSetCategory(group.key, it) },
-                    onSetSelfTransfer = { onSetSelfTransfer(group.key, it) }
+                    onSetSelfTransfer = { onSetSelfTransfer(group.key, it) },
+                    lending = state.lendingByGroup[group.key],
+                    people = people,
+                    onSetLending = { onSetLending(group.key, it) }
                 )
             }
         }
@@ -432,7 +445,8 @@ private fun ReviewSummary(state: SmsImportState) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text("Ticked: ${Formatters.formatCurrency(state.selectedSpent)} spent · " +
-                "${Formatters.formatCurrency(state.selectedReceived)} received",
+                "${Formatters.formatCurrency(state.selectedReceived)} received" +
+                if (state.selectedLending > 0) " · ${Formatters.formatCurrency(state.selectedLending)} lending" else "",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -456,8 +470,12 @@ private fun GroupCard(
     onToggleItem: (String) -> Unit,
     onToggleGroup: () -> Unit,
     onSetCategory: (String) -> Unit,
-    onSetSelfTransfer: (Boolean) -> Unit
+    onSetSelfTransfer: (Boolean) -> Unit,
+    lending: LendingChoice?,
+    people: List<PersonBalance>,
+    onSetLending: (LendingChoice?) -> Unit
 ) {
+    var askPerson by remember { mutableStateOf(false) }
     val selectedInGroup = group.items.count { it.dedupeKey in selected }
     val groupState = when (selectedInGroup) {
         0 -> ToggleableState.Off
@@ -511,34 +529,81 @@ private fun GroupCard(
                 }
             }
 
+            // What this money was: normal spending/income (with a category), lending, or a
+            // transfer between the owner's own accounts.
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                horizontalArrangement = Arrangement.spacedBy(Space.s),
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .horizontalScroll(rememberScrollState())
             ) {
-                CategoryButton(
-                    title = group.title,
-                    current = category,
-                    options = CategoryInfo.forType(categories, group.type),
-                    enabled = enabled && !isSelfTransfer,
-                    onSelect = onSetCategory,
-                    modifier = Modifier.weight(1f)
+                PwChip(
+                    text = if (isIncome) "Income" else "Spending",
+                    selected = !isSelfTransfer && lending == null,
+                    onClick = {
+                        if (!enabled) return@PwChip
+                        onSetLending(null)
+                        onSetSelfTransfer(false)
+                    }
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Self transfer", style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.width(6.dp))
-                Switch(
-                    checked = isSelfTransfer,
-                    onCheckedChange = onSetSelfTransfer,
-                    enabled = enabled,
-                    colors = SwitchDefaults.colors(checkedTrackColor = Accent)
+                PwChip(
+                    text = "Lending",
+                    selected = lending != null,
+                    onClick = { if (enabled) askPerson = true },
+                    modifier = Modifier.testTag("sms_lending_chip_${group.key}")
+                )
+                PwChip(
+                    text = "Self transfer",
+                    selected = isSelfTransfer,
+                    onClick = { if (enabled) onSetSelfTransfer(true) }
                 )
             }
-            if (isSelfTransfer) {
-                Text(
+            Spacer(modifier = Modifier.height(8.dp))
+            when {
+                lending != null -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                ) {
+                    Text(
+                        "${lending.kind.label} · ${Lending.displayName(lending.person)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Ink,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { askPerson = true }, enabled = enabled) {
+                        Text("Change", color = Accent, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                isSelfTransfer -> Text(
                     "Not counted as spending or income.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                else -> CategoryButton(
+                    title = group.title,
+                    current = category,
+                    options = CategoryInfo.forType(categories, group.type),
+                    enabled = enabled,
+                    onSelect = onSetCategory,
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .fillMaxWidth()
+                )
+            }
+            if (askPerson) {
+                LendingPersonDialog(
+                    type = group.type,
+                    payee = group.title,
+                    people = people,
+                    amount = group.items.filter { it.dedupeKey in selected }.sumOf { it.parsed.amount }.takeIf { it > 0 },
+                    initialPerson = lending?.person,
+                    initialKind = lending?.kind,
+                    onConfirm = { person, kind ->
+                        onSetLending(LendingChoice(person, kind))
+                        askPerson = false
+                    },
+                    onDismiss = { askPerson = false }
                 )
             }
 

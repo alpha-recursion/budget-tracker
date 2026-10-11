@@ -5,6 +5,7 @@ import com.example.data.model.CategoryInfo
 import com.example.data.backup.BackupData
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CustomCategoryEntity
+import com.example.data.local.DebtEntryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.PennywiseDatabase
 import com.example.data.local.SmsImportEntity
@@ -32,6 +33,7 @@ class PennywiseRepository(
     private val smsImportDao = database.smsImportDao()
     private val merchantRuleDao = database.merchantRuleDao()
     private val smsTemplateDao = database.smsTemplateDao()
+    private val debtDao = database.debtDao()
 
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
     val allBudgets: Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
@@ -39,6 +41,7 @@ class PennywiseRepository(
     val merchantRulesFlow: Flow<List<MerchantRuleEntity>> = merchantRuleDao.getAll()
     val smsTemplates: Flow<List<SmsTemplate>> = smsTemplateDao.getAll()
         .map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
+    val debts: Flow<List<DebtEntryEntity>> = debtDao.getAll()
 
     suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
         transactionDao.insert(transaction)
@@ -77,6 +80,7 @@ class PennywiseRepository(
                 smsImports = smsImportDao.getAllOnce(),
                 merchantRules = merchantRuleDao.getAllOnce(),
                 smsTemplates = smsTemplateDao.getAllOnce(),
+                debts = debtDao.getAllOnce(),
                 exportedAt = System.currentTimeMillis()
             )
         }
@@ -92,6 +96,7 @@ class PennywiseRepository(
             smsImportDao.insertAll(data.smsImports)
             merchantRuleDao.insertAll(data.merchantRules)
             smsTemplateDao.insertAll(data.smsTemplates)
+            debtDao.insertAll(data.debts)
         }
     }
 
@@ -106,6 +111,7 @@ class PennywiseRepository(
         smsImportDao.deleteAll()
         merchantRuleDao.deleteAll()
         smsTemplateDao.deleteAll()
+        debtDao.deleteAll()
     }
 
     /** Deletes a custom category; its transactions move to "Other" and its budget is removed. */
@@ -115,6 +121,29 @@ class PennywiseRepository(
             merchantRuleDao.reassignCategory(from = name, to = Category.OTHER.displayName)
             budgetDao.deleteByCategory(name)
             categoryDao.deleteByName(name)
+        }
+    }
+
+    // --- Money lent and borrowed ---
+
+    suspend fun addDebt(entry: DebtEntryEntity): Long = withContext(Dispatchers.IO) {
+        debtDao.insert(entry)
+    }
+
+    suspend fun deleteDebt(id: Long) = withContext(Dispatchers.IO) {
+        debtDao.deleteById(id)
+    }
+
+    suspend fun deletePerson(personKey: String) = withContext(Dispatchers.IO) {
+        debtDao.deletePerson(personKey)
+    }
+
+    /** A payment that was really a loan (or repayment): removes it from spending/income. */
+    suspend fun moveTransactionToDebt(transactionId: Long, entry: DebtEntryEntity) = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            transactionDao.deleteById(transactionId)
+            smsImportDao.markMovedToLending(transactionId)
+            debtDao.insert(entry)
         }
     }
 
@@ -186,9 +215,15 @@ class PennywiseRepository(
                         created++
                         transactionDao.insert(it)
                     }
+                    item.debt?.let { debtDao.insert(it.copy(smsKey = item.dedupeKey)) }
+                    val status = when {
+                        transactionId != null -> SmsImportStatus.IMPORTED
+                        item.debt != null -> SmsImportStatus.LENDING
+                        else -> SmsImportStatus.SELF_TRANSFER
+                    }
                     SmsImportEntity(
                         dedupeKey = item.dedupeKey,
-                        status = if (transactionId != null) SmsImportStatus.IMPORTED.name else SmsImportStatus.SELF_TRANSFER.name,
+                        status = status.name,
                         transactionId = transactionId,
                         receivedAt = item.receivedAt
                     )
@@ -200,9 +235,13 @@ class PennywiseRepository(
         }
 }
 
-/** One SMS to record; [transaction] is null for a self transfer (recorded, but not counted). */
+/**
+ * One SMS to record: a [transaction], a lending [debt], or neither for a self transfer
+ * (recorded, but not counted).
+ */
 data class SmsImportItem(
     val dedupeKey: String,
     val receivedAt: Long,
-    val transaction: TransactionEntity?
+    val transaction: TransactionEntity?,
+    val debt: DebtEntryEntity? = null
 )

@@ -6,6 +6,7 @@ import com.example.data.backup.BackupData
 import com.example.data.backup.BackupSerializer
 import com.example.data.backup.InvalidBackupException
 import com.example.data.local.BudgetEntity
+import com.example.data.local.DebtEntryEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.SmsImportEntity
@@ -64,6 +65,10 @@ class BackupTest {
                 createdAt = 7L
             )
         ),
+        debts = listOf(
+            DebtEntryEntity(1L, "Rahul", "rahul", "LENT", 2000.0, 1_787_000_000_000L, 1_788_000_000_000L, "trip", "ref:KOTAK:EXPENSE:9"),
+            DebtEntryEntity(2L, "Rahul", "rahul", "GOT_BACK", 500.0, 1_787_100_000_000L, null, "", null)
+        ),
         exportedAt = 42L
     )
 
@@ -116,12 +121,14 @@ class BackupTest {
             assertEquals(sample.smsImports.map { it.dedupeKey }.toSet(), repository.smsImportKeys())
             assertEquals(sample.merchantRules.toSet(), repository.merchantRules().toSet())
             assertEquals(listOf(3L), repository.smsTemplatesOnce().map { it.id })
+            assertEquals(sample.debts.toSet(), repository.debts.first().toSet())
 
             repository.eraseAllData()
             assertEquals(emptyList<TransactionEntity>(), repository.allTransactions.first())
             assertEquals(emptySet<String>(), repository.smsImportKeys())
             assertEquals(emptyList<MerchantRuleEntity>(), repository.merchantRules())
             assertEquals(0, repository.smsTemplatesOnce().size)
+            assertEquals(emptyList<DebtEntryEntity>(), repository.debts.first())
         } finally {
             database.close()
         }

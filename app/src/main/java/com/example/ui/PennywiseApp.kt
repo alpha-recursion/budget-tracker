@@ -103,6 +103,8 @@ import com.example.data.sms.AutoCaptureNotifier
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.example.data.model.TransactionType
 import com.example.ui.screens.AddEditTransactionDialog
+import com.example.ui.screens.LendingPersonDialog
+import com.example.ui.screens.LendingScreen
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
@@ -119,12 +121,14 @@ import com.example.ui.util.Formatters
 // Screen keys for the main content area: the four tabs plus full screens shown on top of them.
 private const val SETTINGS_SCREEN = SETTINGS_TAB
 private const val SMS_IMPORT_SCREEN = 4
+private const val LENDING_SCREEN = 5
 
 private fun tabTitle(tab: Int): String = when (tab) {
     1 -> "Transactions"
     2 -> "Insights"
     SETTINGS_SCREEN -> "Settings"
     SMS_IMPORT_SCREEN -> "Import from SMS"
+    LENDING_SCREEN -> "Money lent"
     else -> "Pennywise"
 }
 
@@ -155,7 +159,18 @@ fun PennywiseApp(
     // Tab 3 is Settings, which is also SETTINGS_SCREEN.
     val currentScreen = when (overlay) {
         Overlay.SMS_IMPORT -> SMS_IMPORT_SCREEN
+        Overlay.LENDING -> LENDING_SCREEN
         null -> selectedTab
+    }
+    val lendingBalances by viewModel.lendingBalances.collectAsStateWithLifecycle()
+    val lendingPerson by viewModel.lendingPerson.collectAsStateWithLifecycle()
+    // Back from a person's history returns to the people list before leaving the screen.
+    val goBack = {
+        when {
+            overlay == Overlay.LENDING && lendingPerson != null -> viewModel.showLendingPerson(null)
+            isOverlayOpen -> viewModel.closeOverlay()
+            else -> viewModel.setTab(0)
+        }
     }
 
     val application = LocalContext.current.applicationContext as Application
@@ -212,7 +227,7 @@ fun PennywiseApp(
 
     // Handle back button: close a full screen first, then return to the Dashboard tab
     BackHandler(enabled = isOverlayOpen || selectedTab != 0) {
-        if (isOverlayOpen) viewModel.closeOverlay() else viewModel.setTab(0)
+        goBack()
     }
 
     val categoryUsage by viewModel.categoryUsage.collectAsStateWithLifecycle()
@@ -229,7 +244,7 @@ fun PennywiseApp(
                 PageHeader(
                     screen = currentScreen,
                     showBack = isOverlayOpen,
-                    onBack = { viewModel.closeOverlay() }
+                    onBack = goBack
                 )
             },
             bottomBar = {
@@ -286,7 +301,9 @@ fun PennywiseApp(
                                     onOpenBudgets = { viewModel.setTab(2) },
                                     captureState = captureState,
                                     onReviewCaptured = reviewCaptured,
-                                    onDismissCaptured = { viewModel.dismissPendingCapture() }
+                                    onDismissCaptured = { viewModel.dismissPendingCapture() },
+                                    lending = lendingBalances,
+                                    onOpenLending = { viewModel.openLending(it) }
                                 )
 
                                 1 -> TransactionsScreen(
@@ -351,7 +368,21 @@ fun PennywiseApp(
                                         }
                                     },
                                     onStartOver = { smsImportViewModel.reset() },
-                                    onTeach = { body -> teachText = body }
+                                    onTeach = { body -> teachText = body },
+                                    people = lendingBalances,
+                                    onSetLending = { group, choice -> smsImportViewModel.setGroupLending(group, choice) }
+                                )
+
+                                LENDING_SCREEN -> LendingScreen(
+                                    balances = lendingBalances,
+                                    selectedKey = lendingPerson,
+                                    onSelectPerson = { viewModel.showLendingPerson(it) },
+                                    onAddEntry = { person, kind, amount, date, due, note ->
+                                        viewModel.addDebt(person, kind, amount, date, due, note)
+                                    },
+                                    onSettleUp = { viewModel.settleUp(it) },
+                                    onDeleteEntry = { viewModel.deleteDebt(it) },
+                                    onDeletePerson = { viewModel.deletePerson(it) }
                                 )
                             }
                         }
@@ -415,6 +446,8 @@ private fun AddEditTransactionContent(viewModel: PennywiseViewModel) {
     val titleError by viewModel.titleError.collectAsStateWithLifecycle()
     val categoryError by viewModel.categoryError.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
+    val lendingBalances by viewModel.lendingBalances.collectAsStateWithLifecycle()
+    var moveToLending by remember { mutableStateOf(false) }
 
     AddEditTransactionDialog(
         isOpen = true,
@@ -444,8 +477,25 @@ private fun AddEditTransactionContent(viewModel: PennywiseViewModel) {
                 viewModel.dismissAddEditDialog()
                 viewModel.promptDelete(tx)
             }
-        }
+        },
+        onMoveToLending = editingTransaction?.let { { moveToLending = true } }
     )
+
+    val tx = editingTransaction
+    if (moveToLending && tx != null) {
+        val type = if (tx.type == TransactionType.INCOME.name) TransactionType.INCOME else TransactionType.EXPENSE
+        LendingPersonDialog(
+            type = type,
+            payee = tx.title,
+            people = lendingBalances,
+            amount = tx.amount,
+            onConfirm = { person, kind ->
+                moveToLending = false
+                viewModel.moveTransactionToLending(tx, person, kind)
+            },
+            onDismiss = { moveToLending = false }
+        )
+    }
 }
 
 @Composable
