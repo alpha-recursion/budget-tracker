@@ -46,6 +46,9 @@ import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
 import com.example.domain.sms.CaptureState
 import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.Savings
+import com.example.domain.GoalProgress
+import com.example.domain.Goals
 import com.example.domain.Lending
 import com.example.domain.PersonBalance
 import com.example.domain.FinancialCalculations
@@ -93,7 +96,9 @@ fun DashboardScreen(
     onReviewCaptured: () -> Unit = {},
     onDismissCaptured: () -> Unit = {},
     lending: List<PersonBalance> = emptyList(),
-    onOpenLending: (personKey: String?) -> Unit = {}
+    onOpenLending: (personKey: String?) -> Unit = {},
+    goals: List<GoalProgress> = emptyList(),
+    onOpenGoals: (goalId: Long?) -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier
@@ -109,6 +114,7 @@ fun DashboardScreen(
             }
         }
         item { BudgetCard(statuses = budgetStatuses, onOpenBudgets = onOpenBudgets) }
+        item { GoalsCard(goals = goals, onOpen = onOpenGoals) }
         item { LendingCard(balances = lending, onOpen = onOpenLending) }
         item { WeeklySpendingCard(transactions = recentTransactions) }
         item { ImportSmsCard(onImportSms = onImportSms) }
@@ -385,6 +391,41 @@ private fun CapturedPaymentsCard(state: CaptureState, onReview: () -> Unit, onDi
                     .testTag("captured_review_button")
             )
         }
+    }
+}
+
+/** The nearest unfinished goal and the total set aside; a one-line invitation until first use. */
+@Composable
+private fun GoalsCard(goals: List<GoalProgress>, onOpen: (goalId: Long?) -> Unit) {
+    if (goals.isEmpty()) {
+        PwCard(
+            onClick = { onOpen(null) },
+            contentPadding = PaddingValues(Space.l),
+            modifier = Modifier.testTag("goals_card")
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PwIconBadge(icon = Icons.Default.Savings, tint = Accent)
+                Spacer(modifier = Modifier.width(Space.m))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Savings goals", style = MaterialTheme.typography.titleSmall, color = Ink)
+                    Text("Save for something you want", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
+            }
+        }
+        return
+    }
+    Column(modifier = Modifier.testTag("goals_card")) {
+        PwSectionTitle(
+            title = "Savings goals",
+            subtitle = "${Formatters.formatCurrency(Goals.totalSetAside(goals))} set aside",
+            action = "See all",
+            onAction = { onOpen(null) },
+            modifier = Modifier.padding(horizontal = Space.xs)
+        )
+        Spacer(modifier = Modifier.height(Space.s))
+        val top = goals.first() // unfinished goals come first, soonest date first
+        GoalCard(progress = top, onClick = { onOpen(top.goal.id) }, onAdd = null)
     }
 }
 

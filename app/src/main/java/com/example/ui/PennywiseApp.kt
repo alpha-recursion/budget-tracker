@@ -105,6 +105,8 @@ import com.example.data.model.TransactionType
 import com.example.ui.screens.AddEditTransactionDialog
 import com.example.ui.screens.LendingPersonDialog
 import com.example.ui.screens.LendingScreen
+import com.example.ui.screens.GoalsScreen
+import com.example.ui.screens.MilestoneCelebration
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.SettingsScreen
@@ -122,6 +124,7 @@ import com.example.ui.util.Formatters
 private const val SETTINGS_SCREEN = SETTINGS_TAB
 private const val SMS_IMPORT_SCREEN = 4
 private const val LENDING_SCREEN = 5
+private const val GOALS_SCREEN = 6
 
 private fun tabTitle(tab: Int): String = when (tab) {
     1 -> "Transactions"
@@ -129,6 +132,7 @@ private fun tabTitle(tab: Int): String = when (tab) {
     SETTINGS_SCREEN -> "Settings"
     SMS_IMPORT_SCREEN -> "Import from SMS"
     LENDING_SCREEN -> "Money lent"
+    GOALS_SCREEN -> "Savings goals"
     else -> "Pennywise"
 }
 
@@ -160,14 +164,18 @@ fun PennywiseApp(
     val currentScreen = when (overlay) {
         Overlay.SMS_IMPORT -> SMS_IMPORT_SCREEN
         Overlay.LENDING -> LENDING_SCREEN
+        Overlay.GOALS -> GOALS_SCREEN
         null -> selectedTab
     }
+    val goals by viewModel.goals.collectAsStateWithLifecycle()
+    val selectedGoal by viewModel.selectedGoal.collectAsStateWithLifecycle()
     val lendingBalances by viewModel.lendingBalances.collectAsStateWithLifecycle()
     val lendingPerson by viewModel.lendingPerson.collectAsStateWithLifecycle()
     // Back from a person's history returns to the people list before leaving the screen.
     val goBack = {
         when {
             overlay == Overlay.LENDING && lendingPerson != null -> viewModel.showLendingPerson(null)
+            overlay == Overlay.GOALS && selectedGoal != null -> viewModel.showGoal(null)
             isOverlayOpen -> viewModel.closeOverlay()
             else -> viewModel.setTab(0)
         }
@@ -303,7 +311,9 @@ fun PennywiseApp(
                                     onReviewCaptured = reviewCaptured,
                                     onDismissCaptured = { viewModel.dismissPendingCapture() },
                                     lending = lendingBalances,
-                                    onOpenLending = { viewModel.openLending(it) }
+                                    onOpenLending = { viewModel.openLending(it) },
+                                    goals = goals,
+                                    onOpenGoals = { viewModel.openGoals(it) }
                                 )
 
                                 1 -> TransactionsScreen(
@@ -384,6 +394,18 @@ fun PennywiseApp(
                                     onDeleteEntry = { viewModel.deleteDebt(it) },
                                     onDeletePerson = { viewModel.deletePerson(it) }
                                 )
+
+                                GOALS_SCREEN -> GoalsScreen(
+                                    goals = goals,
+                                    selectedId = selectedGoal,
+                                    onSelect = { viewModel.showGoal(it) },
+                                    onSaveGoal = { id, name, target, icon, color, date, saved ->
+                                        viewModel.saveGoal(id, name, target, icon, color, date, saved)
+                                    },
+                                    onMoveMoney = { id, amount, out, note -> viewModel.moveGoalMoney(id, amount, out, note) },
+                                    onDeleteEntry = { viewModel.deleteGoalEntry(it) },
+                                    onDeleteGoal = { viewModel.deleteGoal(it) }
+                                )
                             }
                         }
                     }
@@ -413,6 +435,12 @@ fun PennywiseApp(
 
         // Full-screen form drawn above the Scaffold so the header and tab bar never cover it.
         AddEditTransactionHost(viewModel = viewModel)
+
+        // Goal milestone reached: confetti over everything.
+        val celebration by viewModel.celebration.collectAsStateWithLifecycle()
+        celebration?.let {
+            MilestoneCelebration(goalName = it.goalName, milestone = it.milestone, onDismiss = { viewModel.dismissCelebration() })
+        }
         }
     }
 }

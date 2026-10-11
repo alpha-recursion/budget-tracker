@@ -238,7 +238,7 @@ internal fun dueLine(person: PersonBalance): String? = when {
 }
 
 @Composable
-private fun LendingDialogFrame(
+internal fun LendingDialogFrame(
     title: String,
     onDismiss: () -> Unit,
     tag: String,
@@ -328,7 +328,7 @@ private fun DueChips(dueMs: Long?, fromMs: Long, onChange: (Long?) -> Unit, onPi
 }
 
 @Composable
-private fun DialogButtons(confirm: String, enabled: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun DialogButtons(confirm: String, enabled: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     Spacer(modifier = Modifier.height(Space.xs))
     Row(horizontalArrangement = Arrangement.spacedBy(Space.m), modifier = Modifier.fillMaxWidth()) {
         TextButton(onClick = onDismiss, modifier = Modifier.weight(1f).height(52.dp)) {
@@ -348,7 +348,7 @@ private fun DialogButtons(confirm: String, enabled: Boolean, onConfirm: () -> Un
 /** Material date picker in local days; [future] allows only today onwards, else only up to today. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PwDatePicker(initialMs: Long, future: Boolean, onPick: (utcDayMs: Long) -> Unit, onDismiss: () -> Unit) {
+internal fun PwDatePicker(initialMs: Long, future: Boolean, onPick: (utcDayMs: Long) -> Unit, onDismiss: () -> Unit) {
     val todayUtc = remember { DateConversions.localToUtcDay(System.currentTimeMillis()) }
     val state = rememberDatePickerState(
         initialSelectedDateMillis = DateConversions.localToUtcDay(initialMs),
