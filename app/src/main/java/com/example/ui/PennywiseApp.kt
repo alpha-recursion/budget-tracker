@@ -1,5 +1,14 @@
 package com.example.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import com.example.ui.theme.PwMotion
+import com.example.ui.theme.Navy
+import com.example.ui.theme.AccentLight
+import com.example.ui.components.pressScale
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.LocalIndication
 import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
@@ -833,7 +842,7 @@ private data class TabItem(val label: String, val icon: ImageVector, val selecte
 
 private val TAB_ITEMS = listOf(
     TabItem("Home", Icons.Outlined.Home, Icons.Filled.Home, "nav_tab_dashboard"),
-    TabItem("Transactions", Icons.AutoMirrored.Outlined.ReceiptLong, Icons.AutoMirrored.Filled.ReceiptLong, "nav_tab_transactions"),
+    TabItem("Activity", Icons.AutoMirrored.Outlined.ReceiptLong, Icons.AutoMirrored.Filled.ReceiptLong, "nav_tab_transactions"),
     TabItem("Insights", Icons.Outlined.InsertChart, Icons.Filled.InsertChart, "nav_tab_analytics"),
     TabItem("Settings", Icons.Outlined.Settings, Icons.Filled.Settings, "nav_tab_settings")
 )
@@ -844,76 +853,86 @@ private val TAB_ITEMS = listOf(
  */
 @Composable
 private fun PwBottomBar(selectedTab: Int, onSelectTab: (Int) -> Unit, onAdd: () -> Unit) {
-    Box(
+    // Floating navy pill (v4): four tabs around a raised gradient + button; the active tab
+    // shows its label.
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(start = Space.l, end = Space.l, bottom = 14.dp, top = Space.s)
+            .height(64.dp)
+            .shadow(14.dp, RoundedCornerShape(32.dp), ambientColor = Navy.copy(alpha = 0.2f), spotColor = Navy.copy(alpha = 0.35f))
+            .clip(RoundedCornerShape(32.dp))
+            .background(Navy)
+            .padding(horizontal = Space.s)
             .testTag("bottom_navigation_bar"),
-        contentAlignment = Alignment.TopCenter
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            modifier = Modifier
-                .padding(top = 20.dp) // room for the raised + button
-                .fillMaxWidth()
-                .softShadow(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), 8.dp)
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .background(SurfaceWhite)
-                .navigationBarsPadding()
-                .height(64.dp)
-                .padding(horizontal = Space.s),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TAB_ITEMS.forEachIndexed { index, item ->
-                if (index == 2) Spacer(modifier = Modifier.weight(1f)) // centre slot for +
-                BottomTab(
-                    item = item,
-                    selected = selectedTab == index,
-                    onClick = { onSelectTab(index) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .softShadow(CircleShape, 10.dp)
-                .clip(CircleShape)
-                .background(Ink)
-                .clickable(onClick = onAdd)
-                .testTag("fab_add_transaction"),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Add transaction", tint = SurfaceWhite, modifier = Modifier.size(28.dp))
+        TAB_ITEMS.forEachIndexed { index, item ->
+            if (index == 2) AddButton(onAdd)
+            BottomTab(item = item, selected = selectedTab == index, onClick = { onSelectTab(index) })
         }
     }
 }
 
 @Composable
-private fun BottomTab(item: TabItem, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val background by animateColorAsState(if (selected) Accent else Color.Transparent, label = "tab_bg")
-    val tint by animateColorAsState(if (selected) SurfaceWhite else Ink, label = "tab_tint")
+private fun AddButton(onAdd: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
     Box(
-        modifier = modifier
-            .fillMaxHeight()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
-            .testTag(item.tag),
+        modifier = Modifier
+            .size(52.dp)
+            .pressScale(interaction, 0.94f)
+            .shadow(10.dp, CircleShape, ambientColor = Accent.copy(alpha = 0.3f), spotColor = Accent.copy(alpha = 0.55f))
+            .clip(CircleShape)
+            .background(Brush.verticalGradient(listOf(AccentLight, Accent)))
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onAdd)
+            .testTag("fab_add_transaction"),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(background),
-            contentAlignment = Alignment.Center
+        Icon(Icons.Default.Add, contentDescription = "Add transaction", tint = SurfaceWhite, modifier = Modifier.size(28.dp))
+    }
+}
+
+@Composable
+private fun BottomTab(item: TabItem, selected: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val background by animateColorAsState(
+        if (selected) SurfaceWhite.copy(alpha = 0.14f) else Color.Transparent, PwMotion.fade(), label = "tab_bg"
+    )
+    val tint by animateColorAsState(
+        if (selected) SurfaceWhite else SurfaceWhite.copy(alpha = 0.62f), PwMotion.fade(), label = "tab_tint"
+    )
+    Row(
+        modifier = Modifier
+            .height(48.dp)
+            .pressScale(interaction, 0.95f)
+            .clip(RoundedCornerShape(24.dp))
+            .background(background)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(start = if (selected) 14.dp else Space.m, end = if (selected) Space.l else Space.m)
+            .testTag(item.tag),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (selected) item.selectedIcon else item.icon,
+            contentDescription = item.label,
+            tint = tint,
+            modifier = Modifier.size(22.dp)
+        )
+        androidx.compose.animation.AnimatedVisibility(
+            visible = selected,
+            enter = androidx.compose.animation.fadeIn(PwMotion.fade(300)) +
+                androidx.compose.animation.expandHorizontally(PwMotion.fade(300)),
+            exit = androidx.compose.animation.fadeOut(PwMotion.fade(150)) +
+                androidx.compose.animation.shrinkHorizontally(PwMotion.fade(150))
         ) {
-            Icon(
-                imageVector = if (selected) item.selectedIcon else item.icon,
-                contentDescription = item.label,
-                tint = tint,
-                modifier = Modifier.size(24.dp)
+            Text(
+                item.label,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.5.sp),
+                color = SurfaceWhite,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 6.dp)
             )
         }
     }

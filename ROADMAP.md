@@ -158,7 +158,7 @@ Slices, each committed separately so it can be built and checked before the next
 - [x] 8.1 Foundation: colours, radii (cards 20, hero 24, sheets 28), two-layer shadows,
       pill buttons and pill segmented control with sliding thumb, v4 type scale, 16dp
       screen gutter, motion tokens that respect "Remove animations"
-- [ ] 8.2 Shell: floating navy pill nav (Home, Activity, +, Insights, Settings), active tab
+- [x] 8.2 Shell: floating navy pill nav (Home, Activity, +, Insights, Settings), active tab
       shows its label, raised gradient add button
 - [ ] 8.3 Home: greeting, period hero (Today / This week / This month, mini bars, Import SMS ·
       Lending · Goals · Recurring), check-in strip, budget ring + top 3, spending-mix donut,
