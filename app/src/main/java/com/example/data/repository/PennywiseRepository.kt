@@ -170,6 +170,8 @@ class PennywiseRepository(
     /** A payment that was really a loan (or repayment): removes it from spending/income. */
     suspend fun moveTransactionToDebt(transactionId: Long, entry: DebtEntryEntity) = withContext(Dispatchers.IO) {
         database.withTransaction {
+            // Already moved (or deleted): do not create the loan entry again.
+            if (transactionDao.getTransactionById(transactionId) == null) return@withTransaction
             transactionDao.deleteById(transactionId)
             smsImportDao.markMovedToLending(transactionId)
             debtDao.insert(entry)
@@ -239,6 +241,8 @@ class PennywiseRepository(
     suspend fun buyGoal(goalId: Long, purchase: TransactionEntity) = withContext(Dispatchers.IO) {
         database.withTransaction {
             val goal = goalDao.getGoal(goalId) ?: return@withTransaction
+            // Already bought: never record the purchase a second time.
+            if (goal.purchasedAt != null) return@withTransaction
             transactionDao.insert(purchase)
             val saved = goalDao.savedFor(goalId)
             if (saved > 0.0) {

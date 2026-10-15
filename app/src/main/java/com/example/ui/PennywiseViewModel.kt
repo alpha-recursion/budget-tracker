@@ -113,6 +113,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     companion object {
         private const val MAX_CHALLENGES_PER_MONTH = 3
         private const val QUICK_ADD_REPEAT_GUARD_MS = 3_000L
+        private const val REPEAT_GUARD_MS = 2_000L
 
         fun Factory(application: Application): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
@@ -384,6 +385,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     fun addDebt(person: String, kind: DebtKind, amount: Double, date: Long, dueDate: Long?, note: String) {
         val name = Lending.displayName(person)
         if (name.isEmpty() || amount <= 0.0) return
+        if (isRepeat("debt:${Lending.personKey(name)}:${kind.name}:$amount:$date")) return
         viewModelScope.launch {
             try {
                 repository.addDebt(
@@ -405,7 +407,7 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     /** Records a repayment of whatever is still outstanding, in either direction. */
     fun settleUp(person: PersonBalance) {
-        if (person.isSettled) return
+        if (person.isSettled || isRepeat("settle:${person.key}")) return
         val kind = if (person.theyOweMe) DebtKind.GOT_BACK else DebtKind.PAID_BACK
         addDebt(person.name, kind, kotlin.math.abs(person.balance), System.currentTimeMillis(), null, "Settled up")
         showMessage("Settled up with ${person.name}")
@@ -470,6 +472,7 @@ class PennywiseViewModel @JvmOverloads constructor(
         val trimmed = name.trim()
         if (trimmed.isEmpty() || target <= 0.0) return
         val existing = goals.value.firstOrNull { it.goal.id == id }
+        if (existing == null && isRepeat("goal:new:$trimmed:$target")) return
         val goal = if (existing == null) {
             val now = System.currentTimeMillis()
             GoalEntity(
@@ -509,6 +512,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     fun moveGoalMoney(goalId: Long, amount: Double, takeOut: Boolean, note: String) {
         if (amount <= 0.0) return
         val name = goals.value.firstOrNull { it.goal.id == goalId }?.goal?.name ?: return
+        if (isRepeat("goal:move:$goalId:$takeOut:$amount")) return
         viewModelScope.launch {
             try {
                 val reached = repository.addToGoal(goalId, if (takeOut) -amount else amount, System.currentTimeMillis(), note.trim())
@@ -572,6 +576,8 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     fun saveRecurring(item: RecurringEntity) {
+        // A new item has no id yet, so a double tap would add it twice.
+        if (item.id == 0L && isRepeat("recurring:${item.name}:${item.amount}:${item.frequency}")) return
         viewModelScope.launch { repository.saveRecurring(item) }
     }
 
@@ -605,6 +611,8 @@ class PennywiseViewModel @JvmOverloads constructor(
         val amount = (roundUpJar.value * 100).toLong() / 100.0 // whole paise
         if (amount <= 0.0) return
         val name = goals.value.firstOrNull { it.goal.id == goalId }?.goal?.name ?: return
+        // The jar total is only emptied after the move, so a second tap would move it again.
+        if (isRepeat("jar:$goalId")) return
         viewModelScope.launch {
             try {
                 val reached = repository.addToGoal(goalId, amount, System.currentTimeMillis(), "Round-up jar")
@@ -644,18 +652,11 @@ class PennywiseViewModel @JvmOverloads constructor(
     val undoQuickAdd: StateFlow<UndoQuickAdd?> = _undoQuickAdd
 
     /** One tap: adds the chip's expense now; the snackbar offers Undo. */
-    /** Chip key and time of the last quick add, to ignore an accidental double tap. */
-    private var lastQuickAdd: Pair<String, Long>? = null
-
     fun quickAdd(chip: QuickChip) {
-        val now = System.currentTimeMillis()
-        // Checked before launching, so two taps in the same frame cannot both get through.
-        val last = lastQuickAdd
-        if (last != null && last.first == chip.key && now - last.second < QUICK_ADD_REPEAT_GUARD_MS) {
+        if (isRepeat("quick:${chip.key}", QUICK_ADD_REPEAT_GUARD_MS)) {
             showMessage("${chip.title} was just added. Tap again in a moment to add it once more.")
             return
         }
-        lastQuickAdd = chip.key to now
         viewModelScope.launch {
             try {
                 val id = repository.insertTransaction(
@@ -712,7 +713,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     /** Payday card: records the usual salary as income now. */
     fun addSalary() {
         val pay = planning.value.pay
-        if (!pay.isSet) return
+        if (!pay.isSet || isRepeat("salary")) return
         viewModelScope.launch {
             repository.insertTransaction(
                 TransactionEntity(
@@ -791,6 +792,12 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun pickChallenge(suggestion: ChallengeSuggestion) {
         val now = System.currentTimeMillis()
+        val month = Challenges.month(now).key
+        val alreadyPicked = challengeResults.value.any {
+            it.challenge.month == month && it.challenge.type == suggestion.type.name &&
+                it.challenge.category == suggestion.category
+        }
+        if (alreadyPicked || isRepeat("challenge:${suggestion.type.name}:${suggestion.category}")) return
         viewModelScope.launch {
             try {
                 repository.addChallenge(
@@ -916,6 +923,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     fun addCheckpoint(goalId: Long, name: String, amount: Double) {
         val trimmed = name.trim()
         if (trimmed.isEmpty() || amount <= 0.0) return
+        if (isRepeat("checkpoint:$goalId:$trimmed:$amount")) return
         viewModelScope.launch {
             try {
                 repository.addCheckpoint(goalId, trimmed, amount)
@@ -932,7 +940,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     /** "I bought it": the purchase becomes an expense in [category]; the money set aside is released. */
     fun buyGoal(goalId: Long, amount: Double, category: String) {
         val progress = goals.value.firstOrNull { it.goal.id == goalId } ?: return
-        if (amount <= 0.0 || category.isBlank()) return
+        if (amount <= 0.0 || category.isBlank() || isRepeat("buy:$goalId")) return
         viewModelScope.launch {
             try {
                 repository.buyGoal(
@@ -965,7 +973,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     /** The transaction being edited was really a loan or repayment: move it to money lent. */
     fun moveTransactionToLending(transaction: TransactionEntity, person: String, kind: DebtKind) {
         val name = Lending.displayName(person)
-        if (name.isEmpty() || transaction.id == 0L) return
+        if (name.isEmpty() || transaction.id == 0L || isRepeat("lend:${transaction.id}")) return
         dismissAddEditDialog()
         viewModelScope.launch {
             try {
@@ -1061,6 +1069,22 @@ class PennywiseViewModel @JvmOverloads constructor(
     // A parsed backup waiting for the user to confirm that it may replace all data.
     private val _pendingRestore = MutableStateFlow<BackupData?>(null)
     val pendingRestore: StateFlow<BackupData?> = _pendingRestore
+
+    /** When each action last ran, by key (main thread only), to catch accidental double taps. */
+    private val recentActions = HashMap<String, Long>()
+
+    /**
+     * True when [key] already ran within [windowMs]: a double tap or a second tap before the
+     * screen has caught up. Otherwise records it as running now. Checked before launching any
+     * work, so two taps in the same frame cannot both get through.
+     */
+    private fun isRepeat(key: String, windowMs: Long = REPEAT_GUARD_MS): Boolean {
+        val now = System.currentTimeMillis()
+        val last = recentActions[key]
+        if (last != null && now - last < windowMs) return true
+        recentActions[key] = now
+        return false
+    }
 
     fun showMessage(message: String) {
         _userMessage.value = message
