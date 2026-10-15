@@ -16,7 +16,11 @@ object ReminderScheduler {
     private const val REVIEW_HOUR = 21
 
     fun schedule(context: Context) {
-        val manager = WorkManager.getInstance(context.applicationContext)
+        val manager = try {
+            WorkManager.getInstance(context.applicationContext)
+        } catch (_: Exception) {
+            return
+        }
         // KEEP: the first run time stays put even if the app opens again before it.
         manager.enqueueUniquePeriodicWork(
             DUE_WORK,

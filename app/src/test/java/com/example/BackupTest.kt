@@ -144,7 +144,7 @@ class BackupTest {
             assertEquals(sample.merchantRules.toSet(), repository.merchantRules().toSet())
             assertEquals(listOf(3L), repository.smsTemplatesOnce().map { it.id })
             assertEquals(sample.debts.toSet(), repository.debts.first().toSet())
-            assertEquals(sample.goals, repository.goals.first())
+            assertEquals(sample.goals.toSet(), repository.goals.first().toSet())
             assertEquals(sample.goalEntries.toSet(), repository.goalEntries.first().toSet())
 
             repository.eraseAllData()
