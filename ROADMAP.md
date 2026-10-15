@@ -141,7 +141,7 @@ lent to others, and use light game mechanics so it gets opened every day.
       at 200; search and the SMS box are capped. No leading spaces or double spaces while
       typing; trailing spaces are removed on save. A name must contain a letter or number.
 
-### 8. Redesign v4 (planned)
+### 8. Redesign v4 (built, needs on-device check)
 Source: Claude Design handoff "Pennywise Redesign v4" (Home, Transactions, New transaction,
 Insights, Settings, Badges). Owner decisions (Oct 2026):
 - Follow the design exactly on Home: quick-add chips, payday countdown, "bank payments to
@@ -171,7 +171,7 @@ Slices, each committed separately so it can be built and checked before the next
       days bars with tooltip, where it went, budgets, top payees
 - [x] 8.7 Settings (grouped rows, icon circles) and Badges (level card, How XP works,
       All / Earned / Locked, 3-column grid with locked state)
-- [ ] 8.8 Motion: bar growth, count-up, spring thumbs, self-drawing line, donut sweep, row
+- [x] 8.8 Motion: bar growth, count-up, spring thumbs, self-drawing line, donut sweep, row
       cascade, shimmer / shine / pop, toast; all under 700 ms
 
 ## SMS import design

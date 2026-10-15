@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import com.example.ui.components.rememberPulse
+import com.example.ui.components.rememberGrowth
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -183,6 +186,8 @@ internal fun MonthTrendCard(transactions: List<TransactionEntity>, nowMs: Long) 
     }
     val spent = cumulative.lastOrNull() ?: 0.0
     val projection = spent / today * daysInMonth
+    val grow = rememberGrowth(cumulative.size, spent)
+    val pulse = rememberPulse()
     PwCard(modifier = Modifier.testTag("month_trend_card")) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(modifier = Modifier.weight(1f)) {
@@ -218,17 +223,25 @@ internal fun MonthTrendCard(transactions: List<TransactionEntity>, nowMs: Long) 
                 lineTo(0f, h)
                 close()
             }
-            drawPath(area, Accent.copy(alpha = 0.12f))
-            if (today < daysInMonth) {
+            drawPath(area, Accent.copy(alpha = 0.12f * grow))
+            // The projection and today dot appear in the last 30% of the line's draw.
+            val late = ((grow - 0.7f) / 0.3f).coerceIn(0f, 1f)
+            if (today < daysInMonth && late > 0f) {
                 drawLine(
                     Color(0xFFB9A6EC), Offset(lastX, lastY), Offset(x(daysInMonth), y(projection)),
                     2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 5.dp.toPx()))
                 )
             }
-            drawPath(line, Accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-            drawCircle(Accent.copy(alpha = 0.25f), 10.dp.toPx(), Offset(lastX, lastY))
-            drawCircle(SurfaceWhite, 6.dp.toPx(), Offset(lastX, lastY))
-            drawCircle(Accent, 4.dp.toPx(), Offset(lastX, lastY))
+            // Self-drawing line: only the first `grow` of its length is drawn.
+            val measure = PathMeasure().apply { setPath(line, false) }
+            val partial = Path()
+            measure.getSegment(0f, measure.length * grow, partial, true)
+            drawPath(partial, Accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            if (late > 0f) {
+                drawCircle(Accent.copy(alpha = 0.35f * (1f - pulse) * late), (6 + 8 * pulse).dp.toPx(), Offset(lastX, lastY))
+                drawCircle(SurfaceWhite.copy(alpha = late), 6.dp.toPx(), Offset(lastX, lastY))
+                drawCircle(Accent.copy(alpha = late), 4.dp.toPx(), Offset(lastX, lastY))
+            }
         }
         Spacer(modifier = Modifier.height(Space.s))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -251,6 +264,7 @@ internal fun LastSevenDaysCard(transactions: List<TransactionEntity>, nowMs: Lon
         }
     }
     var selected by rememberSaveable { mutableIntStateOf(6) }
+    val grow = rememberGrowth(days.size)
     val max = (days.maxOfOrNull { it.second } ?: 0.0).coerceAtLeast(1.0)
     val (selStart, selAmount) = days[selected.coerceIn(0, 6)]
     val dayLabel = when (selected) {
@@ -295,7 +309,7 @@ internal fun LastSevenDaysCard(transactions: List<TransactionEntity>, nowMs: Lon
                         modifier = Modifier
                             .fillMaxWidth()
                             .widthIn(max = 30.dp)
-                            .height((84 * amount / max).toFloat().coerceAtLeast(4f).dp)
+                            .height((84 * amount / max * ((grow * 1.56f) - 0.07f * i).coerceIn(0f, 1f)).toFloat().coerceAtLeast(4f).dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (on) Brush.verticalGradient(listOf(AccentLight, Accent)) else Brush.verticalGradient(listOf(AccentTrack, AccentTrack)))
                     )

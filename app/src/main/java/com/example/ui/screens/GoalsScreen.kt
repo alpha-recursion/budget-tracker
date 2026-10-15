@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.components.rememberGrowth
 import com.example.ui.theme.PositiveSoft
 import com.example.ui.theme.Navy
 import com.example.ui.theme.Hairline
@@ -737,7 +738,23 @@ fun BadgesScreen(progress: AchievementProgress, modifier: Modifier = Modifier) {
         }
         items(shown.chunked(3), key = { row -> row.joinToString { it.name } }) { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-                row.forEach { badge -> BadgeTile(badge, earned = badge in progress.earned, modifier = Modifier.weight(1f)) }
+                row.forEach { badge ->
+                    // Pop in one after another (scale .7 → 1 with a little overshoot).
+                    val order = shown.indexOf(badge)
+                    val pop = rememberGrowth(filter, durationMs = 450, delayMs = 260 + 30 * minOf(order, 12))
+                    val scale = if (pop >= 1f) 1f else 0.7f + 0.34f * pop - 0.04f * pop * pop
+                    BadgeTile(
+                        badge,
+                        earned = badge in progress.earned,
+                        modifier = Modifier
+                            .weight(1f)
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                alpha = pop
+                            }
+                    )
+                }
                 repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }

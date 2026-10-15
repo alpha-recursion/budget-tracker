@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import com.example.ui.components.shimmer
+import com.example.ui.components.rememberPulse
+import com.example.ui.components.rememberGrowth
+import com.example.ui.components.animatedAmount
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -294,7 +298,7 @@ private fun SpendHero(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
                 Text(text.label, style = MaterialTheme.typography.labelMedium, color = SurfaceWhite.copy(alpha = 0.72f))
                 Text(
-                    Formatters.formatCurrency(kpi.spent),
+                    Formatters.formatCurrency(Math.round(animatedAmount(kpi.spent)).toDouble()),
                     style = MaterialTheme.typography.displayMedium,
                     color = SurfaceWhite,
                     maxLines = 1,
@@ -377,6 +381,8 @@ private fun heroText(kpi: SpendKpi): HeroText {
 @Composable
 private fun HeroBars(kpi: SpendKpi) {
     val max = (kpi.bars.maxOfOrNull { it.amount } ?: 0.0).coerceAtLeast(1.0)
+    val grow = rememberGrowth(kpi.period, durationMs = 550)
+    val pulse = rememberPulse()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -384,7 +390,9 @@ private fun HeroBars(kpi: SpendKpi) {
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        kpi.bars.forEach { bar ->
+        kpi.bars.forEachIndexed { index, bar ->
+            // Staggered growth: each bar starts a little after the one before.
+            val g = ((grow * 1.56f) - 0.07f * minOf(index, 8)).coerceIn(0f, 1f)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -393,7 +401,15 @@ private fun HeroBars(kpi: SpendKpi) {
                 verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.Bottom)
             ) {
                 if (bar.current) {
-                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SurfaceWhite))
+                    Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .size((6 + 8 * pulse).dp)
+                                .clip(CircleShape)
+                                .background(SurfaceWhite.copy(alpha = 0.6f * (1f - pulse)))
+                        )
+                        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SurfaceWhite))
+                    }
                 }
                 val color = when {
                     bar.future -> SurfaceWhite.copy(alpha = 0.10f)
@@ -404,7 +420,7 @@ private fun HeroBars(kpi: SpendKpi) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 26.dp)
-                        .height((42 * (bar.amount / max)).toFloat().coerceAtLeast(3f).dp)
+                        .height((42 * (bar.amount / max) * g).toFloat().coerceAtLeast(3f).dp)
                         .clip(RoundedCornerShape(5.dp))
                         .background(color)
                 )
@@ -460,6 +476,7 @@ private fun BudgetRingCard(statuses: List<CategoryBudgetStatus>) {
         pct > 80 -> Warning
         else -> Accent
     }
+    val grow = rememberGrowth(statuses.size)
     PwCard(modifier = Modifier.testTag("budget_card")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(76.dp), contentAlignment = Alignment.Center) {
@@ -469,11 +486,11 @@ private fun BudgetRingCard(statuses: List<CategoryBudgetStatus>) {
                     val arcSize = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke)
                     drawArc(TrackSoft, -90f, 360f, false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke))
                     drawArc(
-                        ringColor, -90f, (pct.coerceAtMost(100.0) * 3.6).toFloat(), false,
+                        ringColor, -90f, (pct.coerceAtMost(100.0) * 3.6 * grow).toFloat(), false,
                         topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke)
                     )
                 }
-                Text("${Math.round(pct)}%", style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp), color = Ink)
+                Text("${Math.round(pct * grow)}%", style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp), color = Ink)
             }
             Spacer(modifier = Modifier.width(Space.l))
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -555,6 +572,7 @@ private fun NoBudgetsCard(onSetUp: () -> Unit) {
 
 @Composable
 private fun SpendingMixCard(mix: List<CategoryBreakdown>) {
+    val grow = rememberGrowth(mix.size)
     PwCard(modifier = Modifier.testTag("spending_mix_card")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(112.dp), contentAlignment = Alignment.Center) {
@@ -564,7 +582,7 @@ private fun SpendingMixCard(mix: List<CategoryBreakdown>) {
                     val arcSize = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke)
                     var start = -90f
                     mix.forEach { part ->
-                        val sweep = (part.percentage * 3.6).toFloat()
+                        val sweep = (part.percentage * 3.6 * grow).toFloat()
                         // A small white gap between segments, as in the design.
                         val gap = if (mix.size > 1) minOf(1.5f, sweep / 3) else 0f
                         drawArc(
@@ -660,7 +678,7 @@ private fun GoalTile(progress: GoalProgress, onClick: () -> Unit, modifier: Modi
                 maxLines = 1
             )
         }
-        ProgressLine(fraction, color, 6)
+        ProgressLine(fraction * rememberGrowth(goal.id), color, 6, shimmer = true)
         Text(
             goal.targetDate?.let { "By " + SimpleDateFormat("MMM yyyy", Locale.US).format(Date(it)) } ?: "No date set",
             style = MaterialTheme.typography.labelSmall,
@@ -714,7 +732,7 @@ private fun CategoryDot(icon: ImageVector, color: Color, sizeDp: Int, background
 }
 
 @Composable
-private fun ProgressLine(fraction: Float, color: Color, heightDp: Int) {
+private fun ProgressLine(fraction: Float, color: Color, heightDp: Int, shimmer: Boolean = false) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -728,6 +746,7 @@ private fun ProgressLine(fraction: Float, color: Color, heightDp: Int) {
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(heightDp.dp))
                 .background(color)
+                .then(if (shimmer) Modifier.shimmer() else Modifier)
         )
     }
 }
