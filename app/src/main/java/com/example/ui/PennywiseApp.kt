@@ -613,7 +613,8 @@ private fun AddEditTransactionHost(viewModel: PennywiseViewModel) {
     val isAddEditOpen by viewModel.isAddEditOpen.collectAsStateWithLifecycle()
     AnimatedVisibility(
         visible = isAddEditOpen,
-        enter = slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(200)),
+        // The sheet slides itself up over a fading scrim; closing slides it back down.
+        enter = fadeIn(tween(200)),
         exit = slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180))
     ) {
         AddEditTransactionContent(viewModel)
