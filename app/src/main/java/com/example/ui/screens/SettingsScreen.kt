@@ -157,6 +157,8 @@ fun SettingsScreen(
                 )
                 PwDivider()
                 DueReminderRow()
+                PwDivider()
+                ReviewReminderRow()
             }
         }
 
@@ -454,15 +456,20 @@ private fun AutoCaptureRow(
     }
 }
 
-/** Switch for the "due tomorrow" phone reminder; asks for notification access when turned on. */
+/** A phone-reminder switch; asks for notification access when turned on (Android 13+). */
 @Composable
-private fun DueReminderRow() {
+private fun ReminderSwitchRow(
+    title: String,
+    subtitleOn: String,
+    isEnabled: () -> Boolean,
+    save: (Boolean) -> Unit,
+    tag: String
+) {
     val context = LocalContext.current
-    val store = remember { RemindersStore(context) }
-    var enabled by remember { mutableStateOf(store.dueDatesEnabled()) }
+    var enabled by remember { mutableStateOf(isEnabled()) }
     fun set(value: Boolean) {
         enabled = value
-        store.setDueDatesEnabled(value)
+        save(value)
     }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         // Stays on even if refused: the reminder simply cannot show until allowed in system settings.
@@ -481,11 +488,11 @@ private fun DueReminderRow() {
         }
     }
     PwListRow(
-        title = "Due-date reminders",
-        subtitle = if (enabled) "On · a notification at 10 AM the day before money is due" else "Off",
+        title = title,
+        subtitle = if (enabled) subtitleOn else "Off",
         leading = { PwIconBadge(Icons.Default.Notifications, Accent) },
         onClick = toggle,
-        modifier = Modifier.testTag("settings_due_reminder_row")
+        modifier = Modifier.testTag("${tag}_row")
     ) {
         Switch(
             checked = enabled,
@@ -497,9 +504,33 @@ private fun DueReminderRow() {
                 uncheckedThumbColor = SurfaceWhite,
                 uncheckedBorderColor = Hairline
             ),
-            modifier = Modifier.testTag("settings_due_reminder_switch")
+            modifier = Modifier.testTag("${tag}_switch")
         )
     }
+}
+
+@Composable
+private fun DueReminderRow() {
+    val store = remember { RemindersStore(LocalContext.current) }
+    ReminderSwitchRow(
+        title = "Due-date reminders",
+        subtitleOn = "On · a notification at 10 AM the day before money is due",
+        isEnabled = store::dueDatesEnabled,
+        save = store::setDueDatesEnabled,
+        tag = "settings_due_reminder"
+    )
+}
+
+@Composable
+private fun ReviewReminderRow() {
+    val store = remember { RemindersStore(LocalContext.current) }
+    ReminderSwitchRow(
+        title = "Daily check-in reminder",
+        subtitleOn = "On · a nudge at 9 PM if you haven't checked in",
+        isEnabled = store::reviewEnabled,
+        save = store::setReviewEnabled,
+        tag = "settings_review_reminder"
+    )
 }
 
 @Composable

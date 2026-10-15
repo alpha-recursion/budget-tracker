@@ -11,15 +11,27 @@ import java.util.concurrent.TimeUnit
 object ReminderScheduler {
 
     private const val DUE_WORK = "due_date_reminders"
+    private const val REVIEW_WORK = "daily_review_reminder"
     private const val DUE_HOUR = 10
+    private const val REVIEW_HOUR = 21
 
     fun schedule(context: Context) {
-        val request = PeriodicWorkRequestBuilder<DueReminderWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(delayUntil(DUE_HOUR, 0), TimeUnit.MILLISECONDS)
-            .build()
-        // KEEP: the first run time stays at the next 10:00 even if the app opens again before it.
-        WorkManager.getInstance(context.applicationContext)
-            .enqueueUniquePeriodicWork(DUE_WORK, ExistingPeriodicWorkPolicy.KEEP, request)
+        val manager = WorkManager.getInstance(context.applicationContext)
+        // KEEP: the first run time stays put even if the app opens again before it.
+        manager.enqueueUniquePeriodicWork(
+            DUE_WORK,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<DueReminderWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(delayUntil(DUE_HOUR, 0), TimeUnit.MILLISECONDS)
+                .build()
+        )
+        manager.enqueueUniquePeriodicWork(
+            REVIEW_WORK,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<ReviewReminderWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(delayUntil(REVIEW_HOUR, 0), TimeUnit.MILLISECONDS)
+                .build()
+        )
     }
 
     /** Milliseconds from now to the next [hour]:[minute] local time. */

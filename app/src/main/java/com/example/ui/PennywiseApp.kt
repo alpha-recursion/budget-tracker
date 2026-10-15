@@ -187,6 +187,7 @@ fun PennywiseApp(
     val goals by viewModel.goals.collectAsStateWithLifecycle()
     val selectedGoal by viewModel.selectedGoal.collectAsStateWithLifecycle()
     val savingStreak by viewModel.savingStreak.collectAsStateWithLifecycle()
+    val dailyReview by viewModel.dailyReview.collectAsStateWithLifecycle()
     val roundUps by viewModel.roundUps.collectAsStateWithLifecycle()
     val roundUpJar by viewModel.roundUpJar.collectAsStateWithLifecycle()
     val achievements by viewModel.achievements.collectAsStateWithLifecycle()
@@ -252,6 +253,7 @@ fun PennywiseApp(
             AutoCaptureNotifier.OPEN_SMS_REVIEW -> reviewCaptured()
             AutoCaptureNotifier.OPEN_TRANSACTIONS -> viewModel.setTab(1)
             ReminderNotifier.OPEN_LENDING -> viewModel.openLending()
+            ReminderNotifier.OPEN_REVIEW -> viewModel.setTab(0)
             else -> return@LaunchedEffect
         }
         onOpenRequestHandled()
@@ -357,6 +359,8 @@ fun PennywiseApp(
                                     goals = goals,
                                     onOpenGoals = { viewModel.openGoals(it) },
                                     savingStreakWeeks = savingStreak.current,
+                                    dailyReview = dailyReview,
+                                    onConfirmDailyReview = { viewModel.confirmDailyReview() },
                                     reportReady = lastMonthReportIfNew(reportCards),
                                     onOpenReport = { viewModel.openChallenges(fromGoals = false, reportMonth = it) },
                                     quickChips = quickChips,

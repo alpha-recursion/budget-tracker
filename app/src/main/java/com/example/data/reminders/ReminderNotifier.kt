@@ -20,9 +20,14 @@ object ReminderNotifier {
 
     private const val DUE_CHANNEL_ID = "due_dates"
     private const val DUE_NOTIFICATION_ID = 1002
+    private const val REVIEW_CHANNEL_ID = "daily_review"
+    private const val REVIEW_NOTIFICATION_ID = 1003
 
     /** Intent extra value that opens the Money lent screen. */
     const val OPEN_LENDING = "lending"
+
+    /** Intent extra value that opens Home, where the daily check-in card is. */
+    const val OPEN_REVIEW = "review"
 
     fun showDue(context: Context, reminders: List<DueReminder>) {
         if (reminders.isEmpty()) return
@@ -48,6 +53,36 @@ object ReminderNotifier {
         } catch (e: SecurityException) {
             // Permission revoked between the check and the call; nothing else to do.
         }
+    }
+
+    fun showReview(context: Context, streakDays: Int) {
+        val manager = NotificationManagerCompat.from(context)
+        if (!manager.areNotificationsEnabled()) return
+        ensureChannel(context, REVIEW_CHANNEL_ID, "Daily check-in", "Evening nudge to log the day's spending")
+        val text = if (streakDays > 0) {
+            "Confirm today to keep your $streakDays-day streak going."
+        } else {
+            "Add anything you missed, then confirm you've logged everything."
+        }
+        val notification = NotificationCompat.Builder(context, REVIEW_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_payment)
+            .setColor(ContextCompat.getColor(context, R.color.pennywise_accent))
+            .setContentTitle("Log today's spending")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(openApp(context, OPEN_REVIEW, requestCode = 2))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
+        try {
+            manager.notify(REVIEW_NOTIFICATION_ID, notification)
+        } catch (e: SecurityException) {
+            // Permission revoked between the check and the call; nothing else to do.
+        }
+    }
+
+    fun cancelReview(context: Context) {
+        NotificationManagerCompat.from(context).cancel(REVIEW_NOTIFICATION_ID)
     }
 
     private fun line(reminder: DueReminder): String {

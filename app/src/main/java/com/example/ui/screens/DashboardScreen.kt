@@ -57,6 +57,7 @@ import com.example.domain.PersonBalance
 import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
 import com.example.ui.components.BudgetGauge
+import com.example.domain.DailyReviewState
 import com.example.ui.components.PwCard
 import com.example.ui.components.PwDivider
 import com.example.ui.components.PwIconBadge
@@ -103,6 +104,8 @@ fun DashboardScreen(
     goals: List<GoalProgress> = emptyList(),
     onOpenGoals: (goalId: Long?) -> Unit = {},
     savingStreakWeeks: Int = 0,
+    dailyReview: DailyReviewState = DailyReviewState(),
+    onConfirmDailyReview: () -> Unit = {},
     /** Last month's report card, shown during the first week of a new month. */
     reportReady: ReportCard? = null,
     onOpenReport: (monthKey: Int) -> Unit = {},
@@ -147,6 +150,7 @@ fun DashboardScreen(
         item(key = "payday") {
             if (payCycle != null) PaydayCard(payCycle, onEdit = onEditPay) else PaydayInviteCard(onClick = onEditPay)
         }
+        item(key = "daily_review") { DailyReviewCard(dailyReview, onConfirmDailyReview) }
         reportReady?.let { card ->
             item(key = "report_ready") { ReportReadyCard(card, onClick = { onOpenReport(card.month.key) }) }
         }

@@ -54,6 +54,10 @@ import com.example.data.local.RewardsStore
 import com.example.data.repository.GoalReached
 import com.example.domain.RoundUpSettings
 import com.example.domain.RoundUps
+import com.example.data.reminders.DailyReviewStore
+import com.example.data.reminders.ReminderNotifier
+import com.example.domain.DailyReviewState
+import com.example.domain.DailyStreaks
 import com.example.domain.SavingStreak
 import com.example.domain.Streaks
 import com.example.data.local.RoundUpStore
@@ -345,6 +349,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     fun onAppForeground() {
         val app = getApplication<Application>()
         AutoCaptureNotifier.cancel(app)
+        today.value = DailyStreaks.dayNumber(System.currentTimeMillis())
         viewModelScope.launch { captureStore.update { it.seen() } }
     }
 
@@ -527,6 +532,29 @@ class PennywiseViewModel @JvmOverloads constructor(
     val savingStreak: StateFlow<SavingStreak> = combine(repository.goals, repository.goalEntries) { goals, entries ->
         Streaks.saving(goals, entries, System.currentTimeMillis())
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SavingStreak(0, 0, 1, false, 0))
+
+    // --- Daily check-in: "I've logged everything" streak and no-spend days ---
+
+    private val dailyReviewStore = DailyReviewStore(application)
+
+    /** Today as a day number; refreshed when the app returns to the foreground. */
+    private val today = MutableStateFlow(DailyStreaks.dayNumber(System.currentTimeMillis()))
+
+    val dailyReview: StateFlow<DailyReviewState> = combine(
+        dailyReviewStore.reviewedDays,
+        repository.allTransactions,
+        today
+    ) { reviewed, txs, day ->
+        val spendDays = txs.filter { it.type == "EXPENSE" }.map { DailyStreaks.dayNumber(it.date) }.toSet()
+        DailyStreaks.state(reviewed, spendDays, day)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, DailyReviewState())
+
+    fun confirmDailyReview() {
+        val now = System.currentTimeMillis()
+        today.value = DailyStreaks.dayNumber(now)
+        dailyReviewStore.markReviewed(today.value)
+        ReminderNotifier.cancelReview(getApplication())
+    }
 
     fun setRoundUpsEnabled(enabled: Boolean) {
         viewModelScope.launch {
@@ -777,13 +805,18 @@ class PennywiseViewModel @JvmOverloads constructor(
         achievementData,
         repository.allBudgets,
         savingStreak,
-        challengeResults
-    ) { data, budgets, streak, challenges ->
+        challengeResults,
+        dailyReview
+    ) { data, budgets, streak, challenges, daily ->
         Achievements.compute(
             data.copy(
                 budgets = budgets,
                 bestStreak = streak.best,
-                challengesWon = challenges.count { it.state == ChallengeState.WON }
+                challengesWon = challenges.count { it.state == ChallengeState.WON },
+                checkInDays = daily.review.totalDays,
+                noSpendDays = daily.noSpend.totalDays,
+                bestCheckInStreak = daily.review.best,
+                bestNoSpendStreak = daily.noSpend.best
             ),
             System.currentTimeMillis()
         )

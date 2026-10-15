@@ -15,7 +15,14 @@ class RemindersStore(context: Context) {
         prefs.edit().putBoolean(KEY_DUE_DATES, enabled).apply()
     }
 
+    fun reviewEnabled(): Boolean = prefs.getBoolean(KEY_REVIEW, true)
+
+    fun setReviewEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_REVIEW, enabled).apply()
+    }
+
     private companion object {
         const val KEY_DUE_DATES = "due_dates"
+        const val KEY_REVIEW = "daily_review"
     }
 }

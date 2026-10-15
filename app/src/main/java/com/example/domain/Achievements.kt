@@ -25,7 +25,11 @@ enum class Badge(val emoji: String, val title: String, val howTo: String) {
     STREAK_8("☄️", "Unstoppable", "Save 8 weeks in a row"),
     BUDGET_KEEPER("🛡️", "Budget keeper", "Finish a month within all your budgets"),
     SETTLED("🤝", "Settled up", "Get a loan fully repaid or repay one"),
-    CHALLENGER("🥇", "Challenger", "Win a monthly challenge")
+    CHALLENGER("🥇", "Challenger", "Win a monthly challenge"),
+    CHECK_IN_7("🗓️", "Daily check-in", "Check in 7 days in a row"),
+    CHECK_IN_30("🧘", "Money mindful", "Check in 30 days in a row"),
+    NO_SPEND_3("🌙", "Quiet streak", "Have 3 no-spend days in a row"),
+    NO_SPEND_7("💎", "Frugal week", "Have 7 no-spend days in a row")
 }
 
 /** Everything the badges and XP are worked out from. */
@@ -37,7 +41,12 @@ data class AchievementData(
     val debts: List<DebtEntryEntity> = emptyList(),
     val budgets: List<BudgetEntity> = emptyList(),
     val bestStreak: Int = 0,
-    val challengesWon: Int = 0
+    val challengesWon: Int = 0,
+    /** Daily check-in totals and best streaks (see DailyStreaks). */
+    val checkInDays: Int = 0,
+    val noSpendDays: Int = 0,
+    val bestCheckInStreak: Int = 0,
+    val bestNoSpendStreak: Int = 0
 )
 
 data class Level(val number: Int, val name: String, val startXp: Int, val nextXp: Int?) {
@@ -66,6 +75,8 @@ object Achievements {
     const val XP_STREAK_WEEK = 20
     const val XP_BADGE = 50
     const val XP_CHALLENGE = 100
+    const val XP_CHECK_IN_DAY = 3
+    const val XP_NO_SPEND_DAY = 5
 
     /** Only the first 1,000 transactions earn XP, so bulk imports cannot run away with it. */
     private const val MAX_TRANSACTIONS_FOR_XP = 1000
@@ -87,6 +98,8 @@ object Achievements {
             checkpoints * XP_CHECKPOINT +
             data.bestStreak * XP_STREAK_WEEK +
             data.challengesWon * XP_CHALLENGE +
+            data.checkInDays * XP_CHECK_IN_DAY +
+            data.noSpendDays * XP_NO_SPEND_DAY +
             earned.size * XP_BADGE
         return AchievementProgress(xp, level(xp), earned)
     }
@@ -114,6 +127,10 @@ object Achievements {
         val settled = Lending.balances(data.debts, nowMs).any { it.isSettled && it.entries.size >= 2 }
         if (settled) earned += Badge.SETTLED
         if (data.challengesWon > 0) earned += Badge.CHALLENGER
+        if (data.bestCheckInStreak >= 7) earned += Badge.CHECK_IN_7
+        if (data.bestCheckInStreak >= 30) earned += Badge.CHECK_IN_30
+        if (data.bestNoSpendStreak >= 3) earned += Badge.NO_SPEND_3
+        if (data.bestNoSpendStreak >= 7) earned += Badge.NO_SPEND_7
         return earned
     }
 

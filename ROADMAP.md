@@ -102,7 +102,10 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 3.1c Round-up jar: spare change (to the next ₹10 / ₹50 / ₹100) from each expense
       after switching on, moved to a goal with one tap
 - [x] 3.2a Weekly saving streak with one freeze (earned back after 4 saving weeks)
-- [ ] 3.2b Daily review and no-spend-day streaks
+- [x] 3.2b Daily check-in ("I've logged everything" button on Home) with check-in and no-spend-day
+      streaks (a no-spend day needs a check-in and zero expenses), one freeze earned back after 7
+      days, XP, 4 new badges, optional 9 PM reminder. Check-in days are kept on the phone, not in
+      the JSON backup. Needs on-device check.
 - [x] 3.3 XP, 10 levels and 14 badges, all worked out from the owner's data; new badges and
       level-ups are celebrated once; Badges screen (Goals → level card, or Settings → Rewards)
 - [x] 3.3b Celebration chime + vibration (silent when the phone is; switch in Settings)
