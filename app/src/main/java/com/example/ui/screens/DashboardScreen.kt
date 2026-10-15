@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,23 +10,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.TrendingDown
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.DonutSmall
+import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,53 +39,71 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.local.RecurringEntity
 import com.example.data.local.TransactionEntity
 import com.example.domain.CategoryBreakdown
 import com.example.domain.CategoryBudgetStatus
-import com.example.domain.sms.CaptureState
-import androidx.compose.material.icons.filled.Handshake
-import androidx.compose.material.icons.filled.Savings
-import com.example.domain.GoalProgress
-import com.example.domain.ReportCard
-import com.example.domain.PayCycleStatus
-import com.example.domain.QuickChip
-import com.example.domain.Goals
-import com.example.domain.Lending
-import com.example.domain.PersonBalance
+import com.example.domain.DailyReviewState
 import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
-import com.example.ui.components.BudgetGauge
-import com.example.data.local.RecurringEntity
-import com.example.domain.DailyReviewState
+import com.example.domain.GoalProgress
+import com.example.domain.Goals
+import com.example.domain.HomeSpend
+import com.example.domain.PayCycleStatus
+import com.example.domain.PersonBalance
+import com.example.domain.QuickChip
+import com.example.domain.ReportCard
+import com.example.domain.SpendKpi
+import com.example.domain.SpendPeriod
+import com.example.domain.sms.CaptureState
+import com.example.data.model.CategoryInfo
+import com.example.ui.components.CardShape
+import com.example.ui.components.HeroShape
+import com.example.ui.components.PillShape
 import com.example.ui.components.PwCard
 import com.example.ui.components.PwDivider
-import com.example.ui.components.PwIconBadge
 import com.example.ui.components.PwPrimaryButton
-import com.example.ui.components.PwSecondaryButton
-import com.example.ui.components.PwSectionTitle
+import com.example.ui.components.PwSegmented
 import com.example.ui.components.Space
-import com.example.ui.components.SpendingDonutChart
-import com.example.ui.components.SpendingTrendChart
 import com.example.ui.components.TransactionItemRow
 import com.example.ui.components.softShadow
 import com.example.ui.theme.Accent
+import com.example.ui.theme.AccentBright
+import com.example.ui.theme.AccentSoft
 import com.example.ui.theme.Ink
 import com.example.ui.theme.InkSecondary
-import com.example.ui.theme.InkTertiary
+import com.example.ui.theme.Navy
 import com.example.ui.theme.Negative
-import com.example.ui.theme.PositiveText
+import com.example.ui.theme.Outline
 import com.example.ui.theme.Positive
+import com.example.ui.theme.PositiveText
 import com.example.ui.theme.SurfaceWhite
+import com.example.ui.theme.TrackSoft
 import com.example.ui.theme.Warning
-import com.example.ui.util.ChartMath
+import com.example.ui.theme.WarningText
 import com.example.ui.util.Formatters
-import java.util.Calendar
+import com.example.ui.util.LocalCategories
+import com.example.ui.util.getCategoryIcon
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+/**
+ * Home (redesign v4): spend hero with period switch and shortcuts, check-in strip, this month's
+ * budget, spending mix, savings goals and recent transactions. Some parameters are no longer
+ * shown here (quick-add, payday, SMS review, report and salary cards, lending, recurring); they
+ * stay in the signature so the caller does not change, and their screens are reached elsewhere.
+ */
 @Composable
 fun DashboardScreen(
     summary: FinancialSummary,
@@ -126,496 +147,602 @@ fun DashboardScreen(
     onDismissSalary: () -> Unit = {},
     onEditPay: () -> Unit = {}
 ) {
+    var periodIndex by rememberSaveable { mutableIntStateOf(SpendPeriod.MONTH.ordinal) }
+    val period = SpendPeriod.entries[periodIndex]
+    val now = System.currentTimeMillis()
+    val kpi = remember(recentTransactions, period) { HomeSpend.kpi(recentTransactions, period, now) }
+    val categories = LocalCategories.current
+    val monthMix = remember(recentTransactions, categories) {
+        FinancialCalculations.calculateCategoryBreakdown(FinancialCalculations.filterToMonth(recentTransactions, now)) {
+            CategoryInfo.resolve(it, categories)
+        }
+    }
+    val activeGoals = goals.filter { it.goal.purchasedAt == null }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .testTag("dashboard_screen"),
-        contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
-        verticalArrangement = Arrangement.spacedBy(Space.section)
+        contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.xs, bottom = Space.xxl)
     ) {
-        item {
-            BalanceHero(
-                summary = summary,
-                setAside = Goals.totalSetAside(goals),
-                onAddIncome = onAddIncome,
-                onAddExpense = onAddExpense,
-                onOpenGoals = { onOpenGoals(null) }
+        item(key = "hero") {
+            SpendHero(
+                kpi = kpi,
+                periodIndex = periodIndex,
+                onPeriod = { periodIndex = it },
+                onImportSms = onImportSms,
+                onLending = { onOpenLending(null) },
+                onGoals = { onOpenGoals(null) },
+                onRecurring = onOpenRecurring
             )
         }
-        if (quickChips.isNotEmpty()) {
-            item(key = "quick_add") {
-                QuickAddRow(quickChips, onQuickAdd, onQuickAddWithChanges, onPinChip, onUnpinChip, onHideChip)
+        item(key = "daily_review") {
+            Spacer(modifier = Modifier.height(Space.m))
+            DailyReviewCard(dailyReview, onConfirmDailyReview)
+        }
+
+        item(key = "budget") {
+            SectionHeader(
+                title = SimpleDateFormat("MMMM", Locale.US).format(Date(now)) + " budget",
+                action = "Manage",
+                onAction = onOpenBudgets
+            )
+            if (budgetStatuses.isEmpty()) NoBudgetsCard(onOpenBudgets) else BudgetRingCard(budgetStatuses)
+        }
+
+        if (monthMix.isNotEmpty()) {
+            item(key = "mix") {
+                SectionHeader(title = "Spending mix", action = "Details", onAction = onOpenBudgets)
+                SpendingMixCard(monthMix)
             }
         }
-        if (showSalaryCard) {
-            item(key = "salary") { SalaryCard(salaryAmount, onAddSalary, onSalaryOtherAmount, onDismissSalary) }
+
+        item(key = "goals") {
+            val streak = if (savingStreakWeeks > 0) " · 🔥 $savingStreakWeeks wk${if (savingStreakWeeks == 1) "" else "s"}" else ""
+            SectionHeader(
+                title = "Savings goals",
+                meta = if (activeGoals.isEmpty()) null else "${Formatters.formatCurrency(Goals.totalSetAside(goals))} set aside$streak",
+                action = if (activeGoals.isEmpty()) "Open" else null,
+                onAction = { onOpenGoals(null) }
+            )
+            GoalTiles(activeGoals.take(2), onOpenGoals)
         }
-        item(key = "payday") {
-            if (payCycle != null) PaydayCard(payCycle, onEdit = onEditPay) else PaydayInviteCard(onClick = onEditPay)
+
+        item(key = "recent") {
+            SectionHeader(title = "Recent", action = "See all", onAction = onViewAllTransactions)
+            RecentCard(recentTransactions.take(4), onTransactionClick, onTransactionDelete, onAddExpense)
         }
-        item(key = "daily_review") { DailyReviewCard(dailyReview, onConfirmDailyReview) }
-        reportReady?.let { card ->
-            item(key = "report_ready") { ReportReadyCard(card, onClick = { onOpenReport(card.month.key) }) }
+    }
+}
+
+/** "October budget" with an action on the right; 22dp above, 8dp below, as in the design. */
+@Composable
+private fun SectionHeader(title: String, meta: String? = null, action: String? = null, onAction: () -> Unit = {}) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Space.xs, end = Space.xs, top = 22.dp, bottom = Space.s),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = Ink, modifier = Modifier.weight(1f))
+        if (meta != null) {
+            Text(meta, style = MaterialTheme.typography.bodySmall, color = InkSecondary, maxLines = 1)
         }
-        if (captureState.pendingCount > 0) {
-            item(key = "captured") {
-                CapturedPaymentsCard(state = captureState, onReview = onReviewCaptured, onDismiss = onDismissCaptured)
-            }
-        }
-        item { BudgetCard(statuses = budgetStatuses, onOpenBudgets = onOpenBudgets) }
-        item { GoalsCard(goals = goals, streakWeeks = savingStreakWeeks, onOpen = onOpenGoals) }
-        item { LendingCard(balances = lending, onOpen = onOpenLending) }
-        item(key = "recurring") { RecurringCard(items = recurringItems, onOpen = onOpenRecurring) }
-        item { WeeklySpendingCard(transactions = recentTransactions) }
-        item { ImportSmsCard(onImportSms = onImportSms) }
-        item { SpendingDonutChart(breakdowns = breakdowns, totalExpense = summary.totalExpense) }
-        item {
-            RecentTransactionsCard(
-                transactions = recentTransactions.take(5),
-                onViewAll = onViewAllTransactions,
-                onClick = onTransactionClick,
-                onDelete = onTransactionDelete,
-                onAddFirst = onAddExpense
+        if (action != null) {
+            Text(
+                action,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                color = Accent,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onAction)
+                    .padding(Space.xs)
             )
         }
     }
 }
 
-/** Dark hero card: the balance is the dominant number on the screen. */
+// --- Hero ---
+
 @Composable
-private fun BalanceHero(
-    summary: FinancialSummary,
-    setAside: Double,
-    onAddIncome: () -> Unit,
-    onAddExpense: () -> Unit,
-    onOpenGoals: () -> Unit
+private fun SpendHero(
+    kpi: SpendKpi,
+    periodIndex: Int,
+    onPeriod: (Int) -> Unit,
+    onImportSms: () -> Unit,
+    onLending: () -> Unit,
+    onGoals: () -> Unit,
+    onRecurring: () -> Unit
 ) {
+    val text = heroText(kpi)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .softShadow(RoundedCornerShape(28.dp), 12.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Ink)
-            .padding(Space.xxl)
-            .testTag("balance_card")
+            .softShadow(HeroShape, 14.dp)
+            .clip(HeroShape)
+            .drawBehind {
+                drawRect(Navy)
+                // Purple glow from the top right and a deep violet one from the bottom left.
+                drawRect(
+                    Brush.radialGradient(
+                        listOf(AccentBright, AccentBright.copy(alpha = 0f)),
+                        center = Offset(size.width, 0f),
+                        radius = size.width * 0.75f
+                    )
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        listOf(Color(0xFF2E1A5E), Color(0x002E1A5E)),
+                        center = Offset(0f, size.height),
+                        radius = size.width * 0.6f
+                    )
+                )
+            }
+            .padding(horizontal = 18.dp, vertical = Space.l)
+            .testTag("balance_card"),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Total balance", style = MaterialTheme.typography.labelMedium, color = SurfaceWhite.copy(alpha = 0.7f))
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            Formatters.formatCurrency(summary.netBalance),
-            style = MaterialTheme.typography.displayMedium,
-            color = SurfaceWhite,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.testTag("net_balance_text")
+        PwSegmented(
+            options = listOf("Today", "This week", "This month"),
+            selectedIndex = periodIndex,
+            onSelect = onPeriod,
+            dark = true,
+            height = 30.dp,
+            modifier = Modifier.testTag("hero_period")
         )
-        // Money set aside for goals is still in the balance; show what is really free to spend.
-        if (setAside > 0.0) {
-            Spacer(modifier = Modifier.height(Space.s))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceWhite.copy(alpha = 0.12f))
-                    .clickable(onClick = onOpenGoals)
-                    .padding(horizontal = Space.m, vertical = 6.dp)
-                    .testTag("free_to_spend")
-            ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+                Text(text.label, style = MaterialTheme.typography.labelMedium, color = SurfaceWhite.copy(alpha = 0.72f))
                 Text(
-                    "${Formatters.formatCurrency(summary.netBalance - setAside)} free to spend",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = SurfaceWhite
+                    Formatters.formatCurrency(kpi.spent),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = SurfaceWhite,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("net_balance_text")
                 )
-                Text(
-                    " · ${Formatters.formatCurrency(setAside)} in goals",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = SurfaceWhite.copy(alpha = 0.7f)
-                )
+                Text(text.sub, style = MaterialTheme.typography.bodySmall, color = SurfaceWhite.copy(alpha = 0.72f), maxLines = 1)
             }
-        }
-        Spacer(modifier = Modifier.height(Space.xl))
-        Row(horizontalArrangement = Arrangement.spacedBy(Space.l)) {
-            HeroStat(
-                label = "Income",
-                value = "+" + Formatters.formatCurrency(summary.totalIncome),
-                dot = Positive,
+            Spacer(modifier = Modifier.width(Space.m))
+            Text(
+                text.tag,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp),
+                color = text.tagColors.second,
+                maxLines = 1,
                 modifier = Modifier
-                    .weight(1f)
-                    .testTag("income_stat")
-            )
-            HeroStat(
-                label = "Spent",
-                value = "−" + Formatters.formatCurrency(summary.totalExpense),
-                dot = SurfaceWhite.copy(alpha = 0.6f),
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("expense_stat")
+                    .clip(PillShape)
+                    .background(text.tagColors.first)
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
             )
         }
-        Spacer(modifier = Modifier.height(Space.xl))
-        Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-            HeroAction("Add income", Icons.AutoMirrored.Filled.TrendingUp, onAddIncome, Modifier.weight(1f).testTag("quick_add_income_button"))
-            HeroAction("Add expense", Icons.AutoMirrored.Filled.TrendingDown, onAddExpense, Modifier.weight(1f).testTag("quick_add_expense_button"))
+        HeroBars(kpi)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind { drawLine(SurfaceWhite.copy(alpha = 0.12f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
+                .padding(top = 14.dp)
+        ) {
+            HeroAction(Icons.Default.Sms, "Import SMS", onImportSms, Modifier.weight(1f))
+            HeroAction(Icons.Default.Handshake, "Lending", onLending, Modifier.weight(1f))
+            HeroAction(Icons.Default.Savings, "Goals", onGoals, Modifier.weight(1f))
+            HeroAction(Icons.Default.EventRepeat, "Recurring", onRecurring, Modifier.weight(1f))
+        }
+    }
+}
+
+private class HeroText(val label: String, val sub: String, val tag: String, val tagColors: Pair<Color, Color>)
+
+private val ToneGood = Color(0x2E4ADE80) to Color(0xFF86EFAC)
+private val ToneWarn = Color(0x33F5A524) to Color(0xFFFCD34D)
+private val ToneNeutral = SurfaceWhite.copy(alpha = 0.14f) to SurfaceWhite
+
+private fun heroText(kpi: SpendKpi): HeroText {
+    fun payments(n: Int) = "$n payment${if (n == 1) "" else "s"}"
+    return when (kpi.period) {
+        SpendPeriod.TODAY -> {
+            val below = kpi.spent <= kpi.averagePerDay
+            HeroText(
+                label = "Spent today",
+                sub = "${payments(kpi.payments)} · avg ${Formatters.formatCurrency(Math.round(kpi.averagePerDay).toDouble())}/day",
+                tag = when {
+                    kpi.spent == 0.0 -> "No spend yet"
+                    below -> "Below your average"
+                    else -> "Above your average"
+                },
+                tagColors = if (below) ToneGood else ToneWarn
+            )
+        }
+        SpendPeriod.WEEK -> {
+            val from = SimpleDateFormat("EEE d", Locale.US).format(Date(kpi.weekStart))
+            val to = SimpleDateFormat("EEE d MMM", Locale.US).format(Date(kpi.weekEnd))
+            HeroText(
+                label = "Spent this week",
+                sub = "$from – $to · ${payments(kpi.payments)}",
+                tag = "${Formatters.formatCurrency(Math.round(kpi.perDayThisWeek).toDouble())} / day",
+                tagColors = ToneNeutral
+            )
+        }
+        SpendPeriod.MONTH -> {
+            val rate = kpi.savingRate
+            HeroText(
+                label = "Spent in " + SimpleDateFormat("MMMM", Locale.US).format(Date(kpi.monthStart)),
+                sub = "Income ${Formatters.formatCurrency(kpi.monthIncome)} · ${kpi.daysLeftInMonth} day${if (kpi.daysLeftInMonth == 1) "" else "s"} left",
+                tag = if (rate == null) "No income yet" else "Saving ${Math.round(rate)}%",
+                tagColors = if (rate != null && rate >= 20.0) ToneGood else ToneWarn
+            )
         }
     }
 }
 
 @Composable
-private fun HeroStat(label: String, value: String, dot: Color, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(dot)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, color = SurfaceWhite.copy(alpha = 0.7f))
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(value, style = MaterialTheme.typography.titleMedium, color = SurfaceWhite, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun HeroAction(text: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun HeroBars(kpi: SpendKpi) {
+    val max = (kpi.bars.maxOfOrNull { it.amount } ?: 0.0).coerceAtLeast(1.0)
     Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(SurfaceWhite.copy(alpha = 0.12f))
-            .clickable(onClick = onClick)
-            .padding(vertical = Space.m),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.Bottom
     ) {
-        Icon(icon, contentDescription = null, tint = SurfaceWhite, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(Space.s))
-        Text(text, style = MaterialTheme.typography.labelLarge, color = SurfaceWhite)
-    }
-}
-
-/** Monthly budget gauge (reference style): legend on the left, arc on the right. */
-@Composable
-private fun BudgetCard(statuses: List<CategoryBudgetStatus>, onOpenBudgets: () -> Unit) {
-    PwCard(onClick = onOpenBudgets, modifier = Modifier.testTag("budget_gauge_card")) {
-        if (statuses.isEmpty()) {
-            PwSectionTitle(title = "Monthly budget", subtitle = "Set limits to see how much you have left")
-            Spacer(modifier = Modifier.height(Space.l))
-            PwPrimaryButton(text = "Set budgets", onClick = onOpenBudgets, modifier = Modifier.fillMaxWidth())
-            return@PwCard
-        }
-        val limit = statuses.sumOf { it.budgetLimit }
-        val spent = statuses.sumOf { it.spent }
-        val fraction = if (limit > 0) (spent / limit).toFloat() else 0f
-        val over = statuses.count { it.isOverBudget }
-        val near = statuses.count { !it.isOverBudget && it.percentageUsed > 80.0 }
-        val onTrack = statuses.size - over - near
-        val gaugeColor = when {
-            fraction > 1f -> Negative
-            fraction > 0.8f -> Warning
-            else -> Positive
-        }
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Monthly budget", style = MaterialTheme.typography.titleMedium, color = Ink)
-                Text(
-                    Formatters.formatMonthYear(System.currentTimeMillis()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = InkSecondary
+        kpi.bars.forEach { bar ->
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.Bottom)
+            ) {
+                if (bar.current) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(SurfaceWhite))
+                }
+                val color = when {
+                    bar.future -> SurfaceWhite.copy(alpha = 0.10f)
+                    bar.current -> SurfaceWhite
+                    else -> SurfaceWhite.copy(alpha = 0.38f)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 26.dp)
+                        .height((42 * (bar.amount / max)).toFloat().coerceAtLeast(3f).dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(color)
                 )
-                Spacer(modifier = Modifier.height(Space.m))
-                LegendLine(Positive, "$onTrack on track")
-                LegendLine(Warning, "$near near limit")
-                LegendLine(Negative, "$over over budget")
+                Text(
+                    bar.label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp),
+                    color = if (bar.current) SurfaceWhite else SurfaceWhite.copy(alpha = 0.6f),
+                    maxLines = 1
+                )
             }
-            BudgetGauge(
-                fraction = fraction,
-                color = gaugeColor,
-                value = ChartMath.compactRupees(spent),
-                caption = "of " + ChartMath.compactRupees(limit)
-            )
         }
     }
 }
 
 @Composable
-private fun LegendLine(color: Color, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+private fun HeroAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = Space.xs),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(44.dp)
                 .clip(CircleShape)
-                .background(color)
+                .background(SurfaceWhite.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = SurfaceWhite, modifier = Modifier.size(21.dp))
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp),
+            color = SurfaceWhite.copy(alpha = 0.9f),
+            maxLines = 1
         )
-        Spacer(modifier = Modifier.width(Space.s))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
     }
 }
 
-private val DAY_LABELS = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+// --- Budget ---
 
-/** "This week" smooth spending chart with week navigation (reference style). */
 @Composable
-private fun WeeklySpendingCard(transactions: List<TransactionEntity>) {
-    // 0 = this week, 1 = last week, ...
-    var weeksBack by rememberSaveable { mutableIntStateOf(0) }
-    val now = System.currentTimeMillis()
-    val weekStart = remember(weeksBack) {
-        Calendar.getInstance().apply {
-            timeInMillis = FinancialCalculations.startOfWeek(now)
-            add(Calendar.WEEK_OF_YEAR, -weeksBack)
-        }.timeInMillis
+private fun BudgetRingCard(statuses: List<CategoryBudgetStatus>) {
+    val limit = statuses.sumOf { it.budgetLimit }
+    val spent = statuses.sumOf { it.spent }
+    val pct = if (limit > 0) spent / limit * 100 else 0.0
+    val over = statuses.count { it.isOverBudget }
+    val ringColor = when {
+        pct > 100 -> Negative
+        pct > 80 -> Warning
+        else -> Accent
     }
-    val totals = remember(transactions, weekStart) { FinancialCalculations.dailyExpenseTotals(transactions, weekStart) }
-    val todayIndex = ((Calendar.getInstance().get(Calendar.DAY_OF_WEEK) + 5) % 7)
-    var selected by rememberSaveable(weeksBack) {
-        mutableIntStateOf(if (weeksBack == 0) todayIndex else totals.indices.maxByOrNull { totals[it] } ?: 0)
-    }
-    val weekEnd = remember(weekStart) {
-        Calendar.getInstance().apply { timeInMillis = weekStart; add(Calendar.DAY_OF_YEAR, 6) }.timeInMillis
-    }
-
-    PwCard(modifier = Modifier.testTag("weekly_spending_card")) {
+    PwCard(modifier = Modifier.testTag("budget_card")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                if (weeksBack == 0) "This week" else if (weeksBack == 1) "Last week" else "Week",
-                style = MaterialTheme.typography.titleMedium,
-                color = Ink,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = { weeksBack++ }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous week", tint = Ink)
+            Box(modifier = Modifier.size(76.dp), contentAlignment = Alignment.Center) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val stroke = 8.dp.toPx()
+                    val inset = stroke / 2
+                    val arcSize = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke)
+                    drawArc(TrackSoft, -90f, 360f, false, topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke))
+                    drawArc(
+                        ringColor, -90f, (pct.coerceAtMost(100.0) * 3.6).toFloat(), false,
+                        topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke)
+                    )
+                }
+                Text("${Math.round(pct)}%", style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp), color = Ink)
             }
-            Text(
-                Formatters.formatShortDate(weekStart) + " – " + Formatters.formatShortDate(weekEnd),
-                style = MaterialTheme.typography.labelLarge,
-                color = InkSecondary
-            )
-            IconButton(onClick = { if (weeksBack > 0) weeksBack-- }, enabled = weeksBack > 0, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "Next week",
-                    tint = if (weeksBack > 0) Ink else InkTertiary
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(Space.m))
-        Row {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Spent this week", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
-                Text(Formatters.formatCurrency(totals.sum()), style = MaterialTheme.typography.headlineSmall, color = Ink)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(DAY_LABELS.getOrElse(selected) { "" }, style = MaterialTheme.typography.labelMedium, color = InkSecondary)
+            Spacer(modifier = Modifier.width(Space.l))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Spent of ${Formatters.formatCurrency(limit)}", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                Text(Formatters.formatCurrency(spent), style = MaterialTheme.typography.headlineMedium, color = Ink, maxLines = 1)
                 Text(
-                    Formatters.formatCurrency(totals.getOrElse(selected) { 0.0 }),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Accent
+                    if (over > 0) "$over categor${if (over == 1) "y" else "ies"} over limit"
+                    else "${Formatters.formatCurrency(limit - spent)} left",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (over > 0) Negative else InkSecondary
                 )
             }
         }
-        Spacer(modifier = Modifier.height(Space.l))
-        SpendingTrendChart(
-            values = totals,
-            labels = DAY_LABELS,
-            selectedIndex = selected,
-            onSelect = { selected = it }
-        )
+        Spacer(modifier = Modifier.height(14.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(TrackSoft))
+        Spacer(modifier = Modifier.height(Space.m))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            statuses.sortedByDescending { it.percentageUsed }.take(3).forEach { BudgetLine(it) }
+        }
     }
 }
 
-/** Bank SMS that live capture could not add on its own (new payee, credit, possible duplicate). */
 @Composable
-private fun CapturedPaymentsCard(state: CaptureState, onReview: () -> Unit, onDismiss: () -> Unit) {
-    val count = state.pendingCount
-    PwCard(
-        contentPadding = PaddingValues(Space.l),
-        modifier = Modifier.testTag("captured_payments_card")
-    ) {
+private fun BudgetLine(status: CategoryBudgetStatus) {
+    val pct = status.percentageUsed
+    val near = !status.isOverBudget && pct > 80
+    val barColor = when {
+        status.isOverBudget -> Negative
+        near -> Warning
+        else -> Positive
+    }
+    val noteColor = when {
+        status.isOverBudget -> Negative
+        near -> WarningText
+        else -> PositiveText
+    }
+    val note = when {
+        status.isOverBudget -> "Over by ${Formatters.formatCurrency(status.spent - status.budgetLimit)}"
+        near -> "${Formatters.formatCurrency(status.remaining)} left · ${Math.round(pct)}%"
+        else -> "${Formatters.formatCurrency(status.remaining)} left"
+    }
+    val color = Color(status.category.colorHex)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CategoryDot(getCategoryIcon(status.category.iconKey), color, 32)
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row {
+                Text(
+                    status.categoryName,
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
+                    color = Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(note, style = MaterialTheme.typography.labelMedium, color = noteColor, maxLines = 1)
+            }
+            ProgressLine((pct / 100).toFloat(), barColor, 4)
+        }
+    }
+}
+
+@Composable
+private fun NoBudgetsCard(onSetUp: () -> Unit) {
+    PwCard(contentPadding = PaddingValues(horizontal = Space.l, vertical = 14.dp), modifier = Modifier.testTag("budget_card")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PwIconBadge(icon = Icons.Default.Sms, tint = Accent)
+            CategoryDot(Icons.Default.DonutSmall, Accent, 40, background = AccentSoft)
             Spacer(modifier = Modifier.width(Space.m))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "$count bank payment${if (count == 1) "" else "s"} to review",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Ink
-                )
-                val latest = state.latest?.takeIf { it.addedAs == null }
-                Text(
-                    latest?.let { "Latest: ${Formatters.formatCurrency(it.amount)} · ${it.title}" }
-                        ?: "New payees need a category once",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = InkSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Text("No budgets yet", style = MaterialTheme.typography.titleSmall, color = Ink)
+                Text("Set monthly limits to see what's left", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
             }
-        }
-        Spacer(modifier = Modifier.height(Space.m))
-        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-            PwSecondaryButton(
-                text = "Not now",
-                onClick = onDismiss,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("captured_dismiss_button")
-            )
-            PwPrimaryButton(
-                text = "Review",
-                onClick = onReview,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("captured_review_button")
-            )
+            SmallOutlineButton("Set up", onSetUp)
         }
     }
 }
 
-/** The nearest unfinished goal and the total set aside; a one-line invitation until first use. */
+// --- Spending mix ---
+
 @Composable
-private fun GoalsCard(goals: List<GoalProgress>, streakWeeks: Int, onOpen: (goalId: Long?) -> Unit) {
+private fun SpendingMixCard(mix: List<CategoryBreakdown>) {
+    PwCard(modifier = Modifier.testTag("spending_mix_card")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(112.dp), contentAlignment = Alignment.Center) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val stroke = 17.dp.toPx()
+                    val inset = stroke / 2
+                    val arcSize = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke)
+                    var start = -90f
+                    mix.forEach { part ->
+                        val sweep = (part.percentage * 3.6).toFloat()
+                        // A small white gap between segments, as in the design.
+                        val gap = if (mix.size > 1) minOf(1.5f, sweep / 3) else 0f
+                        drawArc(
+                            Color(part.category.colorHex), start, sweep - gap, false,
+                            topLeft = Offset(inset, inset), size = arcSize, style = Stroke(stroke)
+                        )
+                        start += sweep
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("${mix.size}", style = MaterialTheme.typography.titleLarge, color = Ink)
+                    Text(
+                        if (mix.size == 1) "category" else "categories",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                        color = InkSecondary
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(18.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                mix.take(4).forEach { part ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(part.category.colorHex)))
+                        Spacer(modifier = Modifier.width(Space.s))
+                        Text(
+                            part.categoryName,
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
+                            color = Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "${Math.round(part.percentage)}%",
+                            style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.5.sp),
+                            color = Ink
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- Goals ---
+
+@Composable
+private fun GoalTiles(goals: List<GoalProgress>, onOpen: (Long?) -> Unit) {
     if (goals.isEmpty()) {
-        PwCard(
-            onClick = { onOpen(null) },
-            contentPadding = PaddingValues(Space.l),
-            modifier = Modifier.testTag("goals_card")
-        ) {
+        PwCard(onClick = { onOpen(null) }, contentPadding = PaddingValues(horizontal = Space.l, vertical = 14.dp), modifier = Modifier.testTag("goals_card")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PwIconBadge(icon = Icons.Default.Savings, tint = Accent)
+                CategoryDot(Icons.Default.Savings, Accent, 40, background = AccentSoft)
                 Spacer(modifier = Modifier.width(Space.m))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Savings goals", style = MaterialTheme.typography.titleSmall, color = Ink)
+                Column {
+                    Text("No goals yet", style = MaterialTheme.typography.titleSmall, color = Ink)
                     Text("Save for something you want", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                 }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
             }
         }
         return
     }
-    Column(modifier = Modifier.testTag("goals_card")) {
-        PwSectionTitle(
-            title = "Savings goals",
-            subtitle = "${Formatters.formatCurrency(Goals.totalSetAside(goals))} set aside" +
-                if (streakWeeks > 0) " · 🔥 $streakWeeks-week streak" else "",
-            action = "See all",
-            onAction = { onOpen(null) },
-            modifier = Modifier.padding(horizontal = Space.xs)
-        )
-        Spacer(modifier = Modifier.height(Space.s))
-        val top = goals.first() // unfinished goals come first, soonest date first
-        GoalCard(progress = top, onClick = { onOpen(top.goal.id) }, onAdd = null)
-    }
-}
-
-/** Who owes the owner and whom the owner owes; a one-line invitation until first use. */
-@Composable
-private fun LendingCard(balances: List<PersonBalance>, onOpen: (personKey: String?) -> Unit) {
-    if (balances.isEmpty()) {
-        PwCard(
-            onClick = { onOpen(null) },
-            contentPadding = PaddingValues(Space.l),
-            modifier = Modifier.testTag("lending_card")
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PwIconBadge(icon = Icons.Default.Handshake, tint = Accent)
-                Spacer(modifier = Modifier.width(Space.m))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Money lent", style = MaterialTheme.typography.titleSmall, color = Ink)
-                    Text("Track who owes you and whom you owe", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
-                }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
-            }
-        }
-        return
-    }
-    val totals = Lending.totals(balances)
-    val open = balances.filterNot { it.isSettled }
-    PwCard(contentPadding = PaddingValues(vertical = Space.l), modifier = Modifier.testTag("lending_card")) {
-        PwSectionTitle(
-            title = "Money lent",
-            action = "See all",
-            onAction = { onOpen(null) },
-            modifier = Modifier.padding(horizontal = Space.xl)
-        )
-        Spacer(modifier = Modifier.height(Space.m))
-        Row(modifier = Modifier.padding(horizontal = Space.xl)) {
-            TotalStat("People owe you", Formatters.formatCurrency(totals.owedToMe), PositiveText, Modifier.weight(1f))
-            TotalStat("You owe", Formatters.formatCurrency(totals.iOwe), Ink, Modifier.weight(1f))
-        }
-        if (totals.overdueCount > 0) {
-            Text(
-                "${totals.overdueCount} overdue",
-                style = MaterialTheme.typography.labelLarge,
-                color = Negative,
-                modifier = Modifier.padding(start = Space.xl, end = Space.xl, top = Space.s)
-            )
-        }
-        if (open.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(Space.s))
-            open.take(3).forEach { person -> PersonRow(person = person, onClick = { onOpen(person.key) }) }
-        }
+    Row(horizontalArrangement = Arrangement.spacedBy(Space.s), modifier = Modifier.testTag("goals_card")) {
+        goals.forEach { GoalTile(it, { onOpen(it.goal.id) }, Modifier.weight(1f)) }
+        if (goals.size == 1) Spacer(modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun ImportSmsCard(onImportSms: () -> Unit) {
-    PwCard(
-        onClick = onImportSms,
-        contentPadding = PaddingValues(Space.l),
-        modifier = Modifier.testTag("import_sms_card")
+private fun GoalTile(progress: GoalProgress, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val goal = progress.goal
+    val color = Color(goal.colorHex)
+    val fraction = if (goal.target > 0) (progress.saved / goal.target).toFloat().coerceIn(0f, 1f) else 0f
+    Column(
+        modifier = modifier
+            .softShadow()
+            .clip(CardShape)
+            .background(SurfaceWhite)
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PwIconBadge(icon = Icons.Default.Sms, tint = Accent)
-            Spacer(modifier = Modifier.width(Space.m))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Import from SMS", style = MaterialTheme.typography.titleSmall, color = Ink)
-                Text(
-                    "Add Kotak & BOI payments automatically",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = InkSecondary
-                )
+            CategoryDot(getCategoryIcon(goal.iconKey), color, 32)
+            Spacer(modifier = Modifier.weight(1f))
+            Text("${Math.round(fraction * 100)}%", style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), color = color)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(goal.name, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp), color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${Formatters.formatCurrency(progress.saved)} of ${Formatters.formatCurrency(goal.target)}",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                color = InkSecondary,
+                maxLines = 1
+            )
+        }
+        ProgressLine(fraction, color, 6)
+        Text(
+            goal.targetDate?.let { "By " + SimpleDateFormat("MMM yyyy", Locale.US).format(Date(it)) } ?: "No date set",
+            style = MaterialTheme.typography.labelSmall,
+            color = InkSecondary
+        )
+    }
+}
+
+// --- Recent ---
+
+@Composable
+private fun RecentCard(
+    transactions: List<TransactionEntity>,
+    onClick: (TransactionEntity) -> Unit,
+    onDelete: (TransactionEntity) -> Unit,
+    onAdd: () -> Unit
+) {
+    if (transactions.isEmpty()) {
+        PwCard(contentPadding = PaddingValues(horizontal = Space.l, vertical = Space.xl)) {
+            Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("No transactions yet", style = MaterialTheme.typography.titleSmall, color = Ink)
+                Text("Add one, or import your bank SMS.", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                Spacer(modifier = Modifier.height(Space.m))
+                PwPrimaryButton(text = "Add transaction", onClick = onAdd, modifier = Modifier.height(40.dp))
             }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
+        }
+        return
+    }
+    PwCard(contentPadding = PaddingValues(0.dp), modifier = Modifier.testTag("recent_transactions_card")) {
+        transactions.forEachIndexed { i, tx ->
+            if (i > 0) PwDivider(startInset = 0.dp)
+            TransactionItemRow(transaction = tx, onClick = { onClick(tx) }, onDelete = { onDelete(tx) })
         }
     }
 }
 
+// --- Small pieces ---
+
+/** Icon on a tinted circle (category colour at 12%). */
 @Composable
-private fun RecentTransactionsCard(
-    transactions: List<TransactionEntity>,
-    onViewAll: () -> Unit,
-    onClick: (TransactionEntity) -> Unit,
-    onDelete: (TransactionEntity) -> Unit,
-    onAddFirst: () -> Unit
-) {
-    PwCard(contentPadding = PaddingValues(vertical = Space.l)) {
-        PwSectionTitle(
-            title = "Recent transactions",
-            action = "See all",
-            onAction = onViewAll,
-            modifier = Modifier
-                .padding(horizontal = Space.xl)
-                .testTag("view_all_transactions_button")
-        )
-        Spacer(modifier = Modifier.height(Space.s))
-        if (transactions.isEmpty()) {
-            Column(modifier = Modifier.padding(horizontal = Space.xl, vertical = Space.s)) {
-                Text("No transactions yet", style = MaterialTheme.typography.bodyMedium, color = InkSecondary)
-                Spacer(modifier = Modifier.height(Space.m))
-                PwPrimaryButton(text = "Add your first transaction", onClick = onAddFirst, modifier = Modifier.fillMaxWidth())
-            }
-        } else {
-            transactions.forEachIndexed { index, tx ->
-                if (index > 0) PwDivider()
-                TransactionItemRow(
-                    transaction = tx,
-                    onClick = { onClick(tx) },
-                    onDelete = { onDelete(tx) }
-                )
-            }
-        }
+private fun CategoryDot(icon: ImageVector, color: Color, sizeDp: Int, background: Color = color.copy(alpha = 0.12f)) {
+    Box(
+        modifier = Modifier
+            .size(sizeDp.dp)
+            .clip(CircleShape)
+            .background(background),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size((sizeDp / 2).dp))
     }
+}
+
+@Composable
+private fun ProgressLine(fraction: Float, color: Color, heightDp: Int) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(heightDp.dp)
+            .clip(RoundedCornerShape(heightDp.dp))
+            .background(TrackSoft)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(heightDp.dp))
+                .background(color)
+        )
+    }
+}
+
+@Composable
+private fun SmallOutlineButton(text: String, onClick: () -> Unit) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+        color = Ink,
+        modifier = Modifier
+            .clip(PillShape)
+            .background(SurfaceWhite)
+            .border(1.dp, Outline, PillShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Space.m, vertical = 7.dp)
+    )
 }

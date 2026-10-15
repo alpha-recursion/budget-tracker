@@ -160,7 +160,7 @@ Slices, each committed separately so it can be built and checked before the next
       screen gutter, motion tokens that respect "Remove animations"
 - [x] 8.2 Shell: floating navy pill nav (Home, Activity, +, Insights, Settings), active tab
       shows its label, raised gradient add button
-- [ ] 8.3 Home: greeting, period hero (Today / This week / This month, mini bars, Import SMS ·
+- [x] 8.3 Home: greeting, period hero (Today / This week / This month, mini bars, Import SMS ·
       Lending · Goals · Recurring), check-in strip, budget ring + top 3, spending-mix donut,
       2-column goal cards, Recent (4)
 - [ ] 8.4 Transactions: sort menu, pill search, All / Expenses / Income, category chips,

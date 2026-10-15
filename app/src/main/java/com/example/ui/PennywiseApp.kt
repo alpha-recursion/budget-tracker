@@ -814,18 +814,16 @@ private fun PageHeader(screen: Int, showBack: Boolean, onBack: () -> Unit) {
             modifier = Modifier.weight(1f)
         ) { target ->
             Column {
-                Text(
-                    text = if (target == 0) greeting() else tabTitle(target),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = Ink,
-                    maxLines = 1
-                )
                 if (target == 0) {
+                    // v4 Home: small date above a 20sp greeting.
                     Text(
                         text = Formatters.formatLongDate(System.currentTimeMillis()),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.labelMedium,
                         color = InkSecondary
                     )
+                    Text(text = greeting(), style = MaterialTheme.typography.headlineSmall, color = Ink, maxLines = 1)
+                } else {
+                    Text(text = tabTitle(target), style = MaterialTheme.typography.headlineLarge, color = Ink, maxLines = 1)
                 }
             }
         }
