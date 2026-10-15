@@ -141,6 +141,38 @@ lent to others, and use light game mechanics so it gets opened every day.
       at 200; search and the SMS box are capped. No leading spaces or double spaces while
       typing; trailing spaces are removed on save. A name must contain a letter or number.
 
+### 8. Redesign v4 (planned)
+Source: Claude Design handoff "Pennywise Redesign v4" (Home, Transactions, New transaction,
+Insights, Settings, Badges). Owner decisions (Oct 2026):
+- Follow the design exactly on Home: quick-add chips, payday countdown, "bank payments to
+  review", salary-day and monthly report cards are removed from Home. They stay reachable
+  elsewhere: SMS review via Import SMS and the capture notification, income & payday in
+  Settings, report cards via Goals → Challenges.
+- Category picker in the New transaction sheet: wrapping icon + name chips, most-used first.
+- Purple accent `#6D28D9` and navy `#0B1A2E` everywhere, income green `#1F7A3D`.
+- Full v4 motion, switched off when the phone's "remove animations" setting is on.
+- No notification bell or avatar (no inbox or profile exists); greeting and date only.
+- Out of scope (design marks "not yet done"): dark mode, custom keypad, category palette.
+
+Slices, each committed separately so it can be built and checked before the next:
+- [ ] 8.1 Foundation: colours, radii (cards 20, hero 24, sheets 28), two-layer shadows,
+      pill buttons and pill segmented control with sliding thumb
+- [ ] 8.2 Shell: floating navy pill nav (Home, Activity, +, Insights, Settings), active tab
+      shows its label, raised gradient add button
+- [ ] 8.3 Home: greeting, period hero (Today / This week / This month, mini bars, Import SMS ·
+      Lending · Goals · Recurring), check-in strip, budget ring + top 3, spending-mix donut,
+      2-column goal cards, Recent (4)
+- [ ] 8.4 Transactions: sort menu, pill search, All / Expenses / Income, category chips,
+      count and totals line, day groups with totals, empty and no-match states
+- [ ] 8.5 New transaction as a bottom sheet: big amount, +₹100 / 500 / 1,000 / 2,000 chips,
+      payee, date chips, note, wrapping category chips, pill save button
+- [ ] 8.6 Insights: savings rate, month-to-date trend with "on pace for" projection, last 7
+      days bars with tooltip, where it went, budgets, top payees
+- [ ] 8.7 Settings (grouped rows, icon circles) and Badges (level card, How XP works,
+      All / Earned / Locked, 3-column grid with locked state)
+- [ ] 8.8 Motion: bar growth, count-up, spring thumbs, self-drawing line, donut sweep, row
+      cascade, shimmer / shine / pop, toast; all under 700 ms
+
 ## SMS import design
 
 ```
