@@ -132,6 +132,15 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [ ] 6.1 Bank CSV/Excel import, then PhonePe/Paytm PDF
 - [ ] 6.2 Widget, insights, dark mode
 
+### 7. Input guardrails (done)
+- [x] One shared rule set (`InputGuard`) runs on every keystroke and paste: amounts take digits
+      only (one decimal point, 2 decimals, up to 8 digits, no leading zeros; "₹1,250" pastes as
+      1250); person names take letters, spaces and . ' - only (no digits); payee, goal,
+      checkpoint, category and recurring names take letters, digits and punctuation (no emoji
+      or symbols) with length caps (60 / 40 / 30); notes drop control characters and are capped
+      at 200; search and the SMS box are capped. No leading spaces or double spaces while
+      typing; trailing spaces are removed on save. A name must contain a letter or number.
+
 ## SMS import design
 
 ```

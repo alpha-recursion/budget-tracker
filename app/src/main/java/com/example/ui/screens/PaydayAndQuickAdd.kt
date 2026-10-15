@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -262,6 +263,7 @@ fun PaySettingsDialog(current: PaySettings, onSave: (income: Double, payday: Int
             placeholder = "30000",
             errorText = error.takeIf { incomeText.isNotBlank() },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            filter = InputGuard::amount,
             modifier = Modifier.testTag("income_input")
         )
         Text("Payday (day of the month)", style = MaterialTheme.typography.labelMedium, color = InkSecondary)

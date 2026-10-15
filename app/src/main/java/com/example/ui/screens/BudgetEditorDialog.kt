@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -102,7 +103,7 @@ fun BudgetEditorDialog(
                 OutlinedTextField(
                     value = amount,
                     onValueChange = {
-                        amount = it
+                        amount = InputGuard.amount(it)
                         error = null
                     },
                     label = { Text("Monthly limit") },

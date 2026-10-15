@@ -58,6 +58,7 @@ import com.example.data.local.RecurringEntity
 import com.example.data.reminders.DailyReviewStore
 import com.example.data.reminders.ReminderNotifier
 import com.example.domain.DailyReviewState
+import com.example.domain.InputGuard
 import com.example.domain.Recurring
 import com.example.domain.RecurringSuggestion
 import com.example.domain.DailyStreaks
@@ -114,6 +115,7 @@ class PennywiseViewModel @JvmOverloads constructor(
         private const val MAX_CHALLENGES_PER_MONTH = 3
         private const val QUICK_ADD_REPEAT_GUARD_MS = 3_000L
         private const val REPEAT_GUARD_MS = 2_000L
+        private const val MAX_AMOUNT = 10_000_000.0
 
         fun Factory(application: Application): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
@@ -384,7 +386,7 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun addDebt(person: String, kind: DebtKind, amount: Double, date: Long, dueDate: Long?, note: String) {
         val name = Lending.displayName(person)
-        if (name.isEmpty() || amount <= 0.0) return
+        if (!InputGuard.hasLetter(name) || amount <= 0.0 || amount > MAX_AMOUNT) return
         if (isRepeat("debt:${Lending.personKey(name)}:${kind.name}:$amount:$date")) return
         viewModelScope.launch {
             try {
@@ -469,8 +471,8 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     /** Creates a goal ([id] = 0) or edits one; [alreadySaved] is only used for a new goal. */
     fun saveGoal(id: Long, name: String, target: Double, iconKey: String, colorHex: Long, targetDate: Long?, alreadySaved: Double) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty() || target <= 0.0) return
+        val trimmed = InputGuard.clean(name)
+        if (!FormValidation.validateName(trimmed, InputGuard.MAX_NAME).isValid || target <= 0.0) return
         val existing = goals.value.firstOrNull { it.goal.id == id }
         if (existing == null && isRepeat("goal:new:$trimmed:$target")) return
         val goal = if (existing == null) {
@@ -577,6 +579,7 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     fun saveRecurring(item: RecurringEntity) {
         // A new item has no id yet, so a double tap would add it twice.
+        if (!FormValidation.validateName(item.name, InputGuard.MAX_NAME).isValid || item.amount <= 0.0 || item.amount > MAX_AMOUNT) return
         if (item.id == 0L && isRepeat("recurring:${item.name}:${item.amount}:${item.frequency}")) return
         viewModelScope.launch { repository.saveRecurring(item) }
     }
@@ -921,8 +924,8 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     fun addCheckpoint(goalId: Long, name: String, amount: Double) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty() || amount <= 0.0) return
+        val trimmed = InputGuard.clean(name)
+        if (!FormValidation.validateName(trimmed, InputGuard.MAX_NAME).isValid || amount <= 0.0) return
         if (isRepeat("checkpoint:$goalId:$trimmed:$amount")) return
         viewModelScope.launch {
             try {
@@ -1004,10 +1007,11 @@ class PennywiseViewModel @JvmOverloads constructor(
      * when the category was accepted (it is written to the database asynchronously).
      */
     fun addCustomCategory(name: String, type: TransactionType, iconKey: String, colorHex: Long): String? {
-        val trimmed = name.trim().replace(Regex("\\s+"), " ")
+        val trimmed = InputGuard.clean(name)
         when {
             trimmed.isEmpty() -> return "Please enter a name"
-            trimmed.length > 30 -> return "Name must be 30 characters or fewer"
+            trimmed.length > InputGuard.MAX_CATEGORY -> return "Name must be ${InputGuard.MAX_CATEGORY} characters or fewer"
+            !InputGuard.hasContent(trimmed) -> return "Use at least one letter or number"
             categories.value.any { it.name.equals(trimmed, ignoreCase = true) } ->
                 return "A category with this name already exists"
         }
@@ -1287,14 +1291,14 @@ class PennywiseViewModel @JvmOverloads constructor(
         val currentEditing = _editingTransaction.value
 
         val entity = currentEditing?.copy(
-            title = _formTitle.value.trim(),
+            title = InputGuard.clean(_formTitle.value),
             amount = parsedAmount,
             type = _formType.value.name,
             category = _formCategory.value,
             date = _formDate.value,
             note = _formNote.value.trim()
         ) ?: TransactionEntity(
-            title = _formTitle.value.trim(),
+            title = InputGuard.clean(_formTitle.value),
             amount = parsedAmount,
             type = _formType.value.name,
             category = _formCategory.value,

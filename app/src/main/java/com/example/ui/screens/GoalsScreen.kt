@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -913,6 +914,7 @@ private fun BuyGoalDialog(progress: GoalProgress, onBuy: (amount: Double, catego
             label = "What it cost (₹)",
             errorText = error,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            filter = InputGuard::amount,
             modifier = Modifier.testTag("buy_amount_input")
         )
         Text("Category", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
@@ -950,6 +952,7 @@ private fun CheckpointDialog(progress: GoalProgress, onSave: (name: String, amou
             label = "Name",
             placeholder = "e.g. First ₹1,000",
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            filter = { InputGuard.label(it, InputGuard.MAX_NAME) },
             modifier = Modifier.testTag("checkpoint_name_input")
         )
         PwTextField(
@@ -962,12 +965,13 @@ private fun CheckpointDialog(progress: GoalProgress, onSave: (name: String, amou
             placeholder = "1000",
             errorText = error.takeIf { touched },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            filter = InputGuard::amount,
             modifier = Modifier.testTag("checkpoint_amount_input")
         )
         DialogButtons(
             confirm = "Add",
-            enabled = name.isNotBlank() && name.trim().length <= 40 && error == null && amount != null,
-            onConfirm = { amount?.let { onSave(name, it) } },
+            enabled = FormValidation.validateName(name, InputGuard.MAX_NAME).isValid && error == null && amount != null,
+            onConfirm = { amount?.let { onSave(InputGuard.clean(name), it) } },
             onDismiss = onDismiss
         )
     }
@@ -1024,7 +1028,7 @@ private fun GoalEditorDialog(
 
     val targetError = FormValidation.validateAmount(targetText).errorOrNull
     val savedError = if (savedText.isBlank()) null else FormValidation.validateAmount(savedText).errorOrNull
-    val canSave = name.isNotBlank() && name.trim().length <= 40 && targetError == null && savedError == null
+    val canSave = FormValidation.validateName(name, InputGuard.MAX_NAME).isValid && targetError == null && savedError == null
 
     LendingDialogFrame(title = if (goal == null) "New goal" else "Edit goal", onDismiss = onDismiss, tag = "goal_editor_dialog") {
         PwTextField(
@@ -1033,6 +1037,7 @@ private fun GoalEditorDialog(
             label = "What are you saving for?",
             placeholder = "e.g. New phone",
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            filter = { InputGuard.label(it, InputGuard.MAX_NAME) },
             modifier = Modifier.testTag("goal_name_input")
         )
         PwTextField(
@@ -1045,6 +1050,7 @@ private fun GoalEditorDialog(
             placeholder = "20000",
             errorText = targetError.takeIf { touched },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            filter = InputGuard::amount,
             modifier = Modifier.testTag("goal_target_input")
         )
         if (goal == null) {
@@ -1054,7 +1060,8 @@ private fun GoalEditorDialog(
                 label = "Already saved (optional)",
                 placeholder = "0",
                 errorText = savedError,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                filter = InputGuard::amount
             )
         }
 
@@ -1177,6 +1184,7 @@ private fun GoalMoneyDialog(
             placeholder = "0",
             errorText = error.takeIf { touched },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            filter = InputGuard::amount,
             modifier = Modifier.testTag("goal_amount_input")
         )
         if (!takeOut) {
@@ -1203,7 +1211,8 @@ private fun GoalMoneyDialog(
             value = note,
             onValueChange = { note = it },
             label = "Note (optional)",
-            placeholder = if (takeOut) "e.g. emergency" else "e.g. from salary"
+            placeholder = if (takeOut) "e.g. emergency" else "e.g. from salary",
+            filter = { InputGuard.note(it) }
         )
         DialogButtons(
             confirm = if (takeOut) "Take out" else "Add",

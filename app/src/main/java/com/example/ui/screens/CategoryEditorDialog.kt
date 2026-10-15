@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -70,7 +71,7 @@ fun CategoryEditorDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = {
-                        name = it
+                        name = InputGuard.label(it, InputGuard.MAX_CATEGORY)
                         error = null
                     },
                     label = { Text("Name") },

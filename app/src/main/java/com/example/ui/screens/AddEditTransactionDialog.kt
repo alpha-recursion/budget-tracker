@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
@@ -167,7 +169,7 @@ fun AddEditTransactionDialog(
                 Spacer(modifier = Modifier.width(Space.xs))
                 BasicTextField(
                     value = amount,
-                    onValueChange = onAmountChange,
+                    onValueChange = { onAmountChange(InputGuard.amount(it)) },
                     singleLine = true,
                     textStyle = MaterialTheme.typography.displayLarge.copy(color = Ink),
                     cursorBrush = SolidColor(Accent),
@@ -215,6 +217,8 @@ fun AddEditTransactionDialog(
                     label = if (type == TransactionType.EXPENSE) "Paid to" else "Received from",
                     placeholder = if (type == TransactionType.EXPENSE) "e.g. Zepto, Rent, Chai" else "e.g. Salary, Rahul",
                     errorText = titleError,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    filter = InputGuard::payee,
                     modifier = Modifier.testTag("title_input")
                 )
                 Spacer(modifier = Modifier.height(Space.xl))
@@ -263,6 +267,8 @@ fun AddEditTransactionDialog(
                     placeholder = "Add details",
                     singleLine = false,
                     maxLines = 3,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    filter = { InputGuard.note(it, multiline = true) },
                     modifier = Modifier.testTag("note_input")
                 )
             }

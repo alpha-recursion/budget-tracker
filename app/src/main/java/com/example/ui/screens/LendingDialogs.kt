@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -98,7 +99,7 @@ fun DebtEntryDialog(
     var pickDue by remember { mutableStateOf(false) }
 
     val amountError = FormValidation.validateAmount(amountText).errorOrNull
-    val canSave = person.isNotBlank() && amountError == null
+    val canSave = FormValidation.validatePerson(person).isValid && amountError == null
 
     LendingDialogFrame(title = kind.actionTitle(), onDismiss = onDismiss, tag = "debt_entry_dialog") {
         if (fixedPerson == null) {
@@ -117,6 +118,7 @@ fun DebtEntryDialog(
             placeholder = "0",
             errorText = amountError.takeIf { amountTouched },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            filter = InputGuard::amount,
             modifier = Modifier.testTag("debt_amount_input")
         )
 
@@ -137,6 +139,7 @@ fun DebtEntryDialog(
             onValueChange = { note = it },
             label = "Note (optional)",
             placeholder = "e.g. trip, rent share",
+            filter = { InputGuard.note(it) },
             modifier = Modifier.testTag("debt_note_input")
         )
 
@@ -279,6 +282,7 @@ private fun PersonField(
         label = "Person",
         placeholder = "Name",
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        filter = InputGuard::personName,
         modifier = Modifier.testTag("debt_person_input")
     )
     if (people.isNotEmpty()) {

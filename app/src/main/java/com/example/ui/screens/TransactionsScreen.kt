@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -127,6 +128,7 @@ fun TransactionsScreen(
             // Let the keyboard's search key dismiss the keyboard so results are visible.
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+            filter = InputGuard::search,
             containerColor = SurfaceWhite,
             modifier = Modifier
                 .padding(horizontal = Space.screen, vertical = Space.s)

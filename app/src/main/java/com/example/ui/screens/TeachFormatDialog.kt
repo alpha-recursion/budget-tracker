@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -114,7 +115,7 @@ fun TeachFormatDialog(
                 )
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { text = it },
+                    onValueChange = { text = InputGuard.sms(it) },
                     label = { Text("Example SMS") },
                     minLines = 3,
                     maxLines = 6,
@@ -140,7 +141,7 @@ fun TeachFormatDialog(
                     )
                     OutlinedTextField(
                         value = payeeText,
-                        onValueChange = { payeeText = it },
+                        onValueChange = { payeeText = InputGuard.payee(it) },
                         label = { Text(if (type == TransactionType.EXPENSE) "Paid to (as written)" else "Received from (as written)") },
                         placeholder = { Text("Optional") },
                         singleLine = true,

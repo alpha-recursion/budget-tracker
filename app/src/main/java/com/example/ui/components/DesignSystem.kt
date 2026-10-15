@@ -284,7 +284,9 @@ fun PwTextField(
     maxLines: Int = if (singleLine) 1 else 4,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
-    containerColor: Color = SurfaceMuted
+    containerColor: Color = SurfaceMuted,
+    /** Runs on every keystroke and paste (see InputGuard) so the field can only hold what it should. */
+    filter: (String) -> String = { it }
 ) {
     Column(modifier = modifier) {
         if (label != null) {
@@ -293,7 +295,7 @@ fun PwTextField(
         }
         TextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { onValueChange(filter(it)) },
             modifier = Modifier.fillMaxWidth(),
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = Ink),
             // Written as if/else so the lambda is typed as @Composable from the parameter.

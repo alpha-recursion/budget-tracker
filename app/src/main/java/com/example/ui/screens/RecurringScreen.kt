@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.domain.InputGuard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -229,7 +230,7 @@ private fun RecurringDialog(
     var confirmDelete by remember { mutableStateOf(false) }
 
     val amountError = FormValidation.validateAmount(amountText).errorOrNull
-    val canSave = name.isNotBlank() && amountError == null && category.isNotBlank()
+    val canSave = FormValidation.validateName(name, InputGuard.MAX_NAME).isValid && amountError == null && category.isNotBlank()
 
     LendingDialogFrame(
         title = if (existing == null) "Recurring payment" else "Edit recurring payment",
@@ -242,6 +243,7 @@ private fun RecurringDialog(
             label = "Name",
             placeholder = "e.g. Netflix, Jio recharge",
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+            filter = { InputGuard.label(it, InputGuard.MAX_NAME) },
             modifier = Modifier.testTag("recurring_name_input")
         )
         PwTextField(
@@ -254,6 +256,7 @@ private fun RecurringDialog(
             placeholder = "0",
             errorText = amountError.takeIf { amountTouched },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            filter = InputGuard::amount,
             modifier = Modifier.testTag("recurring_amount_input")
         )
         Text("Repeats", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
@@ -290,7 +293,7 @@ private fun RecurringDialog(
                 onSave(
                     RecurringEntity(
                         id = existing?.id ?: 0L,
-                        name = name.trim(),
+                        name = InputGuard.clean(name),
                         amount = amount,
                         category = category,
                         frequency = FREQUENCIES[frequencyIndex].name,

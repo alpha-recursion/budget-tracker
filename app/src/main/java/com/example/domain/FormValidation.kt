@@ -14,7 +14,7 @@ object FormValidation {
     // exponents like "1e5" and hex floats, which must not be saved as amounts.
     private val PLAIN_DECIMAL = Regex("""^(\d+(\.\d*)?|\.\d+)$""")
 
-    private val CURRENCY_MARKERS = Regex("""(?i)₹|\$|\bINR\b|\bRs\.?""")
+    internal val CURRENCY_MARKERS = Regex("""(?i)₹|\$|\bINR\b|\bRs\.?""")
 
     // Accept what people naturally type or paste: "₹1,250", "Rs. 99", "INR 40", "$5".
     private fun normalize(rawInput: String): String =
@@ -60,7 +60,31 @@ object FormValidation {
         if (trimmed.length > 60) {
             return ValidationResult.Invalid("Description must be 60 characters or fewer")
         }
+        if (!InputGuard.hasContent(trimmed)) {
+            return ValidationResult.Invalid("Use at least one letter or number")
+        }
         return ValidationResult.Valid
+    }
+
+    /** A name for a goal, checkpoint, category or recurring payment. */
+    fun validateName(rawName: String, maxLength: Int, what: String = "Name"): ValidationResult {
+        val cleaned = InputGuard.clean(rawName)
+        return when {
+            cleaned.isEmpty() -> ValidationResult.Invalid("Please enter a name")
+            cleaned.length > maxLength -> ValidationResult.Invalid("$what must be $maxLength characters or fewer")
+            !InputGuard.hasContent(cleaned) -> ValidationResult.Invalid("Use at least one letter or number")
+            else -> ValidationResult.Valid
+        }
+    }
+
+    /** A person's name: needs a letter, no digits. */
+    fun validatePerson(rawName: String): ValidationResult {
+        val cleaned = InputGuard.clean(rawName)
+        return when {
+            cleaned.isEmpty() -> ValidationResult.Invalid("Please enter a name")
+            !InputGuard.hasLetter(cleaned) -> ValidationResult.Invalid("A name needs at least one letter")
+            else -> ValidationResult.Valid
+        }
     }
 
     fun validateCategory(category: String?): ValidationResult {
