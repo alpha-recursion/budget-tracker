@@ -1,5 +1,12 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.PositiveSoft
+import com.example.ui.theme.Navy
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.AccentOnDark
+import com.example.ui.components.PwSegmented
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Lock
 import com.example.domain.InputGuard
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -697,54 +704,120 @@ internal fun LevelCard(progress: AchievementProgress, onClick: () -> Unit) {
 /** Every badge: earned ones in colour, locked ones greyed with how to earn them. */
 @Composable
 fun BadgesScreen(progress: AchievementProgress, modifier: Modifier = Modifier) {
+    var xpOpen by rememberSaveable { mutableStateOf(false) }
+    var filter by rememberSaveable { mutableStateOf(0) } // 0 all, 1 earned, 2 locked
+    val shown = Badge.entries
+        .filter { filter == 0 || (filter == 1) == (it in progress.earned) }
+        .sortedByDescending { it in progress.earned }
     LazyColumn(
         contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
-        verticalArrangement = Arrangement.spacedBy(Space.section),
+        verticalArrangement = Arrangement.spacedBy(Space.s),
         modifier = modifier.fillMaxSize().testTag("badges_screen")
     ) {
-        item {
-            PwCard {
-                Text("Level ${progress.level.number}", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
-                Text(progress.level.name, style = MaterialTheme.typography.headlineSmall, color = Ink)
-                Spacer(modifier = Modifier.height(Space.m))
-                val fraction = progress.level.fraction(progress.xp)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(SurfaceMuted)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(fraction)
-                            .height(10.dp)
-                            .clip(RoundedCornerShape(5.dp))
-                            .background(Accent)
-                    )
-                }
-                Spacer(modifier = Modifier.height(Space.s))
+        item(key = "level") { LevelCard(progress, xpOpen) { xpOpen = !xpOpen } }
+        item(key = "filter") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = Space.xs, top = Space.m, bottom = Space.xs),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    progress.level.nextXp?.let { "${progress.xp} XP · ${it - progress.xp} XP to level ${progress.level.number + 1}" }
-                        ?: "${progress.xp} XP · you've reached the top level",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = InkSecondary
+                    "${progress.earnedCount} of ${Badge.entries.size} earned",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Ink,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.height(Space.s))
-                Text(
-                    "XP: ${Achievements.XP_TRANSACTION} per transaction · ${Achievements.XP_DEPOSIT} per goal deposit · " +
-                        "${Achievements.XP_MILESTONE} per milestone · ${Achievements.XP_CHECKPOINT} per checkpoint · " +
-                        "${Achievements.XP_STREAK_WEEK} per week of your best streak · ${Achievements.XP_BADGE} per badge",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = InkTertiary
+                PwSegmented(
+                    options = listOf("All", "Earned", "Locked"),
+                    selectedIndex = filter,
+                    onSelect = { filter = it },
+                    height = 28.dp,
+                    modifier = Modifier.width(200.dp)
                 )
             }
         }
-        item { Text("Badges · ${progress.earnedCount} of ${Badge.entries.size}", style = MaterialTheme.typography.titleMedium, color = Ink) }
-        items(Badge.entries.chunked(2)) { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-                pair.forEach { badge -> BadgeTile(badge, earned = badge in progress.earned, modifier = Modifier.weight(1f)) }
-                if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
+        items(shown.chunked(3), key = { row -> row.joinToString { it.name } }) { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                row.forEach { badge -> BadgeTile(badge, earned = badge in progress.earned, modifier = Modifier.weight(1f)) }
+                repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** Navy level card: level, name, XP, progress to the next level and the XP rules. */
+@Composable
+private fun LevelCard(progress: AchievementProgress, xpOpen: Boolean, onToggleXp: () -> Unit) {
+    val level = progress.level
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Navy)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(Space.m)
+    ) {
+        Row {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Level ${level.number}", style = MaterialTheme.typography.bodySmall, color = SurfaceWhite.copy(alpha = 0.72f))
+                Text(level.name, style = MaterialTheme.typography.headlineMedium, color = SurfaceWhite)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("${progress.xp}", style = MaterialTheme.typography.headlineMedium, color = SurfaceWhite)
+                Text("XP", style = MaterialTheme.typography.labelSmall, color = SurfaceWhite.copy(alpha = 0.72f))
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(SurfaceWhite.copy(alpha = 0.14f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(level.fraction(progress.xp))
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFFA78BFA))
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                level.nextXp?.let { "${it - progress.xp} XP to ${Achievements.level(it).name}" } ?: "Top level reached",
+                style = MaterialTheme.typography.bodySmall,
+                color = SurfaceWhite.copy(alpha = 0.8f),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                if (xpOpen) "How XP works ▴" else "How XP works ▾",
+                style = MaterialTheme.typography.labelMedium,
+                color = AccentOnDark,
+                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onToggleXp).padding(Space.xs)
+            )
+        }
+        if (xpOpen) {
+            val rules = listOf(
+                "Transaction" to Achievements.XP_TRANSACTION,
+                "Goal deposit" to Achievements.XP_DEPOSIT,
+                "Goal milestone" to Achievements.XP_MILESTONE,
+                "Checkpoint" to Achievements.XP_CHECKPOINT,
+                "Streak week" to Achievements.XP_STREAK_WEEK,
+                "Badge" to Achievements.XP_BADGE,
+                "Challenge won" to Achievements.XP_CHALLENGE,
+                "Check-in day" to Achievements.XP_CHECK_IN_DAY,
+                "No-spend day" to Achievements.XP_NO_SPEND_DAY
+            )
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(SurfaceWhite.copy(alpha = 0.12f)))
+            rules.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.l)) {
+                    pair.forEach { (label, xp) ->
+                        Row(modifier = Modifier.weight(1f)) {
+                            Text(label, style = MaterialTheme.typography.bodySmall, color = SurfaceWhite.copy(alpha = 0.72f), modifier = Modifier.weight(1f))
+                            Text("+$xp", style = MaterialTheme.typography.labelMedium, color = SurfaceWhite)
+                        }
+                    }
+                    if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
     }
@@ -752,19 +825,63 @@ fun BadgesScreen(progress: AchievementProgress, modifier: Modifier = Modifier) {
 
 @Composable
 private fun BadgeTile(badge: Badge, earned: Boolean, modifier: Modifier = Modifier) {
-    PwCard(
-        color = if (earned) SurfaceWhite else SurfaceMuted,
-        contentPadding = PaddingValues(Space.l),
-        modifier = modifier.testTag("badge_${badge.name}")
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (earned) SurfaceWhite else Color(0xFFEEF0F3))
+            .border(1.dp, if (earned) Color(0xFFE9E2F7) else Hairline, RoundedCornerShape(14.dp))
+            .padding(horizontal = Space.s, vertical = Space.m)
+            .testTag("badge_${badge.name}"),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
+        Box(contentAlignment = Alignment.BottomEnd) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(if (earned) Color(0xFFFFF4D6) else Color(0xFFE2E5E9)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    badge.emoji,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp),
+                    modifier = Modifier.graphicsLayer { alpha = if (earned) 1f else 0.45f }
+                )
+            }
+            if (!earned) {
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceWhite)
+                        .border(1.dp, Hairline, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = "Locked", tint = InkSecondary, modifier = Modifier.size(11.dp))
+                }
+            }
+        }
         Text(
-            if (earned) badge.emoji else "🔒",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.graphicsLayer { alpha = if (earned) 1f else 0.6f }
+            badge.title,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = if (earned) Ink else InkSecondary,
+            textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(Space.s))
-        Text(badge.title, style = MaterialTheme.typography.titleSmall, color = if (earned) Ink else InkSecondary)
-        Text(badge.howTo, style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+        Text(
+            badge.howTo,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, fontWeight = FontWeight.Normal),
+            color = InkSecondary,
+            textAlign = TextAlign.Center
+        )
+        if (earned) {
+            Text(
+                "+${Achievements.XP_BADGE} XP",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                color = PositiveText,
+                modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(PositiveSoft).padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
     }
 }
 

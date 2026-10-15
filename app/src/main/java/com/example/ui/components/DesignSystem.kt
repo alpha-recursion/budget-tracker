@@ -436,6 +436,7 @@ fun PwListRow(
     subtitle: String? = null,
     leading: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
+    titleColor: Color = Ink,
     trailing: (@Composable RowScope.() -> Unit)? = null
 ) {
     Row(
@@ -450,7 +451,7 @@ fun PwListRow(
             Spacer(modifier = Modifier.width(Space.m))
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = titleColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) {
                 Text(
                     subtitle,
@@ -470,7 +471,7 @@ fun PwListRow(
 
 /** Hairline divider, inset to line up with list row text by default. */
 @Composable
-fun PwDivider(modifier: Modifier = Modifier, startInset: Dp = 68.dp) {
+fun PwDivider(modifier: Modifier = Modifier, startInset: Dp = 0.dp) {
     HorizontalDivider(modifier = modifier.padding(start = startInset), thickness = 1.dp, color = TrackSoft)
 }
 

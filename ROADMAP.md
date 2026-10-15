@@ -169,7 +169,7 @@ Slices, each committed separately so it can be built and checked before the next
       payee, date chips, note, wrapping category chips, pill save button
 - [x] 8.6 Insights: savings rate, month-to-date trend with "on pace for" projection, last 7
       days bars with tooltip, where it went, budgets, top payees
-- [ ] 8.7 Settings (grouped rows, icon circles) and Badges (level card, How XP works,
+- [x] 8.7 Settings (grouped rows, icon circles) and Badges (level card, How XP works,
       All / Earned / Locked, 3-column grid with locked state)
 - [ ] 8.8 Motion: bar growth, count-up, spring thumbs, self-drawing line, donut sweep, row
       cascade, shimmer / shine / pop, toast; all under 700 ms

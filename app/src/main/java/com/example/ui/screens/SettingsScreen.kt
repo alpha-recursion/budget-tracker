@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.Outline
 import android.net.Uri
 import android.Manifest
 import android.content.pm.PackageManager
@@ -142,7 +143,7 @@ fun SettingsScreen(
         contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
         verticalArrangement = Arrangement.spacedBy(Space.s)
     ) {
-        item { GroupLabel("Import") }
+        item { GroupLabel("Import & automation") }
         item {
             PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
                 SettingsRow(
@@ -159,25 +160,21 @@ fun SettingsScreen(
                     onChange = onAutoCaptureChange,
                     onPermissionDenied = onAutoCapturePermissionDenied
                 )
-                PwDivider()
-                DueReminderRow()
-                PwDivider()
-                ReviewReminderRow()
-                PwDivider()
-                SettingsRow(
-                    icon = Icons.Default.Repeat,
-                    tint = Accent,
-                    title = "Recurring payments",
-                    subtitle = if (recurringCount == 0) "Subscriptions and bills, with reminders" else "$recurringCount active",
-                    onClick = onOpenRecurring,
-                    modifier = Modifier.testTag("settings_recurring_button")
-                )
-                PwDivider()
-                RecurringReminderRow()
             }
         }
 
-        item { GroupLabel("Income") }
+        item { GroupLabel("Reminders") }
+        item {
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                DueReminderRow()
+                PwDivider()
+                RecurringReminderRow()
+                PwDivider()
+                ReviewReminderRow()
+            }
+        }
+
+        item { GroupLabel("Income & bills") }
         item {
             PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
                 SettingsRow(
@@ -187,6 +184,15 @@ fun SettingsScreen(
                     subtitle = paySummary ?: "Set it to see what's left until payday",
                     onClick = onEditPay,
                     modifier = Modifier.testTag("settings_pay_button")
+                )
+                PwDivider()
+                SettingsRow(
+                    icon = Icons.Default.Repeat,
+                    tint = Accent,
+                    title = "Recurring payments",
+                    subtitle = if (recurringCount == 0) "Subscriptions and bills, with reminders" else "$recurringCount active",
+                    onClick = onOpenRecurring,
+                    modifier = Modifier.testTag("settings_recurring_button")
                 )
             }
         }
@@ -206,7 +212,7 @@ fun SettingsScreen(
                 PwListRow(
                     title = "Celebration sound & vibration",
                     subtitle = "Plays on milestones and badges (silent when your phone is)",
-                    leading = { PwIconBadge(Icons.Default.Celebration, Accent) },
+                    leading = { PwIconBadge(Icons.Default.Celebration, Accent, size = 32.dp) },
                     onClick = { onCelebrationFeedbackChange(!celebrationFeedback) },
                     modifier = Modifier.testTag("settings_celebration_feedback_row")
                 ) {
@@ -216,23 +222,23 @@ fun SettingsScreen(
                         colors = SwitchDefaults.colors(
                             checkedTrackColor = Accent,
                             checkedThumbColor = SurfaceWhite,
-                            uncheckedTrackColor = Hairline,
+                            uncheckedTrackColor = Outline,
                             uncheckedThumbColor = SurfaceWhite,
-                            uncheckedBorderColor = Hairline
+                            uncheckedBorderColor = Outline
                         )
                     )
                 }
             }
         }
 
-        item { GroupLabel("Your categories") }
+        item { GroupLabel("Categories") }
         item {
             PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
                 customCategories.forEach { category ->
                     PwListRow(
                         title = category.name,
                         subtitle = category.type.displayName(),
-                        leading = { PwIconBadge(getCategoryIcon(category.iconKey), Color(category.colorHex)) }
+                        leading = { PwIconBadge(getCategoryIcon(category.iconKey), Color(category.colorHex), size = 32.dp) }
                     ) {
                         IconButton(onClick = { pendingDelete = category.name }) {
                             Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete ${category.name}", tint = InkSecondary)
@@ -264,7 +270,7 @@ fun SettingsScreen(
                     PwListRow(
                         title = "$bank · ${if (template.type == TransactionType.INCOME) "Money received" else "Payment"}",
                         subtitle = template.sample,
-                        leading = { PwIconBadge(Icons.Default.Sms, InkSecondary) }
+                        leading = { PwIconBadge(Icons.Default.Sms, InkSecondary, size = 32.dp) }
                     ) {
                         IconButton(onClick = { onDeleteFormat(template.id) }) {
                             Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete format", tint = InkSecondary)
@@ -284,7 +290,7 @@ fun SettingsScreen(
             }
         }
 
-        item { GroupLabel("Your data") }
+        item { GroupLabel("Backup & data") }
         item {
             PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
                 SettingsRow(
@@ -452,7 +458,7 @@ private fun AutoCaptureRow(
     PwListRow(
         title = "Auto-detect bank SMS",
         subtitle = if (isOn) "On · known payees are added for you" else "Notify me when a Kotak/BOI payment arrives",
-        leading = { PwIconBadge(Icons.Default.NotificationsActive, Accent) },
+        leading = { PwIconBadge(Icons.Default.NotificationsActive, Accent, size = 32.dp) },
         onClick = toggle,
         modifier = Modifier.testTag("settings_auto_capture_row")
     ) {
@@ -462,9 +468,9 @@ private fun AutoCaptureRow(
             colors = SwitchDefaults.colors(
                 checkedTrackColor = Accent,
                 checkedThumbColor = SurfaceWhite,
-                uncheckedTrackColor = Hairline,
+                uncheckedTrackColor = Outline,
                 uncheckedThumbColor = SurfaceWhite,
-                uncheckedBorderColor = Hairline
+                uncheckedBorderColor = Outline
             ),
             modifier = Modifier.testTag("settings_auto_capture_switch")
         )
@@ -505,7 +511,7 @@ private fun ReminderSwitchRow(
     PwListRow(
         title = title,
         subtitle = if (enabled) subtitleOn else "Off",
-        leading = { PwIconBadge(Icons.Default.Notifications, Accent) },
+        leading = { PwIconBadge(Icons.Default.Notifications, Accent, size = 32.dp) },
         onClick = toggle,
         modifier = Modifier.testTag("${tag}_row")
     ) {
@@ -515,9 +521,9 @@ private fun ReminderSwitchRow(
             colors = SwitchDefaults.colors(
                 checkedTrackColor = Accent,
                 checkedThumbColor = SurfaceWhite,
-                uncheckedTrackColor = Hairline,
+                uncheckedTrackColor = Outline,
                 uncheckedThumbColor = SurfaceWhite,
-                uncheckedBorderColor = Hairline
+                uncheckedBorderColor = Outline
             ),
             modifier = Modifier.testTag("${tag}_switch")
         )
@@ -566,9 +572,9 @@ private fun ReviewReminderRow() {
 private fun GroupLabel(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.labelMedium,
         color = InkSecondary,
-        modifier = Modifier.padding(start = Space.xs, top = Space.m, bottom = Space.xs)
+        modifier = Modifier.padding(start = Space.xs, top = Space.l, bottom = 2.dp)
     )
 }
 
@@ -582,12 +588,14 @@ private fun SettingsRow(
     subtitle: String? = null,
     showChevron: Boolean = true
 ) {
+    // v4: icons on 32dp tinted circles; the danger row (red icon) also has a red title.
     PwListRow(
         title = title,
         subtitle = subtitle,
-        leading = { PwIconBadge(icon, tint) },
+        leading = { PwIconBadge(icon, tint, size = 32.dp) },
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
+        titleColor = if (tint == Negative) Negative else Ink
     ) {
         if (showChevron) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = InkTertiary)
     }
