@@ -112,6 +112,7 @@ class PennywiseViewModel @JvmOverloads constructor(
 
     companion object {
         private const val MAX_CHALLENGES_PER_MONTH = 3
+        private const val QUICK_ADD_REPEAT_GUARD_MS = 3_000L
 
         fun Factory(application: Application): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
@@ -643,7 +644,18 @@ class PennywiseViewModel @JvmOverloads constructor(
     val undoQuickAdd: StateFlow<UndoQuickAdd?> = _undoQuickAdd
 
     /** One tap: adds the chip's expense now; the snackbar offers Undo. */
+    /** Chip key and time of the last quick add, to ignore an accidental double tap. */
+    private var lastQuickAdd: Pair<String, Long>? = null
+
     fun quickAdd(chip: QuickChip) {
+        val now = System.currentTimeMillis()
+        // Checked before launching, so two taps in the same frame cannot both get through.
+        val last = lastQuickAdd
+        if (last != null && last.first == chip.key && now - last.second < QUICK_ADD_REPEAT_GUARD_MS) {
+            showMessage("${chip.title} was just added. Tap again in a moment to add it once more.")
+            return
+        }
+        lastQuickAdd = chip.key to now
         viewModelScope.launch {
             try {
                 val id = repository.insertTransaction(
