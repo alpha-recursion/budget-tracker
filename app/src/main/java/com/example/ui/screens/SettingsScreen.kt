@@ -526,7 +526,8 @@ private fun ReminderSwitchRow(
 
 @Composable
 private fun DueReminderRow() {
-    val store = remember { RemindersStore(LocalContext.current) }
+    val context = LocalContext.current
+    val store = remember(context) { RemindersStore(context) }
     ReminderSwitchRow(
         title = "Due-date reminders",
         subtitleOn = "On · a notification at 10 AM the day before money is due",
@@ -550,7 +551,8 @@ private fun RecurringReminderRow() {
 
 @Composable
 private fun ReviewReminderRow() {
-    val store = remember { RemindersStore(LocalContext.current) }
+    val context = LocalContext.current
+    val store = remember(context) { RemindersStore(context) }
     ReminderSwitchRow(
         title = "Daily check-in reminder",
         subtitleOn = "On · a nudge at 9 PM if you haven't checked in",
