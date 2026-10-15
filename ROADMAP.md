@@ -44,7 +44,8 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). **Live capture built** (1.5): known payees added automatically, the rest wait for review. Verified credit formats (1.8) pending. Needs on-device check. |
 | 3. Money features | **Lending tracker built** (2.1–2.3): people, lent / got back / borrowed / paid back, balances, due dates and overdue, settle up; SMS and existing transactions can be marked as lending (DB v5). Needs on-device check. |
 | 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
-| 1, 5 | Not started |
+| 1 | Credit SMS formats (1.8) on hold until samples arrive |
+| 5 | Recurring payments built (5.1); bike costs (5.2) not started |
 
 ## To-do list
 
@@ -120,7 +121,11 @@ lent to others, and use light game mechanics so it gets opened every day.
       spending and goal deposits since the last payday) and a salary-day card to add it
 
 ### 5. Recurring, subscriptions & bike
-- [ ] 5.1 Recurring payments/subscriptions with alerts; detect recurring payments in SMS
+- [x] 5.1 Recurring payments/subscriptions (reminders only, DB v9): weekly / monthly / yearly,
+      "Recurring payments" screen (Settings or the Home card), phone alert 3 days before at
+      10 AM with its own switch, "still to pay this month" card on Home. Payments that repeat
+      in your spending (including imported bank SMS) are suggested for one-tap adding. Needs
+      on-device check.
 - [ ] 5.2 Bike costs: fuel, service, insurance, cost per km
 
 ### 6. Statement import & polish

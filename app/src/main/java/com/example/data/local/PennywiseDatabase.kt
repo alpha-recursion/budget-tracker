@@ -17,9 +17,10 @@ import androidx.room.RoomDatabase
         GoalEntity::class,
         GoalEntryEntity::class,
         GoalMilestoneEntity::class,
-        ChallengeEntity::class
+        ChallengeEntity::class,
+        RecurringEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class PennywiseDatabase : RoomDatabase() {
@@ -32,6 +33,7 @@ abstract class PennywiseDatabase : RoomDatabase() {
     abstract fun debtDao(): DebtDao
     abstract fun goalDao(): GoalDao
     abstract fun challengeDao(): ChallengeDao
+    abstract fun recurringDao(): RecurringDao
 
     companion object {
         @Volatile

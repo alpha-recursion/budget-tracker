@@ -21,7 +21,14 @@ class RemindersStore(context: Context) {
         prefs.edit().putBoolean(KEY_REVIEW, enabled).apply()
     }
 
+    fun recurringEnabled(): Boolean = prefs.getBoolean(KEY_RECURRING, true)
+
+    fun setRecurringEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_RECURRING, enabled).apply()
+    }
+
     private companion object {
+        const val KEY_RECURRING = "recurring"
         const val KEY_DUE_DATES = "due_dates"
         const val KEY_REVIEW = "daily_review"
     }

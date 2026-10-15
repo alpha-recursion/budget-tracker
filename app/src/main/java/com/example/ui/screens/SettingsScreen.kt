@@ -5,6 +5,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Repeat
+import com.example.domain.Recurring
 import androidx.compose.material.icons.filled.NotificationsActive
 import com.example.data.reminders.RemindersStore
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -113,6 +115,8 @@ fun SettingsScreen(
     onAutoCapturePermissionDenied: () -> Unit = {},
     achievements: AchievementProgress? = null,
     onOpenBadges: () -> Unit = {},
+    recurringCount: Int = 0,
+    onOpenRecurring: () -> Unit = {},
     celebrationFeedback: Boolean = true,
     onCelebrationFeedbackChange: (Boolean) -> Unit = {},
     paySummary: String? = null,
@@ -159,6 +163,17 @@ fun SettingsScreen(
                 DueReminderRow()
                 PwDivider()
                 ReviewReminderRow()
+                PwDivider()
+                SettingsRow(
+                    icon = Icons.Default.Repeat,
+                    tint = Accent,
+                    title = "Recurring payments",
+                    subtitle = if (recurringCount == 0) "Subscriptions and bills, with reminders" else "$recurringCount active",
+                    onClick = onOpenRecurring,
+                    modifier = Modifier.testTag("settings_recurring_button")
+                )
+                PwDivider()
+                RecurringReminderRow()
             }
         }
 
@@ -518,6 +533,18 @@ private fun DueReminderRow() {
         isEnabled = store::dueDatesEnabled,
         save = store::setDueDatesEnabled,
         tag = "settings_due_reminder"
+    )
+}
+
+@Composable
+private fun RecurringReminderRow() {
+    val store = remember { RemindersStore(LocalContext.current) }
+    ReminderSwitchRow(
+        title = "Recurring payment alerts",
+        subtitleOn = "On · a notification at 10 AM, ${Recurring.ALERT_DAYS} days before each payment",
+        isEnabled = store::recurringEnabled,
+        save = store::setRecurringEnabled,
+        tag = "settings_recurring_reminder"
     )
 }
 

@@ -2,6 +2,8 @@ package com.example.data.backup
 
 import com.example.data.local.BudgetEntity
 import com.example.data.local.ChallengeEntity
+import com.example.data.local.RecurringEntity
+import com.example.domain.RecurringFrequency
 import com.example.domain.ChallengeType
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
@@ -31,6 +33,7 @@ data class BackupData(
     val goalEntries: List<GoalEntryEntity> = emptyList(),
     val goalMilestones: List<GoalMilestoneEntity> = emptyList(),
     val challenges: List<ChallengeEntity> = emptyList(),
+    val recurring: List<RecurringEntity> = emptyList(),
     val exportedAt: Long = 0L
 )
 
@@ -177,6 +180,21 @@ object BackupSerializer {
                             .put("name", m.name)
                             .put("amount", m.amount)
                             .put("celebrated", m.celebrated)
+                    )
+                }
+            })
+            .put("recurring", JSONArray().apply {
+                data.recurring.forEach { r ->
+                    put(
+                        JSONObject()
+                            .put("id", r.id)
+                            .put("name", r.name)
+                            .put("amount", r.amount)
+                            .put("category", r.category)
+                            .put("frequency", r.frequency)
+                            .put("startDate", r.startDate)
+                            .put("active", r.active)
+                            .put("createdAt", r.createdAt)
                     )
                 }
             })
@@ -339,6 +357,20 @@ object BackupSerializer {
                 ).takeIf { c -> ChallengeType.entries.any { it.name == c.type } }
             }.orEmpty()
 
+            // Frequencies this version does not know are left out rather than failing the restore.
+            val recurring = root.optJSONArray("recurring")?.objects()?.mapNotNull { o ->
+                RecurringEntity(
+                    id = o.getLong("id"),
+                    name = o.getString("name"),
+                    amount = o.getDouble("amount"),
+                    category = o.getString("category"),
+                    frequency = o.getString("frequency"),
+                    startDate = o.getLong("startDate"),
+                    active = o.optBoolean("active", true),
+                    createdAt = o.getLong("createdAt")
+                ).takeIf { r -> RecurringFrequency.fromName(r.frequency) != null }
+            }.orEmpty()
+
             return BackupData(
                 transactions = transactions,
                 budgets = budgets,
@@ -351,6 +383,7 @@ object BackupSerializer {
                 goalEntries = goalEntries,
                 goalMilestones = goalMilestones,
                 challenges = challenges,
+                recurring = recurring,
                 exportedAt = root.optLong("exportedAt", 0L)
             )
         } catch (e: JSONException) {

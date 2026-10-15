@@ -13,6 +13,7 @@ import com.example.data.local.GoalEntryEntity
 import com.example.data.local.GoalMilestoneEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
+import com.example.data.local.RecurringEntity
 import com.example.data.local.SmsImportEntity
 import com.example.data.local.SmsTemplateEntity
 import com.example.data.local.PennywiseDatabase
@@ -81,6 +82,10 @@ class BackupTest {
         challenges = listOf(
             ChallengeEntity(1L, 202610, "CATEGORY_LIMIT", "Food & Dining", 2700.0, 1_790_000_000_000L),
             ChallengeEntity(2L, 202610, "NO_SPEND_DAYS", null, 8.0, 1_790_000_000_000L)
+        ),
+        recurring = listOf(
+            RecurringEntity(1L, "Netflix", 649.0, "Entertainment", "MONTHLY", 1_788_000_000_000L, true, 1_787_000_000_000L),
+            RecurringEntity(2L, "Insurance", 12000.0, "Utilities & Bills", "YEARLY", 1_790_000_000_000L, false, 1_787_000_000_000L)
         ),
         goalEntries = listOf(
             GoalEntryEntity(1L, 7L, 6000.0, 1_787_000_000_000L, "Already saved"),

@@ -138,6 +138,7 @@ private const val LENDING_SCREEN = 5
 private const val GOALS_SCREEN = 6
 private const val BADGES_SCREEN = 7
 private const val CHALLENGES_SCREEN = 8
+private const val RECURRING_SCREEN = 9
 
 private fun tabTitle(tab: Int): String = when (tab) {
     1 -> "Transactions"
@@ -148,6 +149,7 @@ private fun tabTitle(tab: Int): String = when (tab) {
     GOALS_SCREEN -> "Savings goals"
     BADGES_SCREEN -> "Badges"
     CHALLENGES_SCREEN -> "Challenges"
+    RECURRING_SCREEN -> "Recurring payments"
     else -> "Pennywise"
 }
 
@@ -182,12 +184,15 @@ fun PennywiseApp(
         Overlay.GOALS -> GOALS_SCREEN
         Overlay.BADGES -> BADGES_SCREEN
         Overlay.CHALLENGES -> CHALLENGES_SCREEN
+        Overlay.RECURRING -> RECURRING_SCREEN
         null -> selectedTab
     }
     val goals by viewModel.goals.collectAsStateWithLifecycle()
     val selectedGoal by viewModel.selectedGoal.collectAsStateWithLifecycle()
     val savingStreak by viewModel.savingStreak.collectAsStateWithLifecycle()
     val dailyReview by viewModel.dailyReview.collectAsStateWithLifecycle()
+    val recurringItems by viewModel.recurring.collectAsStateWithLifecycle()
+    val recurringSuggestions by viewModel.recurringSuggestions.collectAsStateWithLifecycle()
     val roundUps by viewModel.roundUps.collectAsStateWithLifecycle()
     val roundUpJar by viewModel.roundUpJar.collectAsStateWithLifecycle()
     val achievements by viewModel.achievements.collectAsStateWithLifecycle()
@@ -254,6 +259,7 @@ fun PennywiseApp(
             AutoCaptureNotifier.OPEN_TRANSACTIONS -> viewModel.setTab(1)
             ReminderNotifier.OPEN_LENDING -> viewModel.openLending()
             ReminderNotifier.OPEN_REVIEW -> viewModel.setTab(0)
+            ReminderNotifier.OPEN_RECURRING -> viewModel.openRecurring()
             else -> return@LaunchedEffect
         }
         onOpenRequestHandled()
@@ -361,6 +367,8 @@ fun PennywiseApp(
                                     savingStreakWeeks = savingStreak.current,
                                     dailyReview = dailyReview,
                                     onConfirmDailyReview = { viewModel.confirmDailyReview() },
+                                    recurringItems = recurringItems,
+                                    onOpenRecurring = { viewModel.openRecurring() },
                                     reportReady = lastMonthReportIfNew(reportCards),
                                     onOpenReport = { viewModel.openChallenges(fromGoals = false, reportMonth = it) },
                                     quickChips = quickChips,
@@ -422,6 +430,8 @@ fun PennywiseApp(
                                     },
                                     achievements = achievements,
                                     onOpenBadges = { viewModel.openBadges(fromGoals = false) },
+                                    recurringCount = recurringItems.count { it.active },
+                                    onOpenRecurring = { viewModel.openRecurring() },
                                     celebrationFeedback = celebrationFeedback,
                                     onCelebrationFeedbackChange = { viewModel.setCelebrationFeedback(it) },
                                     paySummary = if (planning.pay.isSet) {
@@ -494,6 +504,14 @@ fun PennywiseApp(
                                 )
 
                                 BADGES_SCREEN -> BadgesScreen(progress = achievements)
+
+                                RECURRING_SCREEN -> RecurringScreen(
+                                    entries = recurringItems,
+                                    suggestions = recurringSuggestions,
+                                    categories = categories,
+                                    onSave = { viewModel.saveRecurring(it) },
+                                    onDelete = { viewModel.deleteRecurring(it) }
+                                )
 
                                 CHALLENGES_SCREEN -> ChallengesScreen(
                                     results = challengeResults,

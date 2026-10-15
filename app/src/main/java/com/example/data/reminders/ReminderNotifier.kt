@@ -13,6 +13,8 @@ import com.example.MainActivity
 import com.example.R
 import com.example.data.sms.AutoCaptureNotifier
 import com.example.domain.DueReminder
+import com.example.domain.Recurring
+import com.example.domain.UpcomingPayment
 import com.example.ui.util.Formatters
 
 /** Phone notifications for reminders (separate from the bank payments notification). */
@@ -20,6 +22,8 @@ object ReminderNotifier {
 
     private const val DUE_CHANNEL_ID = "due_dates"
     private const val DUE_NOTIFICATION_ID = 1002
+    private const val RECURRING_CHANNEL_ID = "recurring"
+    private const val RECURRING_NOTIFICATION_ID = 1004
     private const val REVIEW_CHANNEL_ID = "daily_review"
     private const val REVIEW_NOTIFICATION_ID = 1003
 
@@ -28,6 +32,9 @@ object ReminderNotifier {
 
     /** Intent extra value that opens Home, where the daily check-in card is. */
     const val OPEN_REVIEW = "review"
+
+    /** Intent extra value that opens the Recurring payments screen. */
+    const val OPEN_RECURRING = "recurring"
 
     fun showDue(context: Context, reminders: List<DueReminder>) {
         if (reminders.isEmpty()) return
@@ -50,6 +57,33 @@ object ReminderNotifier {
             .build()
         try {
             manager.notify(DUE_NOTIFICATION_ID, notification)
+        } catch (e: SecurityException) {
+            // Permission revoked between the check and the call; nothing else to do.
+        }
+    }
+
+    fun showRecurring(context: Context, payments: List<UpcomingPayment>) {
+        if (payments.isEmpty()) return
+        val manager = NotificationManagerCompat.from(context)
+        if (!manager.areNotificationsEnabled()) return
+        ensureChannel(context, RECURRING_CHANNEL_ID, "Recurring payments", "Subscriptions and bills coming up")
+        val lines = payments.map {
+            "${it.item.name} · ${Formatters.formatCurrency(it.item.amount)} · ${Formatters.formatShortDate(it.date)}"
+        }
+        val title = if (payments.size == 1) "Payment due in ${Recurring.ALERT_DAYS} days"
+        else "${payments.size} payments due in ${Recurring.ALERT_DAYS} days"
+        val notification = NotificationCompat.Builder(context, RECURRING_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_payment)
+            .setColor(ContextCompat.getColor(context, R.color.pennywise_accent))
+            .setContentTitle(title)
+            .setContentText(lines.first())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(lines.joinToString("\n")))
+            .setContentIntent(openApp(context, OPEN_RECURRING, requestCode = 3))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
+        try {
+            manager.notify(RECURRING_NOTIFICATION_ID, notification)
         } catch (e: SecurityException) {
             // Permission revoked between the check and the call; nothing else to do.
         }

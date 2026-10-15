@@ -57,6 +57,7 @@ import com.example.domain.PersonBalance
 import com.example.domain.FinancialCalculations
 import com.example.domain.FinancialSummary
 import com.example.ui.components.BudgetGauge
+import com.example.data.local.RecurringEntity
 import com.example.domain.DailyReviewState
 import com.example.ui.components.PwCard
 import com.example.ui.components.PwDivider
@@ -106,6 +107,8 @@ fun DashboardScreen(
     savingStreakWeeks: Int = 0,
     dailyReview: DailyReviewState = DailyReviewState(),
     onConfirmDailyReview: () -> Unit = {},
+    recurringItems: List<RecurringEntity> = emptyList(),
+    onOpenRecurring: () -> Unit = {},
     /** Last month's report card, shown during the first week of a new month. */
     reportReady: ReportCard? = null,
     onOpenReport: (monthKey: Int) -> Unit = {},
@@ -162,6 +165,7 @@ fun DashboardScreen(
         item { BudgetCard(statuses = budgetStatuses, onOpenBudgets = onOpenBudgets) }
         item { GoalsCard(goals = goals, streakWeeks = savingStreakWeeks, onOpen = onOpenGoals) }
         item { LendingCard(balances = lending, onOpen = onOpenLending) }
+        item(key = "recurring") { RecurringCard(items = recurringItems, onOpen = onOpenRecurring) }
         item { WeeklySpendingCard(transactions = recentTransactions) }
         item { ImportSmsCard(onImportSms = onImportSms) }
         item { SpendingDonutChart(breakdowns = breakdowns, totalExpense = summary.totalExpense) }

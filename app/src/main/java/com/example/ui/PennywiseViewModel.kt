@@ -54,9 +54,12 @@ import com.example.data.local.RewardsStore
 import com.example.data.repository.GoalReached
 import com.example.domain.RoundUpSettings
 import com.example.domain.RoundUps
+import com.example.data.local.RecurringEntity
 import com.example.data.reminders.DailyReviewStore
 import com.example.data.reminders.ReminderNotifier
 import com.example.domain.DailyReviewState
+import com.example.domain.Recurring
+import com.example.domain.RecurringSuggestion
 import com.example.domain.DailyStreaks
 import com.example.domain.SavingStreak
 import com.example.domain.Streaks
@@ -89,7 +92,7 @@ enum class SortOption(val label: String) {
     LOWEST_AMOUNT("Lowest ₹")
 }
 
-enum class Overlay { SMS_IMPORT, LENDING, GOALS, BADGES, CHALLENGES }
+enum class Overlay { SMS_IMPORT, LENDING, GOALS, BADGES, CHALLENGES, RECURRING }
 
 const val SETTINGS_TAB = 3
 
@@ -548,6 +551,32 @@ class PennywiseViewModel @JvmOverloads constructor(
         val spendDays = txs.filter { it.type == "EXPENSE" }.map { DailyStreaks.dayNumber(it.date) }.toSet()
         DailyStreaks.state(reviewed, spendDays, day)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, DailyReviewState())
+
+    // --- Recurring payments and subscriptions (reminders only) ---
+
+    val recurring: StateFlow<List<RecurringEntity>> = repository.recurring
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Payees that keep charging the same amount; refreshed daily and when spending changes. */
+    val recurringSuggestions: StateFlow<List<RecurringSuggestion>> = combine(
+        recurring,
+        repository.allTransactions,
+        today
+    ) { items, txs, _ ->
+        Recurring.detect(txs, items, System.currentTimeMillis())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun openRecurring() {
+        _overlay.value = Overlay.RECURRING
+    }
+
+    fun saveRecurring(item: RecurringEntity) {
+        viewModelScope.launch { repository.saveRecurring(item) }
+    }
+
+    fun deleteRecurring(id: Long) {
+        viewModelScope.launch { repository.deleteRecurring(id) }
+    }
 
     fun confirmDailyReview() {
         val now = System.currentTimeMillis()

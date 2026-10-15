@@ -5,6 +5,7 @@ import com.example.data.model.CategoryInfo
 import com.example.data.backup.BackupData
 import com.example.data.local.BudgetEntity
 import com.example.data.local.ChallengeEntity
+import com.example.data.local.RecurringEntity
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.DebtEntryEntity
 import com.example.data.local.GoalEntity
@@ -41,6 +42,7 @@ class PennywiseRepository(
     private val debtDao = database.debtDao()
     private val goalDao = database.goalDao()
     private val challengeDao = database.challengeDao()
+    private val recurringDao = database.recurringDao()
 
     val allTransactions: Flow<List<TransactionEntity>> = transactionDao.getAllTransactions()
     val allBudgets: Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
@@ -53,6 +55,7 @@ class PennywiseRepository(
     val goalEntries: Flow<List<GoalEntryEntity>> = goalDao.getEntries()
     val goalMilestones: Flow<List<GoalMilestoneEntity>> = goalDao.getMilestones()
     val challenges: Flow<List<ChallengeEntity>> = challengeDao.getAll()
+    val recurring: Flow<List<RecurringEntity>> = recurringDao.getAll()
 
     suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(Dispatchers.IO) {
         transactionDao.insert(transaction)
@@ -96,6 +99,7 @@ class PennywiseRepository(
                 goalEntries = goalDao.getEntriesOnce(),
                 goalMilestones = goalDao.getMilestonesOnce(),
                 challenges = challengeDao.getAllOnce(),
+                recurring = recurringDao.getAllOnce(),
                 exportedAt = System.currentTimeMillis()
             )
         }
@@ -116,6 +120,7 @@ class PennywiseRepository(
             goalDao.insertEntries(data.goalEntries)
             goalDao.insertMilestones(data.goalMilestones)
             challengeDao.insertAll(data.challenges)
+            recurringDao.insertAll(data.recurring)
         }
     }
 
@@ -135,6 +140,7 @@ class PennywiseRepository(
         goalDao.deleteAllMilestones()
         goalDao.deleteAllGoals()
         challengeDao.deleteAll()
+        recurringDao.deleteAll()
     }
 
     /** Deletes a custom category; its transactions move to "Other" and its budget is removed. */
@@ -262,6 +268,16 @@ class PennywiseRepository(
 
     suspend fun deleteChallenge(id: Long) = withContext(Dispatchers.IO) {
         challengeDao.delete(id)
+    }
+
+    // --- Recurring payments ---
+
+    suspend fun saveRecurring(item: RecurringEntity): Long = withContext(Dispatchers.IO) {
+        recurringDao.insertOrUpdate(item)
+    }
+
+    suspend fun deleteRecurring(id: Long) = withContext(Dispatchers.IO) {
+        recurringDao.delete(id)
     }
 
     // --- SMS import ---
