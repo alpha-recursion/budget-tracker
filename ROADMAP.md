@@ -163,7 +163,7 @@ Slices, each committed separately so it can be built and checked before the next
 - [x] 8.3 Home: greeting, period hero (Today / This week / This month, mini bars, Import SMS ·
       Lending · Goals · Recurring), check-in strip, budget ring + top 3, spending-mix donut,
       2-column goal cards, Recent (4)
-- [ ] 8.4 Transactions: sort menu, pill search, All / Expenses / Income, category chips,
+- [x] 8.4 Transactions: sort menu, pill search, All / Expenses / Income, category chips,
       count and totals line, day groups with totals, empty and no-match states
 - [ ] 8.5 New transaction as a bottom sheet: big amount, +₹100 / 500 / 1,000 / 2,000 chips,
       payee, date chips, note, wrapping category chips, pill save button

@@ -1,5 +1,16 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.PositiveText
+import com.example.ui.theme.AccentSoft
+import com.example.ui.components.softShadow
+import com.example.ui.components.PwSecondaryButton
+import com.example.ui.components.PwSegmented
+import com.example.ui.components.PillShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.SearchOff
 import com.example.domain.InputGuard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -113,77 +124,81 @@ fun TransactionsScreen(
             .fillMaxSize()
             .testTag("transactions_screen")
     ) {
-        PwTextField(
-            value = searchQuery,
-            onValueChange = onSearchChange,
-            placeholder = "Search transactions",
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = InkSecondary) },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onSearchChange("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = InkSecondary)
-                    }
-                }
-            },
-            // Let the keyboard's search key dismiss the keyboard so results are visible.
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-            filter = InputGuard::search,
-            containerColor = SurfaceWhite,
-            modifier = Modifier
-                .padding(horizontal = Space.screen, vertical = Space.s)
-                .testTag("search_transactions_input")
-        )
-
-        // Type filter + sort.
+        // Search pill + sort (v4).
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Space.screen, vertical = Space.xs),
+                .padding(start = Space.screen, end = Space.screen, top = Space.xs, bottom = Space.s),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Space.s)
         ) {
-            listOf(null to "All", TransactionType.EXPENSE.name to "Expenses", TransactionType.INCOME.name to "Income")
-                .forEach { (type, label) ->
-                    PwChip(
-                        text = label,
-                        selected = selectedFilterType == type,
-                        onClick = { onFilterTypeChange(type) },
-                        unselectedColor = SurfaceWhite,
-                        modifier = Modifier.testTag("tab_filter_$label")
-                    )
-                }
-            Spacer(modifier = Modifier.weight(1f))
+            PwTextField(
+                value = searchQuery,
+                onValueChange = onSearchChange,
+                placeholder = "Search payee, category or note",
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = InkSecondary) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = InkSecondary)
+                        }
+                    }
+                },
+                // Let the keyboard's search key dismiss the keyboard so results are visible.
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                filter = InputGuard::search,
+                containerColor = SurfaceWhite,
+                modifier = Modifier
+                    .weight(1f)
+                    .softShadow(PillShape, 4.dp)
+                    .clip(PillShape)
+                    .testTag("search_transactions_input")
+            )
             SortMenu(current = currentSortOption, onSelect = onSortOptionChange)
         }
 
-        // Category filter.
+        // All / Expenses / Income with a sliding thumb.
+        val types = listOf(null, TransactionType.EXPENSE.name, TransactionType.INCOME.name)
+        PwSegmented(
+            options = listOf("All", "Expenses", "Income"),
+            selectedIndex = types.indexOf(selectedFilterType).coerceAtLeast(0),
+            onSelect = { onFilterTypeChange(types[it]) },
+            height = 30.dp,
+            modifier = Modifier
+                .padding(horizontal = Space.screen, vertical = Space.xs)
+                .testTag("type_filter")
+        )
+
+        // Category filter: only categories of the chosen type (plus Other).
+        val categoryPool = LocalCategories.current.filter {
+            selectedFilterType == null || it.type.name == selectedFilterType || it.name == "Other"
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = Space.screen, vertical = Space.s),
-            horizontalArrangement = Arrangement.spacedBy(Space.s)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             PwChip(
                 text = "All categories",
                 selected = selectedCategory == null,
                 onClick = { onCategoryChange(null) },
-                unselectedColor = SurfaceWhite,
                 modifier = Modifier.testTag("category_chip_all")
             )
-            LocalCategories.current.forEach { cat ->
+            categoryPool.forEach { cat ->
+                val selected = selectedCategory == cat.name
                 PwChip(
                     text = cat.name,
-                    selected = selectedCategory == cat.name,
-                    onClick = { onCategoryChange(if (selectedCategory == cat.name) null else cat.name) },
-                    unselectedColor = SurfaceWhite,
+                    selected = selected,
+                    onClick = { onCategoryChange(if (selected) null else cat.name) },
                     leading = {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(6.dp)
                                 .clip(CircleShape)
-                                .background(Color(cat.colorHex))
+                                .background(if (selected) SurfaceWhite else Color(cat.colorHex))
                         )
                     },
                     modifier = Modifier.testTag("category_chip_${cat.name}")
@@ -191,26 +206,28 @@ fun TransactionsScreen(
             }
         }
 
-        // Count + clear. Fixed min height so the list doesn't jump when "Clear" appears.
+        // Count, totals of what is shown, and clear. Fixed min height so the list doesn't jump.
+        val shownSpent = transactions.filter { it.type == TransactionType.EXPENSE.name }.sumOf { it.amount }
+        val shownIn = transactions.filter { it.type == TransactionType.INCOME.name }.sumOf { it.amount }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 40.dp)
-                .padding(horizontal = Space.screen),
+                .heightIn(min = 36.dp)
+                .padding(horizontal = Space.screen + Space.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 if (transactions.size == 1) "1 transaction" else "${transactions.size} transactions",
-                style = MaterialTheme.typography.labelMedium,
-                color = InkSecondary,
-                modifier = Modifier.weight(1f)
+                style = MaterialTheme.typography.bodySmall,
+                color = InkSecondary
             )
             if (hasFilters) {
                 Text(
-                    "Clear filters",
-                    style = MaterialTheme.typography.labelLarge,
+                    "Clear",
+                    style = MaterialTheme.typography.labelMedium,
                     color = Accent,
                     modifier = Modifier
+                        .padding(start = Space.s)
                         .clip(RoundedCornerShape(8.dp))
                         .clickable {
                             focusManager.clearFocus()
@@ -218,20 +235,59 @@ fun TransactionsScreen(
                             onFilterTypeChange(null)
                             onCategoryChange(null)
                         }
-                        .padding(horizontal = Space.s, vertical = Space.xs)
+                        .padding(horizontal = Space.xs, vertical = Space.xs)
                         .testTag("clear_filters_button")
                 )
             }
+            Spacer(modifier = Modifier.weight(1f))
+            Text("−" + Formatters.formatCurrency(shownSpent), style = MaterialTheme.typography.labelMedium, color = Ink)
+            Text(" · ", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+            Text("+" + Formatters.formatCurrency(shownIn), style = MaterialTheme.typography.labelMedium, color = PositiveText)
         }
 
         if (transactions.isEmpty()) {
-            PwCard(modifier = Modifier.padding(Space.screen)) {
-                Text("No transactions found", style = MaterialTheme.typography.titleMedium, color = Ink)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp, vertical = 56.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (hasFilters) SurfaceWhite else AccentSoft),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (hasFilters) Icons.Default.SearchOff else Icons.AutoMirrored.Filled.ReceiptLong,
+                        contentDescription = null,
+                        tint = if (hasFilters) InkSecondary else Accent,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(Space.m))
+                Text(if (hasFilters) "No matches" else "No transactions yet", style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp), color = Ink)
                 Text(
-                    if (hasFilters) "Try a different search or filter." else "Tap + to add your first one.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = InkSecondary
+                    if (hasFilters) "Nothing fits this search and these filters."
+                    else "Add your first one with +, or import past payments from Kotak & BOI SMS.",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                    color = InkSecondary,
+                    textAlign = TextAlign.Center
                 )
+                if (hasFilters) {
+                    Spacer(modifier = Modifier.height(Space.m))
+                    PwSecondaryButton(
+                        text = "Clear filters",
+                        onClick = {
+                            focusManager.clearFocus()
+                            onSearchChange("")
+                            onFilterTypeChange(null)
+                            onCategoryChange(null)
+                        },
+                        modifier = Modifier.height(40.dp)
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -249,10 +305,13 @@ fun TransactionsScreen(
                                 .padding(start = Space.xs, end = Space.xs, top = Space.l, bottom = Space.s),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(section.title, style = MaterialTheme.typography.labelLarge, color = Ink, modifier = Modifier.weight(1f))
-                            section.spent?.takeIf { it > 0 }?.let {
-                                Text("−" + Formatters.formatCurrency(it), style = MaterialTheme.typography.labelMedium, color = InkTertiary)
-                            }
+                            Text(section.title, style = MaterialTheme.typography.labelMedium, color = Ink, modifier = Modifier.weight(1f))
+                            val received = section.items.filter { it.type == TransactionType.INCOME.name }.sumOf { it.amount }
+                            when {
+                                (section.spent ?: 0.0) > 0 -> "−" + Formatters.formatCurrency(section.spent ?: 0.0)
+                                section.spent != null && received > 0 -> "+" + Formatters.formatCurrency(received)
+                                else -> null
+                            }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = InkSecondary) }
                         }
                     }
                     itemsIndexed(section.items, key = { _, tx -> tx.id }) { index, transaction ->
@@ -280,6 +339,17 @@ fun TransactionsScreen(
                         }
                     }
                 }
+                item(key = "hint") {
+                    Text(
+                        "Tap to edit · long-press to delete",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = InkTertiary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = Space.l)
+                    )
+                }
             }
         }
     }
@@ -290,7 +360,7 @@ private fun SortMenu(current: SortOption, onSelect: (SortOption) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         PwChip(
-            text = current.label,
+            text = current.label.replace(" amount", ""),
             selected = false,
             onClick = { open = true },
             unselectedColor = SurfaceWhite,
