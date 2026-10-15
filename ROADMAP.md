@@ -89,7 +89,8 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 2.3 SMS review: Spending / Lending / Self transfer per payee; the person and direction
       are guessed from the payee name and who owes whom. Edit page: "This was money I lent"
       moves an imported payment to Money lent
-- [ ] 2.4 Due-date phone notifications (WorkManager)
+- [x] 2.4 Due-date phone notifications (WorkManager): 10 AM the day before money is due, switch
+      in Settings; tap opens Money lent. Needs on-device check.
 
 ### 3. Goals & gamification
 - [x] 3.1 Savings goals: Home card + Goals screen; add / take out money (set aside, not

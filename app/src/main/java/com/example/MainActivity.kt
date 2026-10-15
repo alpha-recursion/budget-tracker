@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.reminders.ReminderScheduler
 import com.example.data.sms.AutoCaptureNotifier
 import com.example.ui.PennywiseApp
 import com.example.ui.PennywiseViewModel
@@ -28,6 +29,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ReminderScheduler.schedule(applicationContext)
         // Only a fresh launch: after rotation the request was already handled.
         if (savedInstanceState == null) openRequest = intent?.getStringExtra(AutoCaptureNotifier.EXTRA_OPEN)
         // The app always renders the light violet theme, so the system bars must use dark icons

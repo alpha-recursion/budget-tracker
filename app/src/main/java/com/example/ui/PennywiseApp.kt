@@ -99,6 +99,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.reminders.ReminderNotifier
 import com.example.data.sms.AutoCaptureNotifier
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.example.data.model.TransactionType
@@ -250,6 +251,7 @@ fun PennywiseApp(
         when (openRequest) {
             AutoCaptureNotifier.OPEN_SMS_REVIEW -> reviewCaptured()
             AutoCaptureNotifier.OPEN_TRANSACTIONS -> viewModel.setTab(1)
+            ReminderNotifier.OPEN_LENDING -> viewModel.openLending()
             else -> return@LaunchedEffect
         }
         onOpenRequestHandled()

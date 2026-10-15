@@ -38,6 +38,9 @@ enum class DebtKind(val label: String) {
     }
 }
 
+/** Money still outstanding that has a due date. [theyOweMe] is false when the owner owes it. */
+data class DueItem(val date: Long, val amount: Double, val theyOweMe: Boolean)
+
 /** One person's position. [balance] > 0: they owe the owner; < 0: the owner owes them. */
 data class PersonBalance(
     val key: String,
@@ -49,7 +52,9 @@ data class PersonBalance(
     val overdueSince: Long?,
     /** Earliest due date of money still outstanding that has not passed yet. */
     val nextDue: Long?,
-    val lastActivity: Long
+    val lastActivity: Long,
+    /** Every outstanding amount that has a due date, earliest first. */
+    val dues: List<DueItem> = emptyList()
 ) {
     val isSettled: Boolean get() = abs(balance) < Lending.EPSILON
     val theyOweMe: Boolean get() = balance >= Lending.EPSILON
@@ -145,6 +150,8 @@ object Lending {
         }
         val open = theyOwe + iOwe
         val dues = open.mapNotNull { it.due }
+        val dueItems = theyOwe.mapNotNull { o -> o.due?.let { DueItem(it, o.remaining, true) } } +
+            iOwe.mapNotNull { o -> o.due?.let { DueItem(it, o.remaining, false) } }
         val newest = entries.maxWith(compareBy<DebtEntryEntity> { it.date }.thenBy { it.id })
         return PersonBalance(
             key = key,
@@ -153,7 +160,8 @@ object Lending {
             entries = entries.sortedWith(compareByDescending<DebtEntryEntity> { it.date }.thenByDescending { it.id }),
             overdueSince = dues.filter { it < todayStartMs }.minOrNull(),
             nextDue = dues.filter { it >= todayStartMs }.minOrNull(),
-            lastActivity = newest.date
+            lastActivity = newest.date,
+            dues = dueItems.sortedBy { it.date }
         )
     }
 }

@@ -4,7 +4,9 @@ import android.net.Uri
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
+import com.example.data.reminders.RemindersStore
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Celebration
@@ -153,6 +155,8 @@ fun SettingsScreen(
                     onChange = onAutoCaptureChange,
                     onPermissionDenied = onAutoCapturePermissionDenied
                 )
+                PwDivider()
+                DueReminderRow()
             }
         }
 
@@ -446,6 +450,54 @@ private fun AutoCaptureRow(
                 uncheckedBorderColor = Hairline
             ),
             modifier = Modifier.testTag("settings_auto_capture_switch")
+        )
+    }
+}
+
+/** Switch for the "due tomorrow" phone reminder; asks for notification access when turned on. */
+@Composable
+private fun DueReminderRow() {
+    val context = LocalContext.current
+    val store = remember { RemindersStore(context) }
+    var enabled by remember { mutableStateOf(store.dueDatesEnabled()) }
+    fun set(value: Boolean) {
+        enabled = value
+        store.setDueDatesEnabled(value)
+    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        // Stays on even if refused: the reminder simply cannot show until allowed in system settings.
+        set(true)
+    }
+    val toggle = {
+        if (enabled) {
+            set(false)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            set(true)
+        }
+    }
+    PwListRow(
+        title = "Due-date reminders",
+        subtitle = if (enabled) "On · a notification at 10 AM the day before money is due" else "Off",
+        leading = { PwIconBadge(Icons.Default.Notifications, Accent) },
+        onClick = toggle,
+        modifier = Modifier.testTag("settings_due_reminder_row")
+    ) {
+        Switch(
+            checked = enabled,
+            onCheckedChange = { toggle() },
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = Accent,
+                checkedThumbColor = SurfaceWhite,
+                uncheckedTrackColor = Hairline,
+                uncheckedThumbColor = SurfaceWhite,
+                uncheckedBorderColor = Hairline
+            ),
+            modifier = Modifier.testTag("settings_due_reminder_switch")
         )
     }
 }
