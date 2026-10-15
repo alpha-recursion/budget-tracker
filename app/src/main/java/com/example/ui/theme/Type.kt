@@ -29,21 +29,21 @@ private fun style(size: Int, line: Int, weight: FontWeight, tracking: Double = 0
     fontFeatureSettings = "tnum"
 )
 
-/** One type scale for the whole app; screens use these styles instead of ad-hoc sizes. */
+/** One type scale for the whole app (v4: 24 page · 15 section · 14 row · 12 meta). */
 val Typography = Typography(
-    displayLarge = style(40, 48, FontWeight.Bold, -0.02),     // hero amounts
-    displayMedium = style(34, 42, FontWeight.Bold, -0.02),
-    displaySmall = style(30, 38, FontWeight.Bold, -0.015),
-    headlineLarge = style(28, 36, FontWeight.Bold, -0.01),    // page titles
-    headlineMedium = style(24, 32, FontWeight.Bold, -0.01),
-    headlineSmall = style(22, 28, FontWeight.Bold, -0.005),
-    titleLarge = style(20, 28, FontWeight.Bold),
-    titleMedium = style(17, 24, FontWeight.SemiBold),         // card titles
-    titleSmall = style(15, 20, FontWeight.SemiBold),          // list item titles
-    bodyLarge = style(16, 24, FontWeight.Normal),
+    displayLarge = style(44, 52, FontWeight.ExtraBold, -0.02), // amount being entered
+    displayMedium = style(34, 40, FontWeight.ExtraBold, -0.02), // hero amounts
+    displaySmall = style(30, 36, FontWeight.ExtraBold, -0.02),
+    headlineLarge = style(24, 32, FontWeight.ExtraBold, -0.02), // page titles
+    headlineMedium = style(22, 28, FontWeight.ExtraBold, -0.01), // key numbers in cards
+    headlineSmall = style(20, 26, FontWeight.ExtraBold, -0.01),
+    titleLarge = style(18, 24, FontWeight.Bold),
+    titleMedium = style(15, 20, FontWeight.Bold),              // section and card titles
+    titleSmall = style(14, 20, FontWeight.SemiBold),           // list row titles
+    bodyLarge = style(15, 22, FontWeight.Normal),
     bodyMedium = style(14, 20, FontWeight.Normal),
-    bodySmall = style(13, 18, FontWeight.Normal),
-    labelLarge = style(14, 20, FontWeight.SemiBold),          // buttons
-    labelMedium = style(12, 16, FontWeight.Medium),
-    labelSmall = style(11, 16, FontWeight.Medium, 0.01)
+    bodySmall = style(12, 16, FontWeight.Normal),              // row subtitles, meta
+    labelLarge = style(13, 18, FontWeight.Bold),               // buttons, chips, links
+    labelMedium = style(12, 16, FontWeight.SemiBold),
+    labelSmall = style(11, 14, FontWeight.SemiBold, 0.01)
 )

@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.dp
 
 // Material roles mapped onto the Pennywise tokens, so default components (dialogs, menus,
@@ -14,7 +15,7 @@ private val PennywiseColorScheme = lightColorScheme(
     onPrimary = SurfaceWhite,
     primaryContainer = AccentSoft,
     onPrimaryContainer = Accent,
-    secondary = Ink,
+    secondary = Navy,
     onSecondary = SurfaceWhite,
     secondaryContainer = SurfaceMuted,
     onSecondaryContainer = Ink,
@@ -42,21 +43,23 @@ private val PennywiseColorScheme = lightColorScheme(
     onErrorContainer = Negative
 )
 
-/** Corner radii: chips/fields 12-16, cards 24, sheets/dialogs 28. */
+/** Corner radii: chips/fields 12-16, cards 20, hero 24, sheets/dialogs 28. */
 val PennywiseShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
+    large = RoundedCornerShape(20.dp),
     extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable
 fun PennywiseTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = PennywiseColorScheme,
-        typography = Typography,
-        shapes = PennywiseShapes,
-        content = content
-    )
+    CompositionLocalProvider(LocalReduceMotion provides rememberReduceMotion()) {
+        MaterialTheme(
+            colorScheme = PennywiseColorScheme,
+            typography = Typography,
+            shapes = PennywiseShapes,
+            content = content
+        )
+    }
 }

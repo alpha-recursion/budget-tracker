@@ -7,7 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="pennywise_background">#FFF8F7FC</color>
+    <color name="pennywise_background">#FFF4F5F7</color>
     <!-- Accent of the design system, used to tint notifications. -->
-    <color name="pennywise_accent">#FF0B51D9</color>
+    <color name="pennywise_accent">#FF6D28D9</color>
 </resources>
