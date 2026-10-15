@@ -167,7 +167,7 @@ Slices, each committed separately so it can be built and checked before the next
       count and totals line, day groups with totals, empty and no-match states
 - [x] 8.5 New transaction as a bottom sheet: big amount, +₹100 / 500 / 1,000 / 2,000 chips,
       payee, date chips, note, wrapping category chips, pill save button
-- [ ] 8.6 Insights: savings rate, month-to-date trend with "on pace for" projection, last 7
+- [x] 8.6 Insights: savings rate, month-to-date trend with "on pace for" projection, last 7
       days bars with tooltip, where it went, budgets, top payees
 - [ ] 8.7 Settings (grouped rows, icon circles) and Badges (level card, How XP works,
       All / Earned / Locked, 3-column grid with locked state)

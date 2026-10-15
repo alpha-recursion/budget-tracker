@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.domain.FinancialCalculations
+import com.example.data.local.TransactionEntity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,7 +76,9 @@ fun AnalyticsScreen(
     modifier: Modifier = Modifier,
     onSaveBudget: (category: String, rawLimit: String) -> String? = { _, _ -> null },
     onRemoveBudget: (category: String) -> Unit = {},
-    topVendors: List<VendorSpend> = emptyList()
+    topVendors: List<VendorSpend> = emptyList(),
+    /** All transactions; Insights shows this calendar month. */
+    transactions: List<TransactionEntity> = emptyList()
 ) {
     // null = closed, NEW_BUDGET = adding, otherwise the category being edited.
     var budgetEditorTarget by rememberSaveable { mutableStateOf<String?>(null) }
@@ -87,8 +91,25 @@ fun AnalyticsScreen(
         contentPadding = PaddingValues(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xxl),
         verticalArrangement = Arrangement.spacedBy(Space.section)
     ) {
-        item { SavingsCard(summary) }
-        item { CashFlowCard(summary) }
+        val now = System.currentTimeMillis()
+        val month = FinancialCalculations.filterToMonth(transactions, now)
+        val monthSummary = FinancialCalculations.calculateSummary(month)
+        val monthMix = FinancialCalculations.calculateCategoryBreakdown(month) { CategoryInfo.resolve(it, categories) }
+        val monthName = java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(java.util.Date(now))
+        item(key = "month") { MonthPill(now) }
+        item(key = "rate") { SavingsRateCard(monthSummary) }
+        if (monthSummary.totalExpense > 0) {
+            item(key = "trend_title") { InsightsHeader("$monthName so far", "Cumulative spend") }
+            item(key = "trend") { MonthTrendCard(transactions, now) }
+        }
+        item(key = "week_title") {
+            val weekStart = FinancialCalculations.startOfDay(now) - 6 * 86_400_000L
+            val weekTotal = transactions.filter { it.type == TransactionType.EXPENSE.name && it.date >= weekStart && it.date <= now }.sumOf { it.amount }
+            InsightsHeader("Last 7 days", "${Formatters.formatCurrency(weekTotal)} spent")
+        }
+        item(key = "week") { LastSevenDaysCard(transactions, now) }
+        item(key = "where_title") { InsightsHeader("Where it went", "By category") }
+        item(key = "where") { WhereItWentCard(monthMix) }
         item {
             BudgetsCard(
                 statuses = budgetStatuses,
@@ -97,7 +118,6 @@ fun AnalyticsScreen(
             )
         }
         item { TopVendorsCard(topVendors) }
-        item { CategoryRowsCard(breakdowns) }
     }
 
     budgetEditorTarget?.let { target ->

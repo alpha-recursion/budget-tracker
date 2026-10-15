@@ -414,6 +414,7 @@ fun PennywiseApp(
                                     breakdowns = categoryBreakdowns,
                                     budgetStatuses = budgetStatuses,
                                     topVendors = topVendors,
+                                    transactions = allTransactions,
                                     onSaveBudget = viewModel::saveBudget,
                                     onRemoveBudget = { viewModel.removeBudget(it) }
                                 )
