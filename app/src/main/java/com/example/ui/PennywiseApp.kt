@@ -119,6 +119,7 @@ import com.example.ui.screens.GoalsScreen
 import com.example.ui.screens.CelebrationOverlay
 import com.example.ui.screens.BadgesScreen
 import com.example.ui.screens.ChallengesScreen
+import com.example.ui.screens.RecurringScreen
 import com.example.ui.screens.PaySettingsDialog
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult

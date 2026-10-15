@@ -545,7 +545,8 @@ private fun DueReminderRow() {
 
 @Composable
 private fun RecurringReminderRow() {
-    val store = remember { RemindersStore(LocalContext.current) }
+    val context = LocalContext.current
+    val store = remember(context) { RemindersStore(context) }
     ReminderSwitchRow(
         title = "Recurring payment alerts",
         subtitleOn = "On · a notification at 10 AM, ${Recurring.ALERT_DAYS} days before each payment",
