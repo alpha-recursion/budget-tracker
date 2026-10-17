@@ -371,7 +371,15 @@ class PennywiseRepository(
                         receivedAt = item.receivedAt
                     )
                 }
-                smsImportDao.insertAll(records)
+                // The other side of a self transfer: never imported on its own later. Keys that
+                // were already handled keep their own record.
+                val written = records.map { it.dedupeKey }.toHashSet()
+                val extra = items.filter { it.dedupeKey in written }.flatMap { item ->
+                    item.extraKeys.filter { recorded.add(it) }.map { key ->
+                        SmsImportEntity(dedupeKey = key, status = SmsImportStatus.SELF_TRANSFER.name, transactionId = null, receivedAt = item.receivedAt)
+                    }
+                }
+                smsImportDao.insertAll(records + extra)
                 merchantRuleDao.insertAll(rules)
                 created
             }
@@ -401,5 +409,7 @@ data class SmsImportItem(
     val receivedAt: Long,
     val transaction: TransactionEntity?,
     val debt: DebtEntryEntity? = null,
-    val cancelsKey: String? = null
+    val cancelsKey: String? = null,
+    /** Other keys for the same money (the credit side of a self transfer), recorded alongside. */
+    val extraKeys: List<String> = emptyList()
 )

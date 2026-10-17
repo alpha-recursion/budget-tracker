@@ -142,7 +142,15 @@ lent to others, and use light game mechanics so it gets opened every day.
   planned
 
 ### 6. Statement import & polish
-- [ ] 6.1 Bank CSV/Excel import, then PhonePe/Paytm PDF
+- [x] 6.1a Google Pay statement PDF (Import SMS screen → "Google Pay statement (PDF)", no SMS
+      permission needed): text read on the phone with PdfBox-Android; rows paired by order
+      (date, time, payee, UPI ID, account, amount) and rejected if the counts differ; totals
+      checked against the statement's own Sent / Received. Same review as SMS (payee memory,
+      lending, self transfer). Rows use the SMS dedupe keys, so payments already imported from
+      SMS are skipped and later SMS scans skip statement rows; "Self transfer to" rows are
+      self transfers and also record the credit side. Checked against a real 230-row statement
+      (counts and totals only). Needs on-device check.
+- [ ] 6.1b Bank CSV/Excel statements (Kotak, BOI), then PhonePe/Paytm PDF
 - [ ] 6.2 Widget, insights, dark mode
 
 ### 7. Input guardrails (done)
@@ -614,8 +622,8 @@ not practical for a personal app).
 ```
  [Owner]  1. On-device check of 1.8 (credit SMS) and 9.1–9.4 (backup, overspent tag,
             keypad, category palette)
- [Owner]  2. Download one month's Kotak or BOI statement as CSV/Excel (masked) for 6.1
- [Dev]    3. Build 6.1 statement import from that real file
+ [Owner]  2. Import a Google Pay statement on the phone (6.1a) and check the review
+ [Owner]  3. Share a Kotak / BOI CSV or Excel statement, or a PhonePe / Paytm PDF, for 6.1b
  [Later]  4. 6.2 widget, insights, dark mode
 ```
 

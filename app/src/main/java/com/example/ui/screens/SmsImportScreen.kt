@@ -73,6 +73,7 @@ import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import com.example.domain.sms.ImportCandidate
 import com.example.domain.sms.ImportGroup
+import com.example.domain.sms.StatementSummary
 import com.example.ui.SmsImportPhase
 import com.example.ui.SmsImportState
 import com.example.ui.components.CategoryPickerDialog
@@ -113,7 +114,9 @@ fun SmsImportScreen(
     /** Opens "Teach this format" with the given SMS text; null hides the button. */
     onTeach: ((String) -> Unit)? = null,
     people: List<PersonBalance> = emptyList(),
-    onSetLending: (groupKey: String, LendingChoice?) -> Unit = { _, _ -> }
+    onSetLending: (groupKey: String, LendingChoice?) -> Unit = { _, _ -> },
+    /** Imports a Google Pay statement PDF the owner picked; null hides the option. */
+    onPickStatement: ((Uri) -> Unit)? = null
 ) {
     var granted by remember { mutableStateOf(hasPermission()) }
     // The user may grant access from system settings and come back.
@@ -124,15 +127,27 @@ fun SmsImportScreen(
 
     Box(modifier = modifier.fillMaxSize().testTag("sms_import_screen")) {
         when {
-            !granted -> PermissionStep(onGranted = { granted = true })
-            state.phase == SmsImportPhase.CHOOSE_PERIOD -> PeriodStep(error = state.error, onScan = onScan)
+            // A statement needs no SMS access, so only choosing a scan period asks for it.
+            state.phase == SmsImportPhase.CHOOSE_PERIOD && !granted -> PermissionStep(
+                onGranted = { granted = true },
+                error = state.error,
+                onPickStatement = onPickStatement
+            )
+            state.phase == SmsImportPhase.CHOOSE_PERIOD -> PeriodStep(
+                error = state.error,
+                onScan = onScan,
+                onPickStatement = onPickStatement
+            )
             state.phase == SmsImportPhase.SCANNING -> Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularProgressIndicator(color = Accent)
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("Reading your bank SMS…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (state.fromStatement) "Reading the statement…" else "Reading your bank SMS…",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             else -> ReviewStep(
                 state = state,
@@ -152,8 +167,39 @@ fun SmsImportScreen(
     }
 }
 
+/** Import from a Google Pay statement PDF instead of (or as well as) bank SMS. */
 @Composable
-private fun PermissionStep(onGranted: () -> Unit) {
+private fun StatementImportCard(onPick: (Uri) -> Unit) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(onPick)
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("statement_import_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Google Pay statement (PDF)", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+            Text(
+                "Download it in Google Pay (Profile → Transaction statement), then pick the file here. " +
+                    "No SMS access needed; payments already imported from SMS are skipped.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedButton(
+                onClick = { picker.launch(arrayOf("application/pdf")) },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.testTag("pick_statement_button")
+            ) { Text("Choose PDF", color = Accent) }
+        }
+    }
+}
+
+@Composable
+private fun PermissionStep(onGranted: () -> Unit, error: String? = null, onPickStatement: ((Uri) -> Unit)? = null) {
     val context = LocalContext.current
     var wasDenied by rememberSaveable { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -224,12 +270,18 @@ private fun PermissionStep(onGranted: () -> Unit) {
                 }
             }
         }
+        if (error != null) {
+            item { Text(error, color = MaterialTheme.colorScheme.error) }
+        }
+        if (onPickStatement != null) {
+            item { StatementImportCard(onPick = onPickStatement) }
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
+private fun PeriodStep(error: String?, onScan: (Long) -> Unit, onPickStatement: ((Uri) -> Unit)? = null) {
     // Days to look back, or null when a custom start date is chosen.
     var days by rememberSaveable { mutableStateOf<Int?>(30) }
     var customStart by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -294,6 +346,10 @@ private fun PeriodStep(error: String?, onScan: (Long) -> Unit) {
                     .fillMaxWidth()
                     .testTag("start_scan_button")
             )
+        }
+        if (onPickStatement != null) {
+            item { Spacer(modifier = Modifier.height(Space.s)) }
+            item { StatementImportCard(onPick = onPickStatement) }
         }
     }
 
@@ -364,7 +420,8 @@ private fun ReviewStep(
             if (plan.candidateCount == 0) {
                 item {
                     Text(
-                        "No new Kotak or BOI transactions in this period.",
+                        if (plan.statement != null) "Nothing new in this statement: everything in it is already in Pennywise."
+                        else "No new Kotak or BOI transactions in this period.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -374,7 +431,10 @@ private fun ReviewStep(
                 }
             }
 
-            item { ScanDetailsCard(plan = plan, onTeach = onTeach) }
+            item {
+                val statement = plan.statement
+                if (statement != null) StatementSummaryCard(statement) else ScanDetailsCard(plan = plan, onTeach = onTeach)
+            }
 
             items(plan.groups, key = { it.key }) { group ->
                 GroupCard(
@@ -403,7 +463,7 @@ private fun ReviewStep(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     PwSecondaryButton(
-                        text = "Scan again",
+                        text = if (state.fromStatement) "Start over" else "Scan again",
                         onClick = onStartOver,
                         enabled = !importing,
                         modifier = Modifier.weight(1f)
@@ -451,10 +511,42 @@ private fun ReviewSummary(state: SmsImportState) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Pick a category once per payee; it's remembered for next time. Unticked items will appear again on the next scan.",
+                "Pick a category once per payee; it's remembered for next time. Unticked items will appear again " +
+                    if (state.fromStatement) "if you import this statement again." else "on the next scan.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/** What the statement contained, and whether it adds up to the totals printed on it. */
+@Composable
+private fun StatementSummaryCard(summary: StatementSummary) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = 0.6f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("statement_summary_card")
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(summary.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+            summary.period?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(
+                "${summary.rows} rows · ${Formatters.formatCurrency(summary.paidTotal)} paid · " +
+                    "${Formatters.formatCurrency(summary.receivedTotal)} received" +
+                    if (summary.selfTransfers > 0) " · ${summary.selfTransfers} self transfers" else "",
+                style = MaterialTheme.typography.bodySmall
+            )
+            if (summary.totalsMatch) {
+                Badge(text = "Matches the statement's totals", color = PositiveText)
+            } else {
+                Badge(text = "Doesn't match the statement's totals: check before importing", color = Warning)
+            }
         }
     }
 }

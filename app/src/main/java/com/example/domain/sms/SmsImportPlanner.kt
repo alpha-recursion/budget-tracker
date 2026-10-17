@@ -5,6 +5,8 @@ import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
 import com.example.data.model.TransactionType
 import com.example.domain.VendorMatcher
+import com.example.domain.statement.GPayStatement
+import com.example.domain.statement.StatementRowKind
 import java.security.MessageDigest
 import java.util.Calendar
 import java.util.Locale
@@ -37,7 +39,12 @@ data class ImportCandidate(
      * A reversal whose original payment was already recorded: importing it removes that payment
      * (this is its dedupe key) instead of adding income.
      */
-    val cancelsKey: String? = null
+    val cancelsKey: String? = null,
+    /**
+     * Keys of the other side of a self transfer (the credit into the owner's other account),
+     * recorded too when it is imported as a self transfer, so that alert is not counted later.
+     */
+    val extraKeys: List<String> = emptyList()
 ) {
     val selectedByDefault: Boolean get() = !needsReview && !possibleDuplicate
 
@@ -58,7 +65,8 @@ fun ImportCandidate.toTransaction(category: String): TransactionEntity {
         type = parsed.type.name,
         category = category,
         date = dateMs,
-        note = "From $bank SMS" + (parsed.upiRef?.let { " · UPI Ref $it" } ?: "")
+        note = (parsed.source?.let { "From $it ($bank)" } ?: "From $bank SMS") +
+            (parsed.upiRef?.let { " · UPI Ref $it" } ?: "")
     )
 }
 
@@ -96,10 +104,27 @@ data class ImportPlan(
     val groups: List<ImportGroup>,
     /** Bank transaction messages skipped because they were imported in an earlier scan. */
     val alreadyImportedCount: Int,
-    val stats: ScanStats = ScanStats(0, 0, 0, emptyList())
+    val stats: ScanStats = ScanStats(0, 0, 0, emptyList()),
+    /** Set when the plan came from a statement file rather than the SMS inbox. */
+    val statement: StatementSummary? = null
 ) {
     val candidateCount: Int get() = groups.sumOf { it.items.size }
 }
+
+/** What a statement file contained, shown above its review list. */
+data class StatementSummary(
+    val name: String,
+    val period: String?,
+    val rows: Int,
+    val selfTransfers: Int,
+    val paidTotal: Double,
+    val receivedTotal: Double,
+    /** The rows add up to the totals printed on the statement. */
+    val totalsMatch: Boolean
+)
+
+/** A transaction found in an SMS or statement row, before review. */
+private class Found(val sms: RawSms, val parsed: ParsedBankSms, val key: String, val extraKeys: List<String> = emptyList())
 
 /**
  * Turns inbox messages into a reviewable import plan. Pure Kotlin so every rule is unit tested.
@@ -173,8 +198,6 @@ object SmsImportPlanner {
         // Distinct keys, so an alert the bank sent twice is not counted twice.
         val alreadyImported = HashSet<String>()
 
-        data class Found(val sms: RawSms, val parsed: ParsedBankSms, val key: String)
-
         var fromBankSenders = 0
         var recognised = 0
         val unrecognised = ArrayList<RawSms>()
@@ -206,6 +229,35 @@ object SmsImportPlanner {
                 }
             }
 
+        return buildPlan(
+            allFound = allFound,
+            alreadyImportedCount = alreadyImported.size,
+            stats = ScanStats(
+                messagesRead = messages.size,
+                fromBankSenders = fromBankSenders,
+                recognised = recognised,
+                unrecognised = unrecognised
+            ),
+            alreadyImportedKeys = alreadyImportedKeys,
+            existingTransactions = existingTransactions,
+            rulesByKey = rulesByKey,
+            validCategories = validCategories,
+            timeZone = timeZone
+        )
+    }
+
+    /** Shared by SMS scans and statement imports: reversals, self transfers, grouping, rules. */
+    private fun buildPlan(
+        allFound: List<Found>,
+        alreadyImportedCount: Int,
+        stats: ScanStats,
+        alreadyImportedKeys: Set<String>,
+        existingTransactions: List<TransactionEntity>,
+        rulesByKey: Map<String, MerchantRuleEntity>,
+        validCategories: Set<String>,
+        timeZone: TimeZone,
+        statement: StatementSummary? = null
+    ): ImportPlan {
         // A failed payment and its reversal in the same scan cancel out: neither is offered.
         val foundKeys = allFound.map { it.key }.toHashSet()
         val cancelledInScan = allFound
@@ -243,7 +295,9 @@ object SmsImportPlanner {
                         abs(tx.amount - f.parsed.amount) < 0.005 &&
                         sameLocalDay(tx.date, dateMs, timeZone)
                 },
-                looksLikeSelfTransfer = f.parsed.upiRef != null && f.parsed.upiRef in selfTransferRefs
+                looksLikeSelfTransfer = f.parsed.isSelfTransfer ||
+                    (f.parsed.upiRef != null && f.parsed.upiRef in selfTransferRefs),
+                extraKeys = f.extraKeys
             )
         }
 
@@ -292,15 +346,78 @@ object SmsImportPlanner {
 
         return ImportPlan(
             groups = groups,
+            alreadyImportedCount = alreadyImportedCount,
+            stats = stats,
+            statement = statement
+        )
+    }
+
+    /**
+     * Turns the rows of a Google Pay statement into the same reviewable plan as an SMS scan.
+     * Rows use the SMS dedupe keys (bank + direction + UPI reference), so payments already
+     * imported from SMS are skipped, and a later SMS scan skips what this import added.
+     */
+    fun planStatement(
+        statement: GPayStatement,
+        alreadyImportedKeys: Set<String>,
+        existingTransactions: List<TransactionEntity>,
+        rules: List<MerchantRuleEntity>,
+        validCategories: Set<String>,
+        timeZone: TimeZone = TimeZone.getDefault()
+    ): ImportPlan {
+        val alreadyImported = HashSet<String>()
+        val seenKeys = HashSet<String>()
+        val allFound = statement.rows.sortedByDescending { it.timeMs }.mapNotNull { row ->
+            val parsed = ParsedBankSms(
+                amount = row.amount,
+                type = if (row.kind == StatementRowKind.RECEIVED) TransactionType.INCOME else TransactionType.EXPENSE,
+                counterparty = BankSmsParser.cleanCounterparty(row.counterparty),
+                dayMs = null, // the row's exact time is used instead
+                upiRef = row.upiRef,
+                bank = row.bank,
+                isConfident = true,
+                isSelfTransfer = row.kind == StatementRowKind.SELF_TRANSFER,
+                source = STATEMENT_SOURCE
+            )
+            val source = RawSms(id = 0, sender = STATEMENT_SOURCE, body = "", receivedAt = row.timeMs)
+            val key = dedupeKey(source, parsed)
+            when {
+                key in alreadyImportedKeys -> {
+                    alreadyImported += key
+                    null
+                }
+                !seenKeys.add(key) -> null
+                else -> {
+                    // The credit into the owner's other account carries the same reference.
+                    val otherSide = row.targetBank
+                        ?.takeIf { row.kind == StatementRowKind.SELF_TRANSFER }
+                        ?.let { "ref:${it.name}:${TransactionType.INCOME.name}:${row.upiRef}" }
+                    Found(source, parsed, key, listOfNotNull(otherSide))
+                }
+            }
+        }
+        return buildPlan(
+            allFound = allFound,
             alreadyImportedCount = alreadyImported.size,
-            stats = ScanStats(
-                messagesRead = messages.size,
-                fromBankSenders = fromBankSenders,
-                recognised = recognised,
-                unrecognised = unrecognised
+            stats = ScanStats(statement.rows.size, statement.rows.size, statement.rows.size, emptyList()),
+            alreadyImportedKeys = alreadyImportedKeys,
+            existingTransactions = existingTransactions,
+            rulesByKey = rules.associateBy { it.counterpartyKey },
+            validCategories = validCategories,
+            timeZone = timeZone,
+            statement = StatementSummary(
+                name = STATEMENT_SOURCE,
+                period = statement.period,
+                rows = statement.rows.size,
+                selfTransfers = statement.rows.count { it.kind == StatementRowKind.SELF_TRANSFER },
+                paidTotal = statement.paidTotal,
+                receivedTotal = statement.receivedTotal,
+                totalsMatch = statement.totalsMatch
             )
         )
     }
+
+    const val STATEMENT_SOURCE = "Google Pay statement"
 
     /**
      * The remembered choice for a payee: exact key first, otherwise a rule for the same vendor

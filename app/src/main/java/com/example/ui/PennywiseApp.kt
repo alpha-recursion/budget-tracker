@@ -474,7 +474,10 @@ fun PennywiseApp(
                                     onStartOver = { smsImportViewModel.reset() },
                                     onTeach = { body -> teachText = body },
                                     people = lendingBalances,
-                                    onSetLending = { group, choice -> smsImportViewModel.setGroupLending(group, choice) }
+                                    onSetLending = { group, choice -> smsImportViewModel.setGroupLending(group, choice) },
+                                    onPickStatement = { uri ->
+                                        smsImportViewModel.importStatement(uri, categories.map { it.name }.toSet())
+                                    }
                                 )
 
                                 LENDING_SCREEN -> LendingScreen(

@@ -30,7 +30,11 @@ data class ParsedBankSms(
      * A failed payment given back by the bank. [upiRef] is the reference of the original
      * debit, so the planner can cancel that payment instead of counting the money twice.
      */
-    val isReversal: Boolean = false
+    val isReversal: Boolean = false,
+    /** The source says this was money between the owner's own accounts (statement rows). */
+    val isSelfTransfer: Boolean = false,
+    /** Where it was read when not from an SMS, e.g. "Google Pay statement". */
+    val source: String? = null
 )
 
 /**

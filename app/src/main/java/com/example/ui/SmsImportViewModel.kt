@@ -13,6 +13,10 @@ import com.example.data.repository.PennywiseRepository
 import com.example.data.repository.SmsImportItem
 import com.example.data.sms.AutoCaptureStore
 import com.example.data.sms.SmsInboxReader
+import com.example.data.statement.PdfTextExtractor
+import com.example.domain.statement.GPayStatementParser
+import com.example.domain.statement.StatementFormatException
+import android.net.Uri
 import com.example.domain.DebtKind
 import com.example.domain.Lending
 import com.example.domain.sms.ImportCandidate
@@ -47,7 +51,9 @@ data class SmsImportState(
     /** Start of the last scan, so it can be repeated after teaching a new format. */
     val lastSinceMs: Long? = null,
     /** When the last scan read the inbox: messages arriving later were not part of it. */
-    val scannedAtMs: Long? = null
+    val scannedAtMs: Long? = null,
+    /** The review comes from a statement file, not the SMS inbox. */
+    val fromStatement: Boolean = false
 ) {
     private fun ImportGroup.selectedItems(): List<ImportCandidate> = items.filter { it.dedupeKey in selected }
 
@@ -78,7 +84,8 @@ class SmsImportViewModel(
     application: Application,
     private val repository: PennywiseRepository = PennywiseRepository(PennywiseDatabase.getDatabase(application)),
     private val reader: SmsInboxReader = SmsInboxReader(application),
-    private val captureStore: AutoCaptureStore = AutoCaptureStore(application)
+    private val captureStore: AutoCaptureStore = AutoCaptureStore(application),
+    private val pdfExtractor: PdfTextExtractor = PdfTextExtractor(application)
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -146,6 +153,41 @@ class SmsImportViewModel(
                 _state.value = SmsImportState(error = "SMS access was not granted.")
             } catch (e: Exception) {
                 _state.value = SmsImportState(error = "Could not read SMS: ${e.message ?: "unknown error"}")
+            }
+        }
+    }
+
+    /**
+     * Reads a Google Pay statement PDF and shows its transactions in the same review as an SMS
+     * scan. Needs no SMS permission.
+     */
+    fun importStatement(uri: Uri, validCategories: Set<String>) {
+        if (_state.value.phase == SmsImportPhase.SCANNING || _state.value.phase == SmsImportPhase.IMPORTING) return
+        _state.value = SmsImportState(phase = SmsImportPhase.SCANNING, fromStatement = true)
+        viewModelScope.launch {
+            try {
+                val text = withContext(Dispatchers.IO) { pdfExtractor.extract(uri) }
+                val plan = withContext(Dispatchers.Default) {
+                    SmsImportPlanner.planStatement(
+                        statement = GPayStatementParser.parse(text),
+                        alreadyImportedKeys = repository.smsImportKeys(),
+                        existingTransactions = repository.handEnteredTransactions(),
+                        rules = repository.merchantRules(),
+                        validCategories = validCategories
+                    )
+                }
+                _state.value = SmsImportState(
+                    phase = SmsImportPhase.REVIEW,
+                    plan = plan,
+                    selected = plan.groups.flatMap { g -> g.items.filter { it.selectedByDefault }.map { it.dedupeKey } }.toSet(),
+                    categoryByGroup = plan.groups.associate { it.key to it.suggestedCategory },
+                    selfTransferGroups = plan.groups.filter { it.suggestedSelfTransfer }.map { it.key }.toSet(),
+                    fromStatement = true
+                )
+            } catch (e: StatementFormatException) {
+                _state.value = SmsImportState(error = e.message)
+            } catch (e: Exception) {
+                _state.value = SmsImportState(error = "Couldn't read the statement: ${e.message ?: "unknown error"}")
             }
         }
     }
@@ -245,7 +287,9 @@ class SmsImportViewModel(
                 items += SmsImportItem(
                     dedupeKey = item.dedupeKey,
                     receivedAt = item.receivedAt,
-                    transaction = if (isSelfTransfer) null else item.toTransaction(category)
+                    transaction = if (isSelfTransfer) null else item.toTransaction(category),
+                    // Only a real self transfer has a credit side in the owner's other account.
+                    extraKeys = if (isSelfTransfer) item.extraKeys else emptyList()
                 )
             }
             group.ruleKey?.let { rules += MerchantRuleEntity(it, category, isSelfTransfer) }
