@@ -75,8 +75,11 @@ object GPayStatementParser {
     private class Token(val kind: Kind, val match: MatchResult)
 
     /** Cheap check before parsing: does this text look like a Google Pay statement? */
-    fun looksLikeStatement(text: String): Boolean =
-        UPI.containsMatchIn(text) && text.contains("Transaction statement", ignoreCase = true)
+    fun looksLikeStatement(text: String): Boolean {
+        // Same space handling as parsing: extraction can pad words ("UPI  Transaction ID").
+        val flat = text.replace(WHITESPACE, " ")
+        return UPI.containsMatchIn(flat) && flat.contains("Transaction statement", ignoreCase = true)
+    }
 
     fun parse(text: String, timeZone: TimeZone = TimeZone.getDefault()): GPayStatement {
         if (!looksLikeStatement(text)) {

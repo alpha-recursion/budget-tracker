@@ -19,7 +19,7 @@ class VendorMatcherTest {
 
     @Test
     fun caseSpacesAndSymbolsAreIgnored() {
-        val canonical = VendorMatcher.canonicalNames(listOf("MORNING TEA", "Morning Tea", "Devtea.", "zepto@ybl", "ZEPTO"))
+        val canonical = VendorMatcher.canonicalNames(listOf("MORNING TEA", "Morning Tea", "Morningtea.", "zepto@ybl", "ZEPTO"))
         assertEquals(1, canonical.filterKeys { it.contains("tea", ignoreCase = true) }.values.toSet().size)
         assertEquals(VendorMatcher.compact(canonical.getValue("zepto@ybl")), VendorMatcher.compact(canonical.getValue("ZEPTO")))
     }
