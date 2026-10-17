@@ -4,11 +4,11 @@
 
 Pennywise is a personal Android finance app for someone who pays mostly through UPI
 (GPay, PhonePe, Paytm). It should capture spending automatically, show where money goes
-(merchants, people, subscriptions, bike), manage monthly income/budgets/goals, track money
+(merchants, people, subscriptions), manage monthly income/budgets/goals, track money
 lent to others, and use light game mechanics so it gets opened every day.
 
 - **Capture** — UPI/card spends land in the app automatically or via one import
-- **Understand** — which merchants, people, subscriptions and the bike take money
+- **Understand** — which merchants, people and subscriptions take money
 - **Control** — monthly income, budgets and savings goals
 - **Track people** — who owes money and when they paid it back
 - **Habit** — small game mechanics so the app is used daily, not abandoned
@@ -21,7 +21,9 @@ lent to others, and use light game mechanics so it gets opened every day.
 - **Data import:** all four — bank SMS auto-read, bank statement CSV/Excel,
   PhonePe/Paytm PDF, and manual quick-add
 - **Priorities after Phase 0:** SMS scanning first, then lending tracker, then goals &
-  gamification (subscriptions and vehicle tracking follow later)
+  gamification (subscriptions follow later)
+- **Bike / vehicle costs (5.2): deprecated (Oct 2026)** — dropped from the plan, will not be
+  built. Vehicle parts of the original design below are kept only as history.
 - **SMS samples received:** Kotak UPI debit and BOI UPI debit; Kotak UPI credit, Kotak
   reversal, BOI UPI credit and Kotak credit card bill payment (Oct 2026)
 - **Credits (1.8):** verified credits are ticked in review, and live capture adds them for
@@ -50,7 +52,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 3. Money features | **Lending tracker built** (2.1–2.3): people, lent / got back / borrowed / paid back, balances, due dates and overdue, settle up; SMS and existing transactions can be marked as lending (DB v5). Needs on-device check. |
 | 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
 | 1 | Credit SMS formats (1.8) built: Kotak/BOI credits, reversals, card bill payments ignored. Needs on-device check. |
-| 5 | Recurring payments built (5.1); bike costs (5.2) not started |
+| 5 | Recurring payments built (5.1); bike costs (5.2) deprecated |
 
 ## To-do list
 
@@ -129,13 +131,14 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 4.2 Monthly income and payday: "₹X left · ₹Y a day" for the pay cycle (income minus
       spending and goal deposits since the last payday) and a salary-day card to add it
 
-### 5. Recurring, subscriptions & bike
+### 5. Recurring & subscriptions
 - [x] 5.1 Recurring payments/subscriptions (reminders only, DB v9): weekly / monthly / yearly,
       "Recurring payments" screen (Settings or the Home card), phone alert 3 days before at
       10 AM with its own switch, "still to pay this month" card on Home. Payments that repeat
       in your spending (including imported bank SMS) are suggested for one-tap adding. Needs
       on-device check.
-- [ ] 5.2 Bike costs: fuel, service, insurance, cost per km
+- ~~5.2 Bike costs: fuel, service, insurance, cost per km~~ — **deprecated** (Oct 2026), not
+  planned
 
 ### 6. Statement import & polish
 - [ ] 6.1 Bank CSV/Excel import, then PhonePe/Paytm PDF
@@ -255,11 +258,11 @@ while the number is not registered with the bank cannot be captured or scanned.
  [~] Shows $ instead of ₹          [ ] Income & salary cycle
  [~] Fake demo data                [ ] Recurring + subscriptions
  [!] Data wiped on DB change       [ ] Lend / borrow ledger
-                                   [ ] Vehicle (bike) costs
+                                   [-] Vehicle (bike) costs (deprecated)
                                    [ ] Goals, streaks, badges
                                    [ ] Reminders + backup
 
- [x] works   [~] works but wrong   [!] risky   [ ] to build
+ [x] works   [~] works but wrong   [!] risky   [ ] to build   [-] dropped
 ```
 
 Known gaps in v0.1:
@@ -523,7 +526,7 @@ of resetting to 0; no leaderboards and nothing that nudges risky money behaviour
 | **0. Foundation** | ₹ currency; remove fake data; Room migrations (no data loss); backup/export to file; editable budgets; custom categories | Trusted with real data for a week |
 | **1. Fast manual entry** | Merchants + remembered categories; quick-add chips; recent/favourites; income & salary day; per-category monthly budgets | Logging an expense takes < 5 seconds |
 | **2. Auto-capture** | Bank SMS receiver + parser (owner's banks first); review inbox; dedupe by UPI ref; CSV/Excel statement import | ≥ 80% of spends enter without typing |
-| **3. Money features** | Recurring & subscriptions with reminders; lend/borrow ledger with partial repayments; vehicle costs (fuel, service, cost/km) | All money questions answered in-app |
+| **3. Money features** | Recurring & subscriptions with reminders; lend/borrow ledger with partial repayments; ~~vehicle costs~~ (deprecated) | All money questions answered in-app |
 | **4. Gamification** | Streaks, XP, badges, monthly challenges, savings goals with milestones, month-end report card | Opened daily without forcing it |
 | **5. Polish** | Home-screen widget, insights ("30% more at Swiggy"), optional Gemini for unknown merchants/PDFs, dark mode | Feels finished |
 
