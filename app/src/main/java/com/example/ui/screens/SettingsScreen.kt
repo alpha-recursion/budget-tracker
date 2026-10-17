@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Repeat
 import com.example.domain.Recurring
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -85,6 +86,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.backup.BackupData
 import com.example.data.model.CategoryInfo
+import com.example.domain.OtherFix
 import com.example.domain.sms.SmsBank
 import com.example.domain.sms.SmsTemplate
 import com.example.data.model.TransactionType
@@ -123,7 +125,12 @@ fun SettingsScreen(
     onCelebrationFeedbackChange: (Boolean) -> Unit = {},
     paySummary: String? = null,
     onEditPay: () -> Unit = {},
-    onUpdateCategoryStyle: (category: CategoryInfo, iconKey: String, colorHex: Long) -> Unit = { _, _, _ -> }
+    onUpdateCategoryStyle: (category: CategoryInfo, iconKey: String, colorHex: Long) -> Unit = { _, _, _ -> },
+    /** Suggestions for payments still filed as Other; null while the dialog is closed. */
+    otherFixes: List<OtherFix>? = null,
+    onOpenOtherFixes: () -> Unit = {},
+    onApplyOtherFixes: (List<Pair<OtherFix, String>>) -> Unit = {},
+    onCloseOtherFixes: () -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var showPalette by rememberSaveable { mutableStateOf(false) }
@@ -270,6 +277,15 @@ fun SettingsScreen(
                     onClick = { showPalette = true },
                     modifier = Modifier.testTag("category_palette_button")
                 )
+                PwDivider()
+                SettingsRow(
+                    icon = Icons.Default.AutoFixHigh,
+                    tint = Accent,
+                    title = "Sort out “Other” payments",
+                    subtitle = "Suggest categories from payee names",
+                    onClick = onOpenOtherFixes,
+                    modifier = Modifier.testTag("sort_out_other_button")
+                )
             }
         }
 
@@ -363,6 +379,10 @@ fun SettingsScreen(
             },
             onDismiss = { showEditor = false }
         )
+    }
+
+    otherFixes?.let { fixes ->
+        OtherFixesDialog(fixes = fixes, categories = categories, onApply = onApplyOtherFixes, onDismiss = onCloseOtherFixes)
     }
 
     if (showPalette) {

@@ -12,6 +12,10 @@ import com.example.data.backup.InvalidBackupException
 import com.example.data.backup.PhoneSettingsBackup
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CategoryStyle
+import com.example.domain.AutoCategorizer
+import com.example.domain.AutoSuggestion
+import com.example.domain.CategoryModel
+import com.example.domain.OtherFix
 import com.example.data.local.CategoryStyleStore
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
@@ -80,6 +84,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -146,7 +151,10 @@ class PennywiseViewModel @JvmOverloads constructor(
         repository.customCategories,
         categoryStyleStore.styles
     ) { custom, styles ->
-        CategoryInfo.builtIns.map { builtIn ->
+        // A custom category made before a built-in of the same name existed keeps its look;
+        // the built-in is dropped so the name appears once.
+        val customNames = custom.map { it.name.lowercase() }.toSet()
+        CategoryInfo.builtIns.filterNot { it.name.lowercase() in customNames }.map { builtIn ->
             styles[builtIn.name]?.let { builtIn.copy(iconKey = it.iconKey, colorHex = it.colorHex) } ?: builtIn
         } + custom.map { entity ->
             CategoryInfo(
@@ -316,6 +324,49 @@ class PennywiseViewModel @JvmOverloads constructor(
     // Remembered vendor -> category choices (from SMS imports and saved transactions).
     private val merchantRules: StateFlow<List<MerchantRuleEntity>> = repository.merchantRulesFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    // What the owner's categorised payees teach about payee words, for suggesting categories.
+    private val categoryModel: StateFlow<CategoryModel> = allTransactions
+        .map { CategoryModel.learn(it) }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, CategoryModel.EMPTY)
+
+    // "Sort out Other": payees whose Other payments can now be categorised; null when closed.
+    private val _otherFixes = MutableStateFlow<List<OtherFix>?>(null)
+    val otherFixes: StateFlow<List<OtherFix>?> = _otherFixes
+
+    fun openOtherFixes() {
+        _otherFixes.value = AutoCategorizer.suggestForOther(
+            allTransactions.value,
+            categories.value.map { it.name }.toSet(),
+            categoryModel.value
+        )
+    }
+
+    fun closeOtherFixes() {
+        _otherFixes.value = null
+    }
+
+    /**
+     * Moves the chosen payees' Other payments to the picked categories and remembers each choice,
+     * so future imports of those payees are categorised too.
+     */
+    fun applyOtherFixes(choices: List<Pair<OtherFix, String>>) {
+        _otherFixes.value = null
+        if (choices.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                choices.forEach { (fix, category) ->
+                    repository.setCategory(fix.transactionIds, category)
+                    repository.rememberCategory(fix.type, fix.title, category)
+                }
+                val count = choices.sumOf { it.first.transactionIds.size }
+                showMessage("Categorised $count payment${if (count == 1) "" else "s"}")
+            } catch (e: Exception) {
+                showMessage("Could not update categories. Nothing was changed.")
+            }
+        }
+    }
 
     /** Where the most money went this month, by vendor (similar spellings combined). */
     val topVendors: StateFlow<List<VendorSpend>> = allTransactions
@@ -1278,17 +1329,27 @@ class PennywiseViewModel @JvmOverloads constructor(
         suggestCategoryFor(title)
     }
 
-    /** Pre-selects the remembered category of a known vendor, unless the user chose one already. */
+    /**
+     * Pre-selects a category for the payee being typed, unless the user chose one already: the
+     * remembered choice for a known vendor, otherwise a keyword or learned suggestion.
+     */
     private fun suggestCategoryFor(title: String) {
         if (formCategoryChosenByUser) return
         val type = _formType.value
+        val offered = CategoryInfo.forType(categories.value, type).map { it.name }.toSet()
         val rules = merchantRules.value.associateBy { it.counterpartyKey }
-        val rule = SmsImportPlanner.findRule(type, title, SmsImportPlanner.ruleKey(type, title), rules) ?: return
-        if (rule.isSelfTransfer) return
-        if (CategoryInfo.forType(categories.value, type).any { it.name == rule.category }) {
-            _formCategory.value = rule.category
-            _categoryError.value = null
+        val rule = SmsImportPlanner.findRule(type, title, SmsImportPlanner.ruleKey(type, title), rules)
+        if (rule != null) {
+            if (!rule.isSelfTransfer && rule.category in offered) {
+                _formCategory.value = rule.category
+                _categoryError.value = null
+            }
+            return
         }
+        if (title.trim().length < 3) return
+        val guess = AutoCategorizer.suggest(title, type, offered, categoryModel.value) as? AutoSuggestion.Category ?: return
+        _formCategory.value = guess.name
+        _categoryError.value = null
     }
 
     fun updateFormCategory(category: String) {

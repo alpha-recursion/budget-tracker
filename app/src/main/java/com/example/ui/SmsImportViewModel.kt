@@ -18,6 +18,7 @@ import com.example.domain.statement.GPayStatementParser
 import com.example.domain.statement.StatementFormatException
 import android.net.Uri
 import com.example.domain.DebtKind
+import com.example.domain.CategoryModel
 import com.example.domain.Lending
 import com.example.domain.sms.ImportCandidate
 import com.example.domain.sms.ImportGroup
@@ -118,6 +119,7 @@ class SmsImportViewModel(
             try {
                 val messages = reader.readSince(sinceMs)
                 val templates = repository.smsTemplatesOnce()
+                val history = repository.transactionsAllOnce()
                 val plan = withContext(Dispatchers.Default) {
                     SmsImportPlanner.plan(
                         messages = messages,
@@ -125,7 +127,8 @@ class SmsImportViewModel(
                         existingTransactions = repository.handEnteredTransactions(),
                         rules = repository.merchantRules(),
                         validCategories = validCategories,
-                        templates = templates
+                        templates = templates,
+                        model = CategoryModel.learn(history)
                     )
                 }
                 // Nothing in the period: find when the latest bank alert actually arrived, so the
@@ -167,13 +170,15 @@ class SmsImportViewModel(
         viewModelScope.launch {
             try {
                 val text = withContext(Dispatchers.IO) { pdfExtractor.extract(uri) }
+                val history = repository.transactionsAllOnce()
                 val plan = withContext(Dispatchers.Default) {
                     SmsImportPlanner.planStatement(
                         statement = GPayStatementParser.parse(text),
                         alreadyImportedKeys = repository.smsImportKeys(),
                         existingTransactions = repository.handEnteredTransactions(),
                         rules = repository.merchantRules(),
-                        validCategories = validCategories
+                        validCategories = validCategories,
+                        model = CategoryModel.learn(history)
                     )
                 }
                 _state.value = SmsImportState(

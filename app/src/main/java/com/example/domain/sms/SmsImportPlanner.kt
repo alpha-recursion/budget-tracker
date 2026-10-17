@@ -4,6 +4,9 @@ import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.TransactionEntity
 import com.example.data.model.Category
 import com.example.data.model.TransactionType
+import com.example.domain.AutoCategorizer
+import com.example.domain.AutoSuggestion
+import com.example.domain.CategoryModel
 import com.example.domain.VendorMatcher
 import com.example.domain.statement.GPayStatement
 import com.example.domain.statement.StatementRowKind
@@ -83,8 +86,17 @@ data class ImportGroup(
     /** Other spellings of the same vendor merged into this group (e.g. truncated names). */
     val nameVariants: List<String> = emptyList(),
     /** The owner already chose a (still existing) category or "self transfer" for this payee. */
-    val hasRememberedChoice: Boolean = false
+    val hasRememberedChoice: Boolean = false,
+    /** Category suggested automatically (keywords or learned); null when remembered or none. */
+    val autoCategory: AutoSuggestion.Category? = null,
+    /** The payee looks like a person: no category guessed, the owner picks lending or one. */
+    val isPerson: Boolean = false
 ) {
+    /** Nothing decided the category: no remembered choice, no suggestion, not a transfer. */
+    val needsCategory: Boolean
+        get() = suggestedCategory == Category.OTHER.displayName && !hasRememberedChoice &&
+            !suggestedSelfTransfer && !isPerson && !cancelsPayment
+
     /** A reversal that cancels an earlier payment: no category or lending choice applies. */
     val cancelsPayment: Boolean get() = items.all { it.cancelsKey != null }
 }
@@ -191,7 +203,9 @@ object SmsImportPlanner {
         rules: List<MerchantRuleEntity>,
         validCategories: Set<String>,
         timeZone: TimeZone = TimeZone.getDefault(),
-        templates: List<SmsTemplate> = emptyList()
+        templates: List<SmsTemplate> = emptyList(),
+        /** What the owner's categorised payees taught, for suggesting new payees' categories. */
+        model: CategoryModel = CategoryModel.EMPTY
     ): ImportPlan {
         val rulesByKey = rules.associateBy { it.counterpartyKey }
         val seenKeys = HashSet<String>()
@@ -242,7 +256,8 @@ object SmsImportPlanner {
             existingTransactions = existingTransactions,
             rulesByKey = rulesByKey,
             validCategories = validCategories,
-            timeZone = timeZone
+            timeZone = timeZone,
+            model = model
         )
     }
 
@@ -256,7 +271,8 @@ object SmsImportPlanner {
         rulesByKey: Map<String, MerchantRuleEntity>,
         validCategories: Set<String>,
         timeZone: TimeZone,
-        statement: StatementSummary? = null
+        statement: StatementSummary? = null,
+        model: CategoryModel = CategoryModel.EMPTY
     ): ImportPlan {
         // A failed payment and its reversal in the same scan cancel out: neither is offered.
         val foundKeys = allFound.map { it.key }.toHashSet()
@@ -329,20 +345,40 @@ object SmsImportPlanner {
                 // Update the existing rule for this vendor rather than adding a second spelling:
                 // two rules for one vendor would make the next spelling ambiguous.
                 val ruleKey = rule?.counterpartyKey ?: canonicalKey
-                val category = rule?.category?.takeIf { it in validCategories } ?: Category.OTHER.displayName
+                val remembered = rule?.takeIf { !it.isSelfTransfer }?.category?.takeIf { it in validCategories }
+                val selfTransfer = rule?.isSelfTransfer == true || items.all { it.looksLikeSelfTransfer }
+                // Nobody chose a category for this payee yet: suggest one from keywords or what
+                // the owner taught (reversals and transfers need none).
+                val auto = if (remembered == null && !selfTransfer && canonical != null && items.none { it.cancelsKey != null }) {
+                    AutoCategorizer.suggest(canonical, type, validCategories, model)
+                } else {
+                    null
+                }
+                val guessed = auto as? AutoSuggestion.Category
                 ImportGroup(
                     key = key,
                     title = canonical ?: first.title,
                     type = type,
                     ruleKey = ruleKey,
                     items = items,
-                    suggestedCategory = category,
-                    suggestedSelfTransfer = rule?.isSelfTransfer == true || items.all { it.looksLikeSelfTransfer },
+                    suggestedCategory = remembered ?: guessed?.name ?: Category.OTHER.displayName,
+                    suggestedSelfTransfer = selfTransfer,
                     nameVariants = items.map { it.title }.distinct().filter { it != canonical },
-                    hasRememberedChoice = rule != null && (rule.isSelfTransfer || rule.category in validCategories)
+                    hasRememberedChoice = rule != null && (rule.isSelfTransfer || rule.category in validCategories),
+                    autoCategory = guessed,
+                    isPerson = auto is AutoSuggestion.Person
                 )
             }
-            .sortedByDescending { group -> group.items.maxOf { it.dateMs } }
+            // Groups still needing a decision first, then people, then the rest; newest first within each.
+            .sortedWith(
+                compareBy<ImportGroup> { group ->
+                    when {
+                        group.needsCategory -> 0
+                        group.isPerson -> 1
+                        else -> 2
+                    }
+                }.thenByDescending { group -> group.items.maxOf { it.dateMs } }
+            )
 
         return ImportPlan(
             groups = groups,
@@ -363,7 +399,8 @@ object SmsImportPlanner {
         existingTransactions: List<TransactionEntity>,
         rules: List<MerchantRuleEntity>,
         validCategories: Set<String>,
-        timeZone: TimeZone = TimeZone.getDefault()
+        timeZone: TimeZone = TimeZone.getDefault(),
+        model: CategoryModel = CategoryModel.EMPTY
     ): ImportPlan {
         val alreadyImported = HashSet<String>()
         val seenKeys = HashSet<String>()
@@ -413,7 +450,8 @@ object SmsImportPlanner {
                 paidTotal = statement.paidTotal,
                 receivedTotal = statement.receivedTotal,
                 totalsMatch = statement.totalsMatch
-            )
+            ),
+            model = model
         )
     }
 

@@ -53,6 +53,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
 | 1 | Credit SMS formats (1.8) built: Kotak/BOI credits, reversals, card bill payments ignored. Needs on-device check. |
 | 5 | Recurring payments built (5.1); bike costs (5.2) deprecated |
+| 10 | Auto-categorise built: keywords, learning from your choices, Person detection, 4 new categories, "Sort out Other". Needs on-device check. |
 | 9 | Smaller gaps built: full backup/erase, "Overspent" tag, custom keypad, category palette. Needs on-device check. |
 
 ## To-do list
@@ -209,6 +210,26 @@ Slices, each committed separately so it can be built and checked before the next
 - [x] 9.4 Category palette: 12 v4 colours (also used for goals); Settings → Categories →
       "Colours & icons" changes the icon and colour of any category, built-in or custom
       (built-ins have Reset); tapping a custom category opens the same editor
+
+### 10. Auto-categorise (built Oct 2026, needs on-device check)
+Owner decisions: offline only for now (AI later, see "Firebase & AI options" below); four finer
+built-in categories; people are marked, not guessed; existing "Other" payments fixed with a review.
+- [x] 10.1 New built-in categories: Tea & Snacks (incl. paan), Groceries, Fuel & Vehicle, Mobile &
+      Recharge. A custom category with the same name keeps its look (the built-in is hidden).
+- [x] 10.2 Suggestion order for a payee nobody categorised yet: remembered choice → built-in
+      Indian keywords ("pharmacy" → Healthcare, "pan shop" → Tea & Snacks, "petrol" → Fuel &
+      Vehicle, Zepto → Groceries, Jio → Mobile & Recharge, …; falls back to a broader category if
+      the finer one was deleted) → strong learned match → "Person" (2–4 plain words or Mr/Mrs, no
+      business word) → weaker learned match.
+- [x] 10.3 Learning from the owner's own categories (no extra storage): words and two-word phrases
+      of categorised business payees ("pan shop" after one pan shop is filed), at least 75%
+      agreement; person names are never learned from.
+- [x] 10.4 Import review (SMS and statements): categories pre-filled with "Auto · matched “…”"
+      or "Person · choose Lending or a category"; payees still needing a category listed first;
+      summary counts. Guesses never trigger automatic live capture (only remembered choices do).
+- [x] 10.5 Add form: unknown payees get a keyword / learned suggestion while typing.
+- [x] 10.6 Settings → Categories → "Sort out “Other” payments": suggestions per payee, change or
+      untick, apply; each choice is remembered for future imports.
 
 ## SMS import design
 

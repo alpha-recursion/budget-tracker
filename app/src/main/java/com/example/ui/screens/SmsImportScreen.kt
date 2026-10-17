@@ -72,6 +72,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.example.data.model.CategoryInfo
 import com.example.data.model.TransactionType
 import com.example.domain.sms.ImportCandidate
+import com.example.domain.GuessSource
 import com.example.domain.sms.ImportGroup
 import com.example.domain.sms.StatementSummary
 import com.example.ui.SmsImportPhase
@@ -509,6 +510,20 @@ private fun ReviewSummary(state: SmsImportState) {
                 if (state.selectedLending > 0) " · ${Formatters.formatCurrency(state.selectedLending)} lending" else "",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
             )
+            val autoFilled = plan.groups.count { it.autoCategory != null }
+            val needed = plan.groups.count { it.needsCategory }
+            if (autoFilled > 0 || needed > 0) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    listOfNotNull(
+                        autoFilled.takeIf { it > 0 }?.let { "$it payee${if (it == 1) "" else "s"} categorised automatically" },
+                        needed.takeIf { it > 0 }?.let { "$it still need${if (it == 1) "s" else ""} a category (listed first)" }
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Accent,
+                    modifier = Modifier.testTag("auto_summary")
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 "Pick a category once per payee; it's remembered for next time. Unticked items will appear again " +
@@ -608,6 +623,27 @@ private fun GroupCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // Why the category is pre-filled (only while the owner has not changed it).
+                    val auto = group.autoCategory
+                    val autoNote = when {
+                        lending != null || isSelfTransfer -> null
+                        auto != null && category == auto.name -> when (auto.source) {
+                            GuessSource.KEYWORD -> "Auto · matched “${auto.matched}”"
+                            GuessSource.LEARNED -> "Auto · like your other “${auto.matched}” payments"
+                        }
+                        group.isPerson && category == group.suggestedCategory -> "Person · choose Lending or a category"
+                        else -> null
+                    }
+                    if (autoNote != null) {
+                        Text(
+                            autoNote,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.testTag("auto_note_${group.key}")
+                        )
+                    }
                     if (group.nameVariants.isNotEmpty()) {
                         // Same vendor, name cut differently by the bank.
                         Text(

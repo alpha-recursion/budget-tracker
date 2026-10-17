@@ -244,6 +244,7 @@ fun PennywiseApp(
     // Text of the SMS being taught as a new format; null when the dialog is closed.
     var teachText by rememberSaveable { mutableStateOf<String?>(null) }
     val smsTemplates by viewModel.smsTemplates.collectAsStateWithLifecycle()
+    val otherFixes by viewModel.otherFixes.collectAsStateWithLifecycle()
 
     val openSmsImport = {
         // Always start from a fresh scan so an old preview is never shown.
@@ -425,6 +426,10 @@ fun PennywiseApp(
                                     onCreateCategory = viewModel::addCustomCategory,
                                     onDeleteCategory = { viewModel.deleteCustomCategory(it) },
                                     onUpdateCategoryStyle = viewModel::updateCategoryStyle,
+                                    otherFixes = otherFixes,
+                                    onOpenOtherFixes = { viewModel.openOtherFixes() },
+                                    onApplyOtherFixes = { viewModel.applyOtherFixes(it) },
+                                    onCloseOtherFixes = { viewModel.closeOtherFixes() },
                                     pendingRestore = pendingRestore,
                                     onExportBackup = { viewModel.exportBackup(it) },
                                     onPickBackup = { viewModel.readBackup(it) },
