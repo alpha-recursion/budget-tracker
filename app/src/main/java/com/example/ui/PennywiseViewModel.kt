@@ -12,6 +12,7 @@ import com.example.data.backup.InvalidBackupException
 import com.example.data.backup.PhoneSettingsBackup
 import com.example.data.local.BudgetEntity
 import com.example.data.local.CategoryStyle
+import com.example.data.local.AppLockStore
 import com.example.domain.AutoCategorizer
 import com.example.domain.AutoSuggestion
 import com.example.domain.CategoryModel
@@ -1302,6 +1303,22 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     private val phoneSettings = PhoneSettingsBackup(application)
+
+    private val appLockStore = AppLockStore(application)
+    val appLockEnabled: StateFlow<Boolean> = appLockStore.enabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, appLockStore.isEnabled())
+
+    /** False when the phone has no screen lock to unlock with. */
+    fun isAppLockAvailable(): Boolean = appLockStore.isAvailable()
+
+    fun setAppLock(enabled: Boolean) {
+        if (enabled && !appLockStore.isAvailable()) {
+            showMessage("Set a screen lock on your phone first (Settings → Security)")
+            return
+        }
+        appLockStore.setEnabled(enabled)
+        showMessage(if (enabled) "App lock on: unlock with your fingerprint or phone PIN" else "App lock off")
+    }
 
     fun exportBackup(uri: Uri) {
         viewModelScope.launch {

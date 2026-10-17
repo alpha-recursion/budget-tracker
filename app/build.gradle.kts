@@ -16,8 +16,8 @@ android {
     applicationId = "com.aistudio.pennywise.vapp"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.0.0"
+    versionCode = 3
+    versionName = "1.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -127,6 +127,8 @@ dependencies {
   implementation(libs.okhttp)
   // Reads text from PDF statements (Google Pay) on the phone, offline.
   implementation(libs.pdfbox.android)
+  // App lock: unlock with fingerprint, face or the phone's own PIN.
+  implementation(libs.androidx.biometric)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)

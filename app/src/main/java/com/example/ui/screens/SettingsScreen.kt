@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Repeat
 import com.example.domain.Recurring
@@ -130,7 +131,9 @@ fun SettingsScreen(
     otherFixes: List<OtherFix>? = null,
     onOpenOtherFixes: () -> Unit = {},
     onApplyOtherFixes: (List<Pair<OtherFix, String>>) -> Unit = {},
-    onCloseOtherFixes: () -> Unit = {}
+    onCloseOtherFixes: () -> Unit = {},
+    appLockEnabled: Boolean = false,
+    onAppLockChange: (Boolean) -> Unit = {}
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
     var showPalette by rememberSaveable { mutableStateOf(false) }
@@ -231,6 +234,31 @@ fun SettingsScreen(
                     Switch(
                         checked = celebrationFeedback,
                         onCheckedChange = onCelebrationFeedbackChange,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = Accent,
+                            checkedThumbColor = SurfaceWhite,
+                            uncheckedTrackColor = Outline,
+                            uncheckedThumbColor = SurfaceWhite,
+                            uncheckedBorderColor = Outline
+                        )
+                    )
+                }
+            }
+        }
+
+        item { GroupLabel("Privacy") }
+        item {
+            PwCard(contentPadding = PaddingValues(vertical = Space.xs)) {
+                PwListRow(
+                    title = "App lock",
+                    subtitle = "Unlock with fingerprint, face or phone PIN; hides the app in recent apps",
+                    leading = { PwIconBadge(Icons.Default.Lock, Accent, size = 32.dp) },
+                    onClick = { onAppLockChange(!appLockEnabled) },
+                    modifier = Modifier.testTag("settings_app_lock_row")
+                ) {
+                    Switch(
+                        checked = appLockEnabled,
+                        onCheckedChange = onAppLockChange,
                         colors = SwitchDefaults.colors(
                             checkedTrackColor = Accent,
                             checkedThumbColor = SurfaceWhite,

@@ -249,6 +249,7 @@ fun PennywiseApp(
     var teachText by rememberSaveable { mutableStateOf<String?>(null) }
     val smsTemplates by viewModel.smsTemplates.collectAsStateWithLifecycle()
     val otherFixes by viewModel.otherFixes.collectAsStateWithLifecycle()
+    val appLockEnabled by viewModel.appLockEnabled.collectAsStateWithLifecycle()
 
     val openSmsImport = {
         // Always start from a fresh scan so an old preview is never shown.
@@ -446,6 +447,8 @@ fun PennywiseApp(
                                     onOpenOtherFixes = { viewModel.openOtherFixes() },
                                     onApplyOtherFixes = { viewModel.applyOtherFixes(it) },
                                     onCloseOtherFixes = { viewModel.closeOtherFixes() },
+                                    appLockEnabled = appLockEnabled,
+                                    onAppLockChange = { viewModel.setAppLock(it) },
                                     pendingRestore = pendingRestore,
                                     onExportBackup = { viewModel.exportBackup(it) },
                                     onPickBackup = { viewModel.readBackup(it) },
