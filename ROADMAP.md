@@ -47,6 +47,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 
 | Phase | Status |
 |---|---|
+| **MVP v1.0.0** | **Released Oct 2026** (tag `v1.0`): first local build compiles, 210/210 unit tests pass. Next: Play Store prep or 6.1b / 11 (see Next actions). |
 | 0. Foundation | **Built** — ₹ currency, demo data removed, safe DB migrations (v2), custom categories, editable budgets, JSON backup / restore / erase. Needs on-device check. |
 | 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). **Live capture built** (1.5): known payees added automatically, the rest wait for review. Verified credit formats (1.8) pending. Needs on-device check. |
 | 3. Money features | **Lending tracker built** (2.1–2.3): people, lent / got back / borrowed / paid back, balances, due dates and overdue, settle up; SMS and existing transactions can be marked as lending (DB v5). Needs on-device check. |
