@@ -53,6 +53,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
 | 1 | Credit SMS formats (1.8) built: Kotak/BOI credits, reversals, card bill payments ignored. Needs on-device check. |
 | 5 | Recurring payments built (5.1); bike costs (5.2) deprecated |
+| 13 | Savings plan (50/30/20 etc.), savings held back, month-end "Move to Savings", payday picker fix. Needs on-device check. |
 | 12 | Safe-to-spend Today strip, compact check-in, salary-based budgets. Needs on-device check. |
 | 10 | Auto-categorise built: keywords, learning from your choices, Person detection, 4 new categories, "Sort out Other". Needs on-device check. |
 | 9 | Smaller gaps built: full backup/erase, "Overspent" tag, custom keypad, category palette. Needs on-device check. |
@@ -248,6 +249,27 @@ ideas for later).
       more than 70% of income in total (at least 30% saved), rounded down to ₹100. Set
       automatically the first time income is saved with no budgets; Insights → Budgets →
       "Suggest from my salary" previews and applies them again (other budgets kept).
+
+### 13. Savings plan (built Oct 2026, needs on-device check)
+Owner decisions: 50/30/20 by default (changeable); savings go to an automatic "Savings" goal;
+unspent money at the end of a pay cycle is offered with one tap, never moved silently. Based on
+the common rules: 50/30/20 (needs / wants / savings), 60/20/20 for high rent, 70/20/10, and
+"pay yourself first" (save before spending).
+- [x] 13.1 Savings plan in Income & payday: 50/30/20, Save half (40/10/50), 60/20/20, 70/20/10
+      (70% living split 55 needs / 15 wants, 10% debt or giving not budgeted), with a live
+      "₹X needs · ₹Y wants · ₹Z saved first" preview. Stored with pay settings and in backups.
+- [x] 13.2 Savings are taken off the top: safe-to-spend uses income minus the savings target;
+      Insights → Budgets shows "₹X a month saved first (50/30/20)".
+- [x] 13.3 Suggested budgets follow the plan: needs categories (rent, groceries, bills, health,
+      transport, fuel, mobile) share the needs part, wants (food, shopping, tea & snacks,
+      entertainment, custom, Other) the wants part; usual spend trimmed 10% or a starter split;
+      a group never exceeds its share and anything not budgeted is saved too.
+- [x] 13.4 End of a pay cycle: a Home card "₹X unspent last pay cycle · Move" (income − spending −
+      money already moved to goals that cycle); Move puts it in the "Savings" goal (created the
+      first time, aiming at a year of the target); Not now hides it for that cycle. Not offered
+      when nothing was recorded in that cycle.
+- [x] 13.5 Fix: payday picker showed only the first digit of 10–31 (chips too narrow); now round
+      day cells.
 
 ### 11. Firebase & AI options (proposed, not started)
 Discussed Oct 2026; nothing here is built. The build already lists Firebase libraries from the

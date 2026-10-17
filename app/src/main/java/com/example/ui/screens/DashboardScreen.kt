@@ -66,6 +66,10 @@ import com.example.domain.Goals
 import com.example.domain.HomeSpend
 import com.example.domain.PayCycleStatus
 import com.example.domain.SafeToSpend
+import androidx.compose.ui.text.font.FontWeight
+import com.example.ui.theme.PositiveSoft
+import androidx.compose.material3.TextButton
+import com.example.domain.CycleLeftover
 import com.example.domain.PersonBalance
 import com.example.domain.QuickChip
 import com.example.domain.ReportCard
@@ -153,7 +157,11 @@ fun DashboardScreen(
     onDismissSalary: () -> Unit = {},
     onEditPay: () -> Unit = {},
     /** What is safe to spend today; null without income or budgets. */
-    safeToSpend: SafeToSpend? = null
+    safeToSpend: SafeToSpend? = null,
+    /** Last pay cycle's unspent money, offered once; null when there is none. */
+    cycleLeftover: CycleLeftover? = null,
+    onMoveLeftover: () -> Unit = {},
+    onDismissLeftover: () -> Unit = {}
 ) {
     var periodIndex by rememberSaveable { mutableIntStateOf(SpendPeriod.MONTH.ordinal) }
     val period = SpendPeriod.entries[periodIndex]
@@ -187,6 +195,12 @@ fun DashboardScreen(
         item(key = "daily_review") {
             Spacer(modifier = Modifier.height(Space.m))
             TodayCard(review = dailyReview, safe = safeToSpend, onConfirm = onConfirmDailyReview, onSetIncome = onEditPay)
+        }
+        cycleLeftover?.let { leftover ->
+            item(key = "leftover") {
+                Spacer(modifier = Modifier.height(Space.s))
+                LeftoverCard(leftover, onMoveLeftover, onDismissLeftover)
+            }
         }
 
         item(key = "budget") {
@@ -797,4 +811,43 @@ private fun SmallOutlineButton(text: String, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = Space.m, vertical = 7.dp)
     )
+}
+
+/** "You didn't spend ₹X last pay cycle": one tap moves it into the Savings goal. */
+@Composable
+private fun LeftoverCard(leftover: CycleLeftover, onMove: () -> Unit, onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(PositiveSoft)
+            .padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp)
+            .testTag("leftover_card"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.Savings, contentDescription = null, tint = PositiveText, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "${Formatters.formatWholeRupees(leftover.amount)} unspent last pay cycle",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = Ink
+            )
+            Text("Move it to Savings so it isn't spent", style = MaterialTheme.typography.labelSmall, color = InkSecondary)
+        }
+        TextButton(onClick = onDismiss, modifier = Modifier.testTag("leftover_dismiss")) {
+            Text("Not now", color = InkSecondary, style = MaterialTheme.typography.labelMedium)
+        }
+        Text(
+            "Move",
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = SurfaceWhite,
+            modifier = Modifier
+                .clip(PillShape)
+                .background(PositiveText)
+                .clickable(onClick = onMove)
+                .padding(horizontal = 14.dp, vertical = 8.dp)
+                .testTag("leftover_move")
+        )
+    }
 }

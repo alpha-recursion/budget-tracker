@@ -116,6 +116,8 @@ fun AnalyticsScreen(
     /** Suggested budgets being previewed; null when closed. */
     budgetSuggestion: List<BudgetEntity>? = null,
     monthlyIncome: Double = 0.0,
+    /** "₹6,000 a month saved first (50/30/20)"; null without a salary. */
+    savingsNote: String? = null,
     onApplyBudgetSuggestion: () -> Unit = {},
     onDismissBudgetSuggestion: () -> Unit = {}
 ) {
@@ -177,14 +179,15 @@ fun AnalyticsScreen(
                 monthMs = ref,
                 onAdd = { budgetEditorTarget = NEW_BUDGET },
                 onEdit = { budgetEditorTarget = it },
-                onSuggest = onSuggestBudgets
+                onSuggest = onSuggestBudgets,
+                savingsNote = savingsNote
             )
         }
         item { TopVendorsCard(monthVendors) }
     }
 
     budgetSuggestion?.let { suggestion ->
-        BudgetSuggestionDialog(suggestion, monthlyIncome, onApplyBudgetSuggestion, onDismissBudgetSuggestion)
+        BudgetSuggestionDialog(suggestion, monthlyIncome, savingsNote, onApplyBudgetSuggestion, onDismissBudgetSuggestion)
     }
 
     budgetEditorTarget?.let { target ->
@@ -276,7 +279,8 @@ private fun BudgetsCard(
     monthMs: Long,
     onAdd: () -> Unit,
     onEdit: (String) -> Unit,
-    onSuggest: (() -> Unit)?
+    onSuggest: (() -> Unit)?,
+    savingsNote: String? = null
 ) {
     PwCard(contentPadding = PaddingValues(vertical = Space.l)) {
         PwSectionTitle(
@@ -288,6 +292,17 @@ private fun BudgetsCard(
                 .padding(horizontal = Space.xl)
                 .testTag("add_budget_button")
         )
+        if (savingsNote != null) {
+            Text(
+                savingsNote,
+                style = MaterialTheme.typography.labelMedium,
+                color = PositiveText,
+                modifier = Modifier
+                    .padding(horizontal = Space.xl)
+                    .padding(top = Space.xs)
+                    .testTag("savings_target_note")
+            )
+        }
         if (onSuggest != null && statuses.isNotEmpty()) {
             Text(
                 "Suggest from my salary",
@@ -469,6 +484,7 @@ private fun CategoryRowsCard(breakdowns: List<CategoryBreakdown>) {
 private fun BudgetSuggestionDialog(
     suggestion: List<BudgetEntity>,
     monthlyIncome: Double,
+    savingsNote: String?,
     onApply: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -480,8 +496,9 @@ private fun BudgetSuggestionDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    "Based on your usual spending trimmed by 10%, or a starter split when there is no history yet. " +
-                        "At most 70% of your salary is budgeted, so at least 30% is saved.",
+                    "Savings come off the top: " + (savingsNote ?: "a share of your salary") + ". Needs and wants get " +
+                        "their share, split by your usual spending trimmed by 10% (or a starter split without history); " +
+                        "anything not budgeted is saved too.",
                     style = MaterialTheme.typography.bodySmall,
                     color = InkSecondary
                 )

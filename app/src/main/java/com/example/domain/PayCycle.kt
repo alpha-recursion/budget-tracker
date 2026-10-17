@@ -8,8 +8,16 @@ import java.util.TimeZone
 import kotlin.math.roundToLong
 
 /** Monthly income and the day of the month it arrives (1-31; short months use their last day). */
-data class PaySettings(val monthlyIncome: Double = 0.0, val payday: Int = 0) {
+data class PaySettings(
+    val monthlyIncome: Double = 0.0,
+    val payday: Int = 0,
+    /** How income is split into needs, wants and savings. */
+    val strategy: SavingsStrategy = SavingsStrategy.DEFAULT
+) {
     val isSet: Boolean get() = monthlyIncome > 0.0 && payday in 1..31
+
+    /** Saved first each cycle and never shown as spendable. */
+    val savingsTarget: Double get() = if (monthlyIncome > 0) monthlyIncome * strategy.savings else 0.0
 }
 
 data class PayCycleStatus(

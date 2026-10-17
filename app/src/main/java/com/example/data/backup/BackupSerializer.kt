@@ -22,6 +22,7 @@ import com.example.data.local.CategoryStyle
 import com.example.domain.PaySettings
 import com.example.domain.QuickPin
 import com.example.domain.RoundUpSettings
+import com.example.domain.SavingsStrategy
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -246,6 +247,8 @@ object BackupSerializer {
         .put("monthlyIncome", s.planning.pay.monthlyIncome)
         .put("payday", s.planning.pay.payday)
         .put("salaryDismissedCycle", s.planning.salaryDismissedCycle)
+        .put("savingsStrategy", s.planning.pay.strategy.name)
+        .put("savingsHandledCycle", s.planning.savingsHandledCycle)
         .put("roundUps", JSONObject()
             .put("enabled", s.roundUps.enabled)
             .put("unit", s.roundUps.unit)
@@ -273,9 +276,11 @@ object BackupSerializer {
                 hidden = o.optJSONArray("quickHidden")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet(),
                 pay = PaySettings(
                     monthlyIncome = o.optDouble("monthlyIncome", 0.0).takeIf { it >= 0 } ?: 0.0,
-                    payday = o.optInt("payday", 0).takeIf { it in 0..31 } ?: 0
+                    payday = o.optInt("payday", 0).takeIf { it in 0..31 } ?: 0,
+                    strategy = SavingsStrategy.fromName(o.optString("savingsStrategy", ""))
                 ),
-                salaryDismissedCycle = o.optLong("salaryDismissedCycle", 0L)
+                salaryDismissedCycle = o.optLong("salaryDismissedCycle", 0L),
+                savingsHandledCycle = o.optLong("savingsHandledCycle", 0L)
             ),
             roundUps = if (round == null) defaults else RoundUpSettings(
                 enabled = round.optBoolean("enabled", defaults.enabled),

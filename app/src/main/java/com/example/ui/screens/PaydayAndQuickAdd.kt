@@ -3,6 +3,19 @@ package com.example.ui.screens
 import com.example.domain.InputGuard
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import com.example.ui.components.PwChip
+import com.example.domain.SavingsStrategy
+import com.example.ui.theme.PositiveText
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import com.example.ui.theme.Hairline
+import com.example.ui.theme.Navy
+import com.example.ui.theme.SurfaceWhite
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +61,6 @@ import com.example.domain.PayCycleStatus
 import com.example.domain.PaySettings
 import com.example.domain.QuickChip
 import com.example.ui.components.PwCard
-import com.example.ui.components.PwChip
 import com.example.ui.components.PwIconBadge
 import com.example.ui.components.PwPrimaryButton
 import com.example.ui.components.PwSecondaryButton
@@ -244,15 +256,20 @@ fun SalaryCard(amount: Double, onAdd: () -> Unit, onDifferent: () -> Unit, onDis
 
 /** Monthly income and payday (day of the month). */
 @Composable
-fun PaySettingsDialog(current: PaySettings, onSave: (income: Double, payday: Int) -> Unit, onDismiss: () -> Unit) {
+fun PaySettingsDialog(
+    current: PaySettings,
+    onSave: (income: Double, payday: Int, strategy: SavingsStrategy) -> Unit,
+    onDismiss: () -> Unit
+) {
     var incomeText by rememberSaveable {
         mutableStateOf(if (current.monthlyIncome > 0) current.monthlyIncome.toLong().toString() else "")
     }
     var payday by rememberSaveable { mutableStateOf(current.payday.takeIf { it in 1..31 } ?: 1) }
+    var strategy by rememberSaveable { mutableStateOf(current.strategy) }
     val error = FormValidation.validateAmount(incomeText).errorOrNull
     LendingDialogFrame(title = "Income & payday", onDismiss = onDismiss, tag = "pay_settings_dialog") {
         Text(
-            "Used for \"left until payday\" and the salary reminder. Nothing is added to your transactions by itself.",
+            "Used for safe-to-spend, suggested budgets and the salary reminder. Nothing is added to your transactions by itself.",
             style = MaterialTheme.typography.bodySmall,
             color = InkSecondary
         )
@@ -270,8 +287,27 @@ fun PaySettingsDialog(current: PaySettings, onSave: (income: Double, payday: Int
         (1..31).chunked(7).forEach { week ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                 week.forEach { d ->
-                    Box(modifier = Modifier.weight(1f)) {
-                        PwChip(text = "$d", selected = payday == d, onClick = { payday = d }, modifier = Modifier.fillMaxWidth())
+                    // A round cell without side padding: chips clipped "10"-"31" to one digit.
+                    val selected = payday == d
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .clip(CircleShape)
+                            .background(if (selected) Navy else SurfaceWhite)
+                            .border(1.dp, if (selected) Navy else Hairline, CircleShape)
+                            .clickable { payday = d }
+                            .semantics { contentDescription = "Day $d" + if (selected) ", selected" else "" }
+                            .testTag("payday_$d")
+                    ) {
+                        Text(
+                            "$d",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            color = if (selected) SurfaceWhite else Ink,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
                 repeat(7 - week.size) { Spacer(modifier = Modifier.weight(1f)) }
@@ -280,10 +316,38 @@ fun PaySettingsDialog(current: PaySettings, onSave: (income: Double, payday: Int
         if (payday > 28) {
             Text("In shorter months, the last day of the month counts.", style = MaterialTheme.typography.labelSmall, color = InkTertiary)
         }
+        // Savings come off the top each month and are never shown as spendable.
+        Text("Savings plan", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState())
+        ) {
+            SavingsStrategy.entries.forEach { option ->
+                PwChip(
+                    text = option.label,
+                    selected = strategy == option,
+                    onClick = { strategy = option },
+                    modifier = Modifier.testTag("strategy_${option.name}")
+                )
+            }
+        }
+        val income = FormValidation.parseAmount(incomeText)
+        Text(
+            if (income != null && income > 0) {
+                "${Formatters.formatWholeRupees(income * strategy.needs)} needs · " +
+                    "${Formatters.formatWholeRupees(income * strategy.wants)} wants · " +
+                    "${Formatters.formatWholeRupees(income * strategy.savings)} saved first"
+            } else {
+                strategy.description
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = PositiveText,
+            modifier = Modifier.testTag("strategy_preview")
+        )
         DialogButtons(
             confirm = "Save",
             enabled = error == null,
-            onConfirm = { FormValidation.parseAmount(incomeText)?.let { onSave(it, payday) } },
+            onConfirm = { FormValidation.parseAmount(incomeText)?.let { onSave(it, payday, strategy) } },
             onDismiss = onDismiss
         )
     }

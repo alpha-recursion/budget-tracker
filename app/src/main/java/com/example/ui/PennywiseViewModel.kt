@@ -19,6 +19,9 @@ import com.example.domain.OtherFix
 import com.example.domain.BudgetPlanner
 import com.example.domain.SafeToSpend
 import com.example.domain.SafeToSpendCalculator
+import com.example.domain.SavingsStrategy
+import com.example.domain.CycleLeftover
+import com.example.domain.CycleSavings
 import com.example.data.local.CategoryStyleStore
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
@@ -123,6 +126,9 @@ class PennywiseViewModel @JvmOverloads constructor(
 ) : AndroidViewModel(application) {
 
     companion object {
+        /** Goal that unspent money is moved into at the end of a pay cycle. */
+        const val SAVINGS_GOAL_NAME = "Savings"
+
         private const val MAX_CHALLENGES_PER_MONTH = 3
         private const val QUICK_ADD_REPEAT_GUARD_MS = 3_000L
         private const val REPEAT_GUARD_MS = 2_000L
@@ -773,18 +779,76 @@ class PennywiseViewModel @JvmOverloads constructor(
         prefs.copy(pins = prefs.pins.filterNot { it.key == chip.key }, hidden = prefs.hidden + chip.key)
     }
 
-    fun savePaySettings(monthlyIncome: Double, payday: Int) {
-        planningStore.update { it.copy(pay = PaySettings(monthlyIncome, payday)) }
+    fun savePaySettings(monthlyIncome: Double, payday: Int, strategy: SavingsStrategy = planning.value.pay.strategy) {
+        val pay = PaySettings(monthlyIncome, payday, strategy)
+        planningStore.update { it.copy(pay = pay) }
         // First time a salary is set and no budgets exist: start from suggested ones.
         if (monthlyIncome > 0 && allBudgets.value.isEmpty()) {
-            val suggested = suggestBudgets(monthlyIncome)
+            val suggested = suggestBudgets(pay)
             if (suggested.isNotEmpty()) {
                 viewModelScope.launch {
                     suggested.forEach { repository.setBudget(it.category, it.monthlyLimit) }
-                    showMessage("Budgets set from your income (saving at least 30%). Change them in Insights.")
+                    showMessage(
+                        "Budgets set by ${strategy.label}: ${Formatters.formatWholeRupees(pay.savingsTarget)} a month saved first. " +
+                            "Change them in Insights."
+                    )
                 }
             }
         }
+    }
+
+    /**
+     * Last pay cycle's unspent money, offered once on Home ("Move to Savings"); null when there
+     * is none or it was already moved or declined.
+     */
+    val cycleLeftover: StateFlow<CycleLeftover?> = combine(
+        allTransactions,
+        repository.goalEntries,
+        planning
+    ) { txs, entries, prefs ->
+        CycleSavings.lastCycleLeftover(prefs.pay, txs, entries, System.currentTimeMillis())
+            ?.takeIf { it.cycleStart != prefs.savingsHandledCycle }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Moves last cycle's unspent money into the "Savings" goal (created the first time). */
+    fun moveLeftoverToSavings() {
+        val leftover = cycleLeftover.value ?: return
+        if (isRepeat("savings:${leftover.cycleStart}")) return
+        planningStore.update { it.copy(savingsHandledCycle = leftover.cycleStart) }
+        viewModelScope.launch {
+            try {
+                val goalId = savingsGoalId()
+                val reached = repository.addToGoal(goalId, leftover.amount, System.currentTimeMillis(), "Unspent last month")
+                val queue = goalCelebrations(SAVINGS_GOAL_NAME, reached)
+                if (queue.isNotEmpty()) celebrationQueue.update { it + queue }
+                showMessage("${Formatters.formatWholeRupees(leftover.amount)} moved to $SAVINGS_GOAL_NAME")
+            } catch (e: Exception) {
+                planningStore.update { it.copy(savingsHandledCycle = 0L) }
+                showMessage("Could not move it. Please try again.")
+            }
+        }
+    }
+
+    /** "Not now": the offer for that cycle is not shown again. */
+    fun dismissLeftover() {
+        val leftover = cycleLeftover.value ?: return
+        planningStore.update { it.copy(savingsHandledCycle = leftover.cycleStart) }
+    }
+
+    /** The active goal named "Savings", or a new one aiming at a year of the savings target. */
+    private suspend fun savingsGoalId(): Long {
+        goals.value.firstOrNull { it.goal.name.equals(SAVINGS_GOAL_NAME, ignoreCase = true) && it.goal.purchasedAt == null }
+            ?.let { return it.goal.id }
+        val yearly = (planning.value.pay.savingsTarget * 12).coerceAtLeast(1_000.0)
+        return repository.createGoal(
+            GoalEntity(
+                name = SAVINGS_GOAL_NAME,
+                target = yearly,
+                iconKey = "savings",
+                colorHex = 0xFF1F7A3D,
+                createdAt = System.currentTimeMillis()
+            )
+        )
     }
 
     /** "₹680 safe to spend today" for the Home strip; null without income or budgets. */
@@ -797,11 +861,12 @@ class PennywiseViewModel @JvmOverloads constructor(
         SafeToSpendCalculator.compute(prefs.pay, budgets, txs, items, System.currentTimeMillis())
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    private fun suggestBudgets(monthlyIncome: Double): List<BudgetEntity> = BudgetPlanner.suggest(
-        monthlyIncome = monthlyIncome,
+    private fun suggestBudgets(pay: PaySettings): List<BudgetEntity> = BudgetPlanner.suggest(
+        monthlyIncome = pay.monthlyIncome,
         transactions = allTransactions.value,
         expenseCategories = CategoryInfo.forType(categories.value, TransactionType.EXPENSE).map { it.name }.toSet(),
-        nowMs = System.currentTimeMillis()
+        nowMs = System.currentTimeMillis(),
+        strategy = pay.strategy
     )
 
     // Suggested budgets being previewed (Insights → Budgets → Suggest); null when closed.
@@ -814,9 +879,9 @@ class PennywiseViewModel @JvmOverloads constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun openBudgetSuggestion() {
-        val income = planning.value.pay.monthlyIncome
-        if (income <= 0) return
-        _budgetSuggestion.value = suggestBudgets(income)
+        val pay = planning.value.pay
+        if (pay.monthlyIncome <= 0) return
+        _budgetSuggestion.value = suggestBudgets(pay)
     }
 
     fun closeBudgetSuggestion() {

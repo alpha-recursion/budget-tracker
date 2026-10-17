@@ -7,6 +7,9 @@ import com.example.data.model.CategoryInfo
 import com.example.domain.BudgetPlanner
 import com.example.domain.PaySettings
 import com.example.domain.SafeToSpendCalculator
+import com.example.domain.SavingsStrategy
+import com.example.domain.CycleSavings
+import com.example.data.local.GoalEntryEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -48,7 +51,8 @@ class SafeToSpendAndBudgetsTest {
         )!!
         assertEquals(15, safe.daysLeft)
         assertEquals(500.0, safe.billsHeldBack, 0.001)
-        assertEquals((30_000.0 - 3_000.0 - 500.0) / 15, safe.dailyAllowance, 0.01)
+        // 50/30/20: ₹6,000 is saved first and never shown as spendable.
+        assertEquals((30_000.0 - 6_000.0 - 3_000.0 - 500.0) / 15, safe.dailyAllowance, 0.01)
         assertEquals(safe.dailyAllowance - 200.0, safe.today, 0.01)
         assertFalse(safe.fromBudgets)
     }
@@ -59,8 +63,8 @@ class SafeToSpendAndBudgetsTest {
             PaySettings(15_000.0, 1), emptyList(),
             listOf(spend(5_000.0, at(Calendar.OCTOBER, 17, 9))), emptyList(), now, ist
         )!!
-        assertEquals(1_000.0, safe.dailyAllowance, 0.01)
-        assertEquals(-4_000.0, safe.today, 0.01)
+        assertEquals(800.0, safe.dailyAllowance, 0.01) // (15,000 - 20% saved) / 15 days
+        assertEquals(-4_200.0, safe.today, 0.01)
     }
 
     @Test
@@ -75,11 +79,29 @@ class SafeToSpendAndBudgetsTest {
     }
 
     @Test
-    fun starterBudgetsSaveAtLeastThirtyPercent() {
+    fun starterBudgetsFollowTheStrategyAndKeepSavingsOut() {
+        // 50/30/20: needs share ₹25,000 (rent 40% of it), wants ₹15,000, ₹10,000 saved.
         val budgets = BudgetPlanner.suggest(50_000.0, emptyList(), categories, now, ist)
-        assertTrue(budgets.sumOf { it.monthlyLimit } <= 50_000.0 * 0.70)
+        assertTrue(budgets.sumOf { it.monthlyLimit } <= 50_000.0 * 0.80)
         assertEquals(10_000.0, budgets.first { it.category == "Housing & Rent" }.monthlyLimit, 0.001)
+        assertEquals(6_000.0, budgets.first { it.category == "Food & Dining" }.monthlyLimit, 0.001)
         assertTrue(budgets.all { it.monthlyLimit % 100.0 == 0.0 })
+
+        val saveHalf = BudgetPlanner.suggest(50_000.0, emptyList(), categories, now, ist, SavingsStrategy.SAVE_HALF)
+        assertTrue(saveHalf.sumOf { it.monthlyLimit } <= 25_000.0)
+        assertEquals(8_000.0, saveHalf.first { it.category == "Housing & Rent" }.monthlyLimit, 0.001)
+    }
+
+    @Test
+    fun unspentMoneyFromTheLastCycleIsOfferedOnce() {
+        val pay = PaySettings(30_000.0, 1)
+        val september = listOf(spend(20_000.0, at(Calendar.SEPTEMBER, 10)))
+        val moved = listOf(GoalEntryEntity(goalId = 1, amount = 3_000.0, date = at(Calendar.SEPTEMBER, 15)))
+        val leftover = CycleSavings.lastCycleLeftover(pay, september, moved, now, ist)!!
+        assertEquals(7_000.0, leftover.amount, 0.001)
+        assertEquals(at(Calendar.SEPTEMBER, 1, 0), leftover.cycleStart)
+        // Nothing recorded last cycle (e.g. the app was new): no offer.
+        assertNull(CycleSavings.lastCycleLeftover(pay, emptyList(), emptyList(), now, ist))
     }
 
     @Test
@@ -94,7 +116,7 @@ class SafeToSpendAndBudgetsTest {
 
         // A small salary: scaled down so 30% is still saved.
         val tight = BudgetPlanner.suggest(4_000.0, september, categories, now, ist)
-        assertTrue(tight.sumOf { it.monthlyLimit } <= 4_000.0 * 0.70)
+        assertTrue(tight.sumOf { it.monthlyLimit } <= 4_000.0 * 0.30) // wants share only
         assertTrue(BudgetPlanner.suggest(0.0, september, categories, now, ist).isEmpty())
     }
 }

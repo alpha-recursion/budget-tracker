@@ -180,6 +180,11 @@ class PennywiseRepository(
 
     // --- Savings goals ---
 
+    /** Inserts a new goal and returns its id. */
+    suspend fun createGoal(goal: GoalEntity): Long = withContext(Dispatchers.IO) {
+        goalDao.insertGoal(goal)
+    }
+
     suspend fun saveGoal(goal: GoalEntity, initialAmount: Double) = withContext(Dispatchers.IO) {
         database.withTransaction {
             if (goal.id == 0L) {

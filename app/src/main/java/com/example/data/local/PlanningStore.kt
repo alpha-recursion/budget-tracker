@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.example.domain.PaySettings
 import com.example.domain.QuickAdd
 import com.example.domain.QuickPin
+import com.example.domain.SavingsStrategy
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -16,7 +17,9 @@ data class PlanningPrefs(
     val hidden: Set<String> = emptySet(),
     val pay: PaySettings = PaySettings(),
     /** Start of the pay cycle whose salary card was dismissed with "Not yet". */
-    val salaryDismissedCycle: Long = 0L
+    val salaryDismissedCycle: Long = 0L,
+    /** Start of the last finished cycle whose unspent money was moved to savings or declined. */
+    val savingsHandledCycle: Long = 0L
 )
 
 class PlanningStore(context: Context) {
@@ -29,9 +32,11 @@ class PlanningStore(context: Context) {
         hidden = prefs.getStringSet(KEY_HIDDEN, null)?.toSet().orEmpty(),
         pay = PaySettings(
             monthlyIncome = prefs.getString(KEY_INCOME, null)?.toDoubleOrNull() ?: 0.0,
-            payday = prefs.getInt(KEY_PAYDAY, 0)
+            payday = prefs.getInt(KEY_PAYDAY, 0),
+            strategy = SavingsStrategy.fromName(prefs.getString(KEY_STRATEGY, null))
         ),
-        salaryDismissedCycle = prefs.getLong(KEY_SALARY_DISMISSED, 0L)
+        salaryDismissedCycle = prefs.getLong(KEY_SALARY_DISMISSED, 0L),
+        savingsHandledCycle = prefs.getLong(KEY_SAVINGS_HANDLED, 0L)
     )
 
     val updates: Flow<PlanningPrefs> = callbackFlow {
@@ -50,6 +55,8 @@ class PlanningStore(context: Context) {
             .putString(KEY_INCOME, next.pay.monthlyIncome.toString())
             .putInt(KEY_PAYDAY, next.pay.payday)
             .putLong(KEY_SALARY_DISMISSED, next.salaryDismissedCycle)
+            .putString(KEY_STRATEGY, next.pay.strategy.name)
+            .putLong(KEY_SAVINGS_HANDLED, next.savingsHandledCycle)
             .apply()
     }
 
@@ -59,5 +66,7 @@ class PlanningStore(context: Context) {
         const val KEY_INCOME = "monthly_income"
         const val KEY_PAYDAY = "payday"
         const val KEY_SALARY_DISMISSED = "salary_dismissed_cycle"
+        const val KEY_STRATEGY = "savings_strategy"
+        const val KEY_SAVINGS_HANDLED = "savings_handled_cycle"
     }
 }

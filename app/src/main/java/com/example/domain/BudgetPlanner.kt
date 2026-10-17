@@ -7,30 +7,16 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /**
- * Suggested monthly budgets from the owner's salary, aimed at saving: at most [SPEND_SHARE] of
- * income is budgeted (so at least 30% is saved). With spending history each category gets its
- * usual monthly spend trimmed by 10%; without history, a starter split of income. Pure Kotlin.
+ * Suggested monthly budgets from the owner's salary and [SavingsStrategy]: savings come off the
+ * top and are never budgeted; needs categories share the needs part and wants categories the
+ * wants part. Within a group, each category gets its usual monthly spend trimmed by 10% (or a
+ * starter split without history), and a group never goes over its share; whatever is left
+ * unbudgeted stays saved. Pure Kotlin.
  */
 object BudgetPlanner {
 
-    const val SPEND_SHARE = 0.70
     private const val TRIM = 0.90
     private const val HISTORY_MONTHS = 3
-
-    /** Starter split (share of income) when there is no history; adds up to [SPEND_SHARE]. */
-    private val STARTER = listOf(
-        "Housing & Rent" to 0.20,
-        "Food & Dining" to 0.10,
-        "Groceries" to 0.08,
-        "Tea & Snacks" to 0.03,
-        "Transportation" to 0.05,
-        "Fuel & Vehicle" to 0.05,
-        "Utilities & Bills" to 0.05,
-        "Mobile & Recharge" to 0.02,
-        "Healthcare" to 0.04,
-        "Shopping" to 0.05,
-        "Entertainment" to 0.03
-    )
 
     /**
      * @param expenseCategories expense categories currently offered; nothing else is budgeted.
@@ -41,23 +27,31 @@ object BudgetPlanner {
         transactions: List<TransactionEntity>,
         expenseCategories: Set<String>,
         nowMs: Long,
-        timeZone: TimeZone = TimeZone.getDefault()
+        timeZone: TimeZone = TimeZone.getDefault(),
+        strategy: SavingsStrategy = SavingsStrategy.DEFAULT
     ): List<BudgetEntity> {
         if (monthlyIncome <= 0) return emptyList()
-        val usual = usualMonthlySpend(transactions, nowMs, timeZone)
-        val raw: Map<String, Double> = if (usual.isNotEmpty()) {
-            usual.mapValues { it.value * TRIM }
-        } else {
-            STARTER.associate { (name, share) -> name to monthlyIncome * share }
-        }.filterKeys { it in expenseCategories }
+        val usual = usualMonthlySpend(transactions, nowMs, timeZone).filterKeys { it in expenseCategories }
 
-        // Never budget more than the spend share of income.
-        val cap = monthlyIncome * SPEND_SHARE
-        val total = raw.values.sum()
-        // Small tolerance: the starter shares add up to exactly the cap.
-        val scale = if (total > cap + 0.01) cap / total else 1.0
-        return raw.mapNotNull { (category, amount) ->
-            val limit = roundDown100(amount * scale)
+        fun group(isNeed: Boolean, starter: List<Pair<String, Double>>, share: Double): Map<String, Double> {
+            val pool = monthlyIncome * share
+            val history = usual.filterKeys { CategoryGroups.isNeed(it) == isNeed }
+            val raw = if (usual.isNotEmpty()) {
+                history.mapValues { it.value * TRIM }
+            } else {
+                val weights = starter.filter { it.first in expenseCategories }
+                val total = weights.sumOf { it.second }
+                weights.associate { (name, w) -> name to pool * w / total }
+            }
+            val sum = raw.values.sum()
+            // Small tolerance: the starter split adds up to exactly the pool.
+            val scale = if (sum > pool + 0.01) pool / sum else 1.0
+            return raw.mapValues { it.value * scale }
+        }
+
+        val budgets = group(true, CategoryGroups.NEEDS, strategy.needs) + group(false, CategoryGroups.WANTS, strategy.wants)
+        return budgets.mapNotNull { (category, amount) ->
+            val limit = roundDown100(amount)
             if (limit <= 0) null else BudgetEntity(category = category, monthlyLimit = limit)
         }.sortedByDescending { it.monthlyLimit }
     }

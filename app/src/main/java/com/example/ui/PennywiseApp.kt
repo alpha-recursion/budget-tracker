@@ -215,6 +215,7 @@ fun PennywiseApp(
     val payCycle by viewModel.payCycle.collectAsStateWithLifecycle()
     val planning by viewModel.planning.collectAsStateWithLifecycle()
     val safeToSpend by viewModel.safeToSpend.collectAsStateWithLifecycle()
+    val cycleLeftover by viewModel.cycleLeftover.collectAsStateWithLifecycle()
     val budgetSuggestion by viewModel.budgetSuggestion.collectAsStateWithLifecycle()
     val canSuggestBudgets by viewModel.canSuggestBudgets.collectAsStateWithLifecycle()
     val undoQuickAdd by viewModel.undoQuickAdd.collectAsStateWithLifecycle()
@@ -398,7 +399,10 @@ fun PennywiseApp(
                                     onSalaryOtherAmount = { viewModel.addSalaryWithChanges() },
                                     onDismissSalary = { viewModel.dismissSalaryCard() },
                                     onEditPay = { showPayDialog = true },
-                                    safeToSpend = safeToSpend
+                                    safeToSpend = safeToSpend,
+                                    cycleLeftover = cycleLeftover,
+                                    onMoveLeftover = { viewModel.moveLeftoverToSavings() },
+                                    onDismissLeftover = { viewModel.dismissLeftover() }
                                 )
 
                                 1 -> TransactionsScreen(
@@ -426,6 +430,9 @@ fun PennywiseApp(
                                     onSuggestBudgets = if (canSuggestBudgets) { { viewModel.openBudgetSuggestion() } } else null,
                                     budgetSuggestion = budgetSuggestion,
                                     monthlyIncome = planning.pay.monthlyIncome,
+                                    savingsNote = planning.pay.takeIf { it.monthlyIncome > 0 }?.let {
+                                        "${Formatters.formatWholeRupees(it.savingsTarget)} a month saved first (${it.strategy.label})"
+                                    },
                                     onApplyBudgetSuggestion = { viewModel.applyBudgetSuggestion() },
                                     onDismissBudgetSuggestion = { viewModel.closeBudgetSuggestion() }
                                 )
@@ -560,8 +567,8 @@ fun PennywiseApp(
             if (showPayDialog) {
                 PaySettingsDialog(
                     current = planning.pay,
-                    onSave = { income, day ->
-                        viewModel.savePaySettings(income, day)
+                    onSave = { income, day, strategy ->
+                        viewModel.savePaySettings(income, day, strategy)
                         showPayDialog = false
                     },
                     onDismiss = { showPayDialog = false }

@@ -25,7 +25,7 @@ data class SafeToSpend(
 )
 
 /**
- * "₹680 safe to spend today": (money for the cycle − spent before today − bills still due
+ * "₹680 safe to spend today": (money for the cycle, after the savings target − spent before today − bills still due
  * before the cycle ends) ÷ days left including today, minus what was spent today. Spend less
  * and tomorrow's allowance grows; overspend and the rest of the cycle shares the shortfall.
  * Pure Kotlin.
@@ -48,7 +48,8 @@ object SafeToSpendCalculator {
     ): SafeToSpend? {
         val budgetTotal = budgets.sumOf { it.monthlyLimit }
         val (pool, start, end) = when {
-            pay.isSet -> PayCycle.bounds(pay.payday, nowMs, timeZone).let { (s, e) -> Triple(pay.monthlyIncome, s, e) }
+            // Savings are taken off the top ("pay yourself first") and never shown as spendable.
+            pay.isSet -> PayCycle.bounds(pay.payday, nowMs, timeZone).let { (s, e) -> Triple(pay.monthlyIncome - pay.savingsTarget, s, e) }
             budgetTotal > 0 -> monthBounds(nowMs, timeZone).let { (s, e) -> Triple(budgetTotal, s, e) }
             else -> return null
         }
