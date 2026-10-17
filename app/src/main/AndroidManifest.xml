@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Required by BiometricPrompt / BiometricManager (fingerprint, face, phone PIN unlock). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- Read bank transaction SMS when the user asks to scan (Settings / Dashboard > Import from SMS). -->
     <uses-permission android:name="android.permission.READ_SMS" />
     <!-- Live capture: notice bank SMS as they arrive (only when switched on in Settings). -->
