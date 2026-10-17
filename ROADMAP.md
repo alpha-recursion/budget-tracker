@@ -53,6 +53,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
 | 1 | Credit SMS formats (1.8) built: Kotak/BOI credits, reversals, card bill payments ignored. Needs on-device check. |
 | 5 | Recurring payments built (5.1); bike costs (5.2) deprecated |
+| 9 | Smaller gaps built: full backup/erase, "Overspent" tag, custom keypad, category palette. Needs on-device check. |
 
 ## To-do list
 
@@ -116,8 +117,8 @@ lent to others, and use light game mechanics so it gets opened every day.
 - [x] 3.2a Weekly saving streak with one freeze (earned back after 4 saving weeks)
 - [x] 3.2b Daily check-in ("I've logged everything" button on Home) with check-in and no-spend-day
       streaks (a no-spend day needs a check-in and zero expenses), one freeze earned back after 7
-      days, XP, 4 new badges, optional 9 PM reminder. Check-in days are kept on the phone, not in
-      the JSON backup. Needs on-device check.
+      days, XP, 4 new badges, optional 9 PM reminder. Check-in days are kept on the phone and,
+      since 9.1, included in the JSON backup. Needs on-device check.
 - [x] 3.3 XP, 10 levels and 14 badges, all worked out from the owner's data; new badges and
       level-ups are celebrated once; Badges screen (Goals → level card, or Settings → Rewards)
 - [x] 3.3b Celebration chime + vibration (silent when the phone is; switch in Settings)
@@ -164,7 +165,8 @@ Insights, Settings, Badges). Owner decisions (Oct 2026):
 - Purple accent `#6D28D9` and navy `#0B1A2E` everywhere, income green `#1F7A3D`.
 - Full v4 motion, switched off when the phone's "remove animations" setting is on.
 - No notification bell or avatar (no inbox or profile exists); greeting and date only.
-- Out of scope (design marks "not yet done"): dark mode, custom keypad, category palette.
+- Out of scope (design marks "not yet done"): dark mode (still open, see 6.2), custom keypad
+  and category palette (built later as 9.3 and 9.4).
 
 Slices, each committed separately so it can be built and checked before the next:
 - [x] 8.1 Foundation: colours, radii (cards 20, hero 24, sheets 28), two-layer shadows,
@@ -185,6 +187,20 @@ Slices, each committed separately so it can be built and checked before the next
       All / Earned / Locked, 3-column grid with locked state)
 - [x] 8.8 Motion: bar growth, count-up, spring thumbs, self-drawing line, donut sweep, row
       cascade, shimmer / shine / pop, toast; all under 700 ms
+
+### 9. Smaller gaps (built Oct 2026, needs on-device check)
+- [x] 9.1 Backup, restore and "Erase all data" now cover the settings kept outside the
+      database: check-in days, monthly income & payday, quick-add pins / hidden, round-up jar
+      (on/off, unit, banked money), celebrated badges / level and category styles. Reminder
+      switches stay per phone. Older backups without settings leave the phone's own untouched.
+- [x] 9.2 Home month tag and Insights savings card say "Overspent ₹X" when spending is above
+      income, instead of a large negative percentage
+- [x] 9.3 Custom keypad in the New transaction sheet (1-9, ".", 0, backspace; hold backspace
+      to clear); opens for new entries or when the amount is tapped, hides for payee / note,
+      Back closes it first
+- [x] 9.4 Category palette: 12 v4 colours (also used for goals); Settings → Categories →
+      "Colours & icons" changes the icon and colour of any category, built-in or custom
+      (built-ins have Reset); tapping a custom category opens the same editor
 
 ## SMS import design
 
@@ -245,7 +261,10 @@ while the number is not registered with the bank cannot be captured or scanned.
 
 ---
 
-## 1. Current state vs target
+## 1. Starting point (historical)
+
+> Kept as the original baseline. Everything on the left was fixed in Phase 0; the current
+> status of the right side is in **Progress** and the **To-do list** above.
 
 ```
  TODAY (v0.1)                      TARGET (v1.0)
@@ -444,6 +463,10 @@ Everything stays on the phone: no server, no bank login. Backup is a user-export
 
 ## 5. Screen map
 
+> Original plan. The app now follows Redesign v4 (section 8): Home, Activity, + (New
+> transaction), Insights and Settings, with Lending, Goals, Recurring and Import SMS reached
+> from the Home hero and Settings.
+
 ```
  ┌──────────────────── Bottom navigation ────────────────────┐
  │  Home        Activity       Insights        More          │
@@ -589,12 +612,11 @@ not practical for a personal app).
 ## 11. Next actions
 
 ```
- [Owner]  1. Install the current build from AI Studio on the phone
- [Owner]  2. Share bank name(s) and 2–3 sample debit/credit SMS
-            (account numbers masked)
- [Owner]  3. Download one month's bank statement as CSV/Excel
- [Dev]    4. Build Phase 0 on a branch → PR → merge
- [Both]   5. Use it for a week → adjust → start Phase 1
+ [Owner]  1. On-device check of 1.8 (credit SMS) and 9.1–9.4 (backup, overspent tag,
+            keypad, category palette)
+ [Owner]  2. Download one month's Kotak or BOI statement as CSV/Excel (masked) for 6.1
+ [Dev]    3. Build 6.1 statement import from that real file
+ [Later]  4. 6.2 widget, insights, dark mode
 ```
 
 ---
