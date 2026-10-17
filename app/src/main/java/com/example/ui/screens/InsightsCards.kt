@@ -5,6 +5,13 @@ import com.example.ui.components.rememberGrowth
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -78,18 +85,40 @@ import java.util.Locale
 
 /** "October 2026" pill at the top right of Insights. */
 @Composable
-internal fun MonthPill(nowMs: Long) {
+internal fun MonthPill(nowMs: Long, onPrevious: (() -> Unit)? = null, onNext: (() -> Unit)? = null) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        Text(
-            SimpleDateFormat("MMMM yyyy", Locale.US).format(Date(nowMs)),
-            style = MaterialTheme.typography.labelMedium,
-            color = Ink,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .softShadow(PillShape, 3.dp)
                 .clip(PillShape)
                 .background(SurfaceWhite)
-                .padding(horizontal = Space.m, vertical = Space.s)
-        )
+                .testTag("month_pill")
+        ) {
+            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous month", onPrevious, Modifier.testTag("previous_month"))
+            Text(
+                SimpleDateFormat("MMMM yyyy", Locale.US).format(Date(nowMs)),
+                style = MaterialTheme.typography.labelMedium,
+                color = Ink,
+                modifier = Modifier.padding(vertical = Space.s)
+            )
+            MonthArrow(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next month", onNext, Modifier.testTag("next_month"))
+        }
+    }
+}
+
+/** A month arrow; dimmed and inert at the oldest month with data, or at this month. */
+@Composable
+private fun MonthArrow(icon: ImageVector, label: String, onClick: (() -> Unit)?, modifier: Modifier = Modifier) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .semantics { contentDescription = label }
+    ) {
+        Icon(icon, contentDescription = null, tint = if (onClick != null) Ink else InkTertiary.copy(alpha = 0.4f), modifier = Modifier.size(20.dp))
     }
 }
 
@@ -176,7 +205,7 @@ private fun Total(label: String, value: String, color: Color, modifier: Modifier
  * the current daily average, and a dot on today.
  */
 @Composable
-internal fun MonthTrendCard(transactions: List<TransactionEntity>, nowMs: Long) {
+internal fun MonthTrendCard(transactions: List<TransactionEntity>, nowMs: Long, isPastMonth: Boolean = false) {
     val cal = Calendar.getInstance().apply { timeInMillis = nowMs }
     val today = cal.get(Calendar.DAY_OF_MONTH)
     val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
@@ -199,13 +228,14 @@ internal fun MonthTrendCard(transactions: List<TransactionEntity>, nowMs: Long) 
     PwCard(modifier = Modifier.testTag("month_trend_card")) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Spent to date", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                Text(if (isPastMonth) "Spent" else "Spent to date", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                 Text(Formatters.formatCurrency(spent), style = MaterialTheme.typography.headlineSmall, color = Ink)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("On pace for", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                // A finished month has nothing to project: show its daily average instead.
+                Text(if (isPastMonth) "Daily average" else "On pace for", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                 Text(
-                    Formatters.formatWholeRupees(projection),
+                    Formatters.formatWholeRupees(if (isPastMonth) spent / daysInMonth else projection),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = Accent
                 )
@@ -262,7 +292,7 @@ internal fun MonthTrendCard(transactions: List<TransactionEntity>, nowMs: Long) 
 
 /** Last 7 days as bars; tapping a bar shows that day's total. */
 @Composable
-internal fun LastSevenDaysCard(transactions: List<TransactionEntity>, nowMs: Long) {
+internal fun LastSevenDaysCard(transactions: List<TransactionEntity>, nowMs: Long, isPastMonth: Boolean = false) {
     val todayStart = FinancialCalculations.startOfDay(nowMs)
     val days = remember(transactions, todayStart) {
         (6 downTo 0).map { back ->
@@ -275,9 +305,10 @@ internal fun LastSevenDaysCard(transactions: List<TransactionEntity>, nowMs: Lon
     val grow = rememberGrowth(days.size)
     val max = (days.maxOfOrNull { it.second } ?: 0.0).coerceAtLeast(1.0)
     val (selStart, selAmount) = days[selected.coerceIn(0, 6)]
-    val dayLabel = when (selected) {
-        6 -> "Today"
-        5 -> "Yesterday"
+    val dayLabel = when {
+        isPastMonth -> SimpleDateFormat("EEE, d MMM", Locale.US).format(Date(selStart))
+        selected == 6 -> "Today"
+        selected == 5 -> "Yesterday"
         else -> SimpleDateFormat("EEE, d MMM", Locale.US).format(Date(selStart))
     }
     PwCard(modifier = Modifier.testTag("last_seven_days_card")) {

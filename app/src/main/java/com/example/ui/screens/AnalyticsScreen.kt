@@ -62,11 +62,36 @@ import com.example.ui.theme.PositiveText
 import com.example.ui.theme.SurfaceMuted
 import com.example.ui.theme.Warning
 import com.example.ui.theme.WarningText
+import com.example.data.local.BudgetEntity
+import androidx.compose.runtime.mutableIntStateOf
 import com.example.ui.util.Formatters
 import com.example.ui.util.LocalCategories
 import com.example.ui.util.getCategoryIcon
 
 private const val NEW_BUDGET = "\u0000new"
+
+/** Now for this month ([offset] 0); the last millisecond of an earlier month otherwise. */
+private fun monthReference(nowMs: Long, offset: Int): Long {
+    if (offset >= 0) return nowMs
+    return java.util.Calendar.getInstance().apply {
+        timeInMillis = nowMs
+        set(java.util.Calendar.DAY_OF_MONTH, 1)
+        set(java.util.Calendar.HOUR_OF_DAY, 0)
+        set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0)
+        set(java.util.Calendar.MILLISECOND, 0)
+        add(java.util.Calendar.MONTH, offset + 1) // start of the month after the one shown
+        add(java.util.Calendar.MILLISECOND, -1)
+    }.timeInMillis
+}
+
+/** Calendar months from [fromMs] to [toMs] (0 when in the same month). */
+private fun monthsBetween(fromMs: Long, toMs: Long): Int {
+    val from = java.util.Calendar.getInstance().apply { timeInMillis = fromMs }
+    val to = java.util.Calendar.getInstance().apply { timeInMillis = toMs }
+    return (to.get(java.util.Calendar.YEAR) * 12 + to.get(java.util.Calendar.MONTH)) -
+        (from.get(java.util.Calendar.YEAR) * 12 + from.get(java.util.Calendar.MONTH))
+}
 
 @Composable
 fun AnalyticsScreen(
@@ -82,6 +107,8 @@ fun AnalyticsScreen(
 ) {
     // null = closed, NEW_BUDGET = adding, otherwise the category being edited.
     var budgetEditorTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    // 0 = this month, -1 = last month, ...
+    var monthOffset by rememberSaveable { mutableIntStateOf(0) }
     val categories = LocalCategories.current
 
     LazyColumn(
@@ -92,32 +119,52 @@ fun AnalyticsScreen(
         verticalArrangement = Arrangement.spacedBy(Space.section)
     ) {
         val now = System.currentTimeMillis()
-        val month = FinancialCalculations.filterToMonth(transactions, now)
+        // A past month is shown as of its last moment, so every card covers the whole month.
+        val ref = monthReference(now, monthOffset)
+        val isPast = monthOffset < 0
+        val oldestOffset = -monthsBetween(transactions.minOfOrNull { it.date } ?: now, now)
+        val month = FinancialCalculations.filterToMonth(transactions, ref)
         val monthSummary = FinancialCalculations.calculateSummary(month)
         val monthMix = FinancialCalculations.calculateCategoryBreakdown(month) { CategoryInfo.resolve(it, categories) }
-        val monthName = java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(java.util.Date(now))
-        item(key = "month") { MonthPill(now) }
+        val monthName = java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(java.util.Date(ref))
+        // Same limits every month; spending from the month shown.
+        val monthBudgets = if (isPast) {
+            FinancialCalculations.calculateBudgetStatuses(
+                budgetStatuses.map { BudgetEntity(category = it.categoryName, monthlyLimit = it.budgetLimit) },
+                month
+            ) { CategoryInfo.resolve(it, categories) }
+        } else {
+            budgetStatuses
+        }
+        val monthVendors = if (isPast) FinancialCalculations.topVendors(month) else topVendors
+        item(key = "month") {
+            MonthPill(
+                nowMs = ref,
+                onPrevious = if (monthOffset > minOf(oldestOffset, 0)) { { monthOffset-- } } else null,
+                onNext = if (monthOffset < 0) { { monthOffset++ } } else null
+            )
+        }
         item(key = "rate") { SavingsRateCard(monthSummary) }
         if (monthSummary.totalExpense > 0) {
-            item(key = "trend_title") { InsightsHeader("$monthName so far", "Cumulative spend") }
-            item(key = "trend") { MonthTrendCard(transactions, now) }
+            item(key = "trend_title") { InsightsHeader(if (isPast) monthName else "$monthName so far", "Cumulative spend") }
+            item(key = "trend") { MonthTrendCard(transactions, ref, isPastMonth = isPast) }
         }
         item(key = "week_title") {
-            val weekStart = FinancialCalculations.startOfDay(now) - 6 * 86_400_000L
-            val weekTotal = transactions.filter { it.type == TransactionType.EXPENSE.name && it.date >= weekStart && it.date <= now }.sumOf { it.amount }
-            InsightsHeader("Last 7 days", "${Formatters.formatCurrency(weekTotal)} spent")
+            val weekStart = FinancialCalculations.startOfDay(ref) - 6 * 86_400_000L
+            val weekTotal = transactions.filter { it.type == TransactionType.EXPENSE.name && it.date >= weekStart && it.date <= ref }.sumOf { it.amount }
+            InsightsHeader(if (isPast) "Last week of $monthName" else "Last 7 days", "${Formatters.formatCurrency(weekTotal)} spent")
         }
-        item(key = "week") { LastSevenDaysCard(transactions, now) }
+        item(key = "week") { LastSevenDaysCard(transactions, ref, isPastMonth = isPast) }
         item(key = "where_title") { InsightsHeader("Where it went", "By category") }
         item(key = "where") { WhereItWentCard(monthMix) }
         item {
             BudgetsCard(
-                statuses = budgetStatuses,
+                statuses = monthBudgets,
                 onAdd = { budgetEditorTarget = NEW_BUDGET },
                 onEdit = { budgetEditorTarget = it }
             )
         }
-        item { TopVendorsCard(topVendors) }
+        item { TopVendorsCard(monthVendors) }
     }
 
     budgetEditorTarget?.let { target ->
