@@ -53,6 +53,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
 | 1 | Credit SMS formats (1.8) built: Kotak/BOI credits, reversals, card bill payments ignored. Needs on-device check. |
 | 5 | Recurring payments built (5.1); bike costs (5.2) deprecated |
+| 12 | Safe-to-spend Today strip, compact check-in, salary-based budgets. Needs on-device check. |
 | 10 | Auto-categorise built: keywords, learning from your choices, Person detection, 4 new categories, "Sort out Other". Needs on-device check. |
 | 9 | Smaller gaps built: full backup/erase, "Overspent" tag, custom keypad, category palette. Needs on-device check. |
 
@@ -230,6 +231,23 @@ built-in categories; people are marked, not guessed; existing "Other" payments f
 - [x] 10.5 Add form: unknown payees get a keyword / learned suggestion while typing.
 - [x] 10.6 Settings → Categories → "Sort out “Other” payments": suggestions per payee, change or
       untick, apply; each choice is remembered for future imports.
+
+### 12. Safe-to-spend & salary-based budgets (built Oct 2026, needs on-device check)
+Owner decisions: safe-to-spend merged with the check-in in one compact Home strip; after
+check-in only a small "✓ 5-day" chip remains; only bills due before payday are held back (goal
+savings are not); no extra features for now ("Can I afford it?", bills line, category pace are
+ideas for later).
+- [x] 12.1 Today strip under the hero: "₹680 safe to spend today · ₹420 spent today · 12 days to
+      payday" (or "₹220 over today's allowance"), with the check-in button on the right that
+      becomes a small streak chip. Without income or budgets: a "Set income & payday" link.
+- [x] 12.2 Safe to spend = (income − spent before today this pay cycle − recurring bills due
+      after today and before payday) ÷ days left including today, minus today's spending.
+      Without income: monthly budgets over the calendar month.
+- [x] 12.3 Suggested budgets from the salary: usual spend per category (last 3 full months)
+      trimmed 10%, or a starter split of income (rent 20%, food 10%, groceries 8%, …); never
+      more than 70% of income in total (at least 30% saved), rounded down to ₹100. Set
+      automatically the first time income is saved with no budgets; Insights → Budgets →
+      "Suggest from my salary" previews and applies them again (other budgets kept).
 
 ### 11. Firebase & AI options (proposed, not started)
 Discussed Oct 2026; nothing here is built. The build already lists Firebase libraries from the

@@ -16,6 +16,9 @@ import com.example.domain.AutoCategorizer
 import com.example.domain.AutoSuggestion
 import com.example.domain.CategoryModel
 import com.example.domain.OtherFix
+import com.example.domain.BudgetPlanner
+import com.example.domain.SafeToSpend
+import com.example.domain.SafeToSpendCalculator
 import com.example.data.local.CategoryStyleStore
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
@@ -770,8 +773,64 @@ class PennywiseViewModel @JvmOverloads constructor(
         prefs.copy(pins = prefs.pins.filterNot { it.key == chip.key }, hidden = prefs.hidden + chip.key)
     }
 
-    fun savePaySettings(monthlyIncome: Double, payday: Int) = planningStore.update {
-        it.copy(pay = PaySettings(monthlyIncome, payday))
+    fun savePaySettings(monthlyIncome: Double, payday: Int) {
+        planningStore.update { it.copy(pay = PaySettings(monthlyIncome, payday)) }
+        // First time a salary is set and no budgets exist: start from suggested ones.
+        if (monthlyIncome > 0 && allBudgets.value.isEmpty()) {
+            val suggested = suggestBudgets(monthlyIncome)
+            if (suggested.isNotEmpty()) {
+                viewModelScope.launch {
+                    suggested.forEach { repository.setBudget(it.category, it.monthlyLimit) }
+                    showMessage("Budgets set from your income (saving at least 30%). Change them in Insights.")
+                }
+            }
+        }
+    }
+
+    /** "₹680 safe to spend today" for the Home strip; null without income or budgets. */
+    val safeToSpend: StateFlow<SafeToSpend?> = combine(
+        allTransactions,
+        allBudgets,
+        recurring,
+        planning
+    ) { txs, budgets, items, prefs ->
+        SafeToSpendCalculator.compute(prefs.pay, budgets, txs, items, System.currentTimeMillis())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private fun suggestBudgets(monthlyIncome: Double): List<BudgetEntity> = BudgetPlanner.suggest(
+        monthlyIncome = monthlyIncome,
+        transactions = allTransactions.value,
+        expenseCategories = CategoryInfo.forType(categories.value, TransactionType.EXPENSE).map { it.name }.toSet(),
+        nowMs = System.currentTimeMillis()
+    )
+
+    // Suggested budgets being previewed (Insights → Budgets → Suggest); null when closed.
+    private val _budgetSuggestion = MutableStateFlow<List<BudgetEntity>?>(null)
+    val budgetSuggestion: StateFlow<List<BudgetEntity>?> = _budgetSuggestion
+
+    /** False until a salary is set: suggestions are based on it. */
+    val canSuggestBudgets: StateFlow<Boolean> = planning
+        .map { it.pay.monthlyIncome > 0 }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun openBudgetSuggestion() {
+        val income = planning.value.pay.monthlyIncome
+        if (income <= 0) return
+        _budgetSuggestion.value = suggestBudgets(income)
+    }
+
+    fun closeBudgetSuggestion() {
+        _budgetSuggestion.value = null
+    }
+
+    /** Sets every suggested budget; budgets for other categories are kept. */
+    fun applyBudgetSuggestion() {
+        val suggested = _budgetSuggestion.value ?: return
+        _budgetSuggestion.value = null
+        viewModelScope.launch {
+            suggested.forEach { repository.setBudget(it.category, it.monthlyLimit) }
+            showMessage("${suggested.size} budgets set from your income")
+        }
     }
 
     /** Payday card: records the usual salary as income now. */

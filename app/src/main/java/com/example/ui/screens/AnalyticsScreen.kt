@@ -20,6 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.text.font.FontWeight
+import com.example.ui.components.PwSecondaryButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -103,7 +110,14 @@ fun AnalyticsScreen(
     onRemoveBudget: (category: String) -> Unit = {},
     topVendors: List<VendorSpend> = emptyList(),
     /** All transactions; Insights shows this calendar month. */
-    transactions: List<TransactionEntity> = emptyList()
+    transactions: List<TransactionEntity> = emptyList(),
+    /** Opens suggested budgets from the salary; null until a salary is set. */
+    onSuggestBudgets: (() -> Unit)? = null,
+    /** Suggested budgets being previewed; null when closed. */
+    budgetSuggestion: List<BudgetEntity>? = null,
+    monthlyIncome: Double = 0.0,
+    onApplyBudgetSuggestion: () -> Unit = {},
+    onDismissBudgetSuggestion: () -> Unit = {}
 ) {
     // null = closed, NEW_BUDGET = adding, otherwise the category being edited.
     var budgetEditorTarget by rememberSaveable { mutableStateOf<String?>(null) }
@@ -160,11 +174,17 @@ fun AnalyticsScreen(
         item {
             BudgetsCard(
                 statuses = monthBudgets,
+                monthMs = ref,
                 onAdd = { budgetEditorTarget = NEW_BUDGET },
-                onEdit = { budgetEditorTarget = it }
+                onEdit = { budgetEditorTarget = it },
+                onSuggest = onSuggestBudgets
             )
         }
         item { TopVendorsCard(monthVendors) }
+    }
+
+    budgetSuggestion?.let { suggestion ->
+        BudgetSuggestionDialog(suggestion, monthlyIncome, onApplyBudgetSuggestion, onDismissBudgetSuggestion)
     }
 
     budgetEditorTarget?.let { target ->
@@ -253,29 +273,54 @@ private fun FlowStat(label: String, amount: Double, color: Color, modifier: Modi
 @Composable
 private fun BudgetsCard(
     statuses: List<CategoryBudgetStatus>,
+    monthMs: Long,
     onAdd: () -> Unit,
-    onEdit: (String) -> Unit
+    onEdit: (String) -> Unit,
+    onSuggest: (() -> Unit)?
 ) {
     PwCard(contentPadding = PaddingValues(vertical = Space.l)) {
         PwSectionTitle(
             title = "Budgets",
-            subtitle = "Spending in " + Formatters.formatMonthYear(System.currentTimeMillis()),
+            subtitle = "Spending in " + Formatters.formatMonthYear(monthMs),
             action = "Add",
             onAction = onAdd,
             modifier = Modifier
                 .padding(horizontal = Space.xl)
                 .testTag("add_budget_button")
         )
+        if (onSuggest != null && statuses.isNotEmpty()) {
+            Text(
+                "Suggest from my salary",
+                style = MaterialTheme.typography.labelMedium,
+                color = Accent,
+                modifier = Modifier
+                    .padding(horizontal = Space.xl)
+                    .clickable(onClick = onSuggest)
+                    .padding(vertical = Space.xs)
+                    .testTag("suggest_budgets_link")
+            )
+        }
         Spacer(modifier = Modifier.height(Space.s))
         if (statuses.isEmpty()) {
             Column(modifier = Modifier.padding(horizontal = Space.xl, vertical = Space.s)) {
                 Text(
-                    "Set monthly limits to see how much you have left in each category.",
+                    if (onSuggest != null) "Start from budgets based on your salary, or set your own limits."
+                    else "Set monthly limits to see how much you have left in each category. Set your income in Settings to get suggested budgets.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = InkSecondary
                 )
                 Spacer(modifier = Modifier.height(Space.m))
-                PwPrimaryButton(text = "Set a budget", onClick = onAdd, modifier = Modifier.fillMaxWidth())
+                if (onSuggest != null) {
+                    PwPrimaryButton(
+                        text = "Suggest from my salary",
+                        onClick = onSuggest,
+                        modifier = Modifier.fillMaxWidth().testTag("suggest_budgets_button")
+                    )
+                    Spacer(modifier = Modifier.height(Space.s))
+                    PwSecondaryButton(text = "Set a budget", onClick = onAdd, modifier = Modifier.fillMaxWidth())
+                } else {
+                    PwPrimaryButton(text = "Set a budget", onClick = onAdd, modifier = Modifier.fillMaxWidth())
+                }
             }
             return@PwCard
         }
@@ -417,4 +462,73 @@ private fun CategoryRowsCard(breakdowns: List<CategoryBreakdown>) {
             }
         }
     }
+}
+
+/** Preview of budgets suggested from the salary before they are set. */
+@Composable
+private fun BudgetSuggestionDialog(
+    suggestion: List<BudgetEntity>,
+    monthlyIncome: Double,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val total = suggestion.sumOf { it.monthlyLimit }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("budget_suggestion_dialog"),
+        title = { Text("Budgets from your salary", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    "Based on your usual spending trimmed by 10%, or a starter split when there is no history yet. " +
+                        "At most 70% of your salary is budgeted, so at least 30% is saved.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkSecondary
+                )
+                Spacer(modifier = Modifier.height(Space.m))
+                if (suggestion.isEmpty()) {
+                    Text("Nothing to suggest yet.", style = MaterialTheme.typography.bodyMedium)
+                }
+                suggestion.forEach { budget ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text(budget.category, style = MaterialTheme.typography.bodyMedium, color = Ink, modifier = Modifier.weight(1f))
+                        Text(
+                            Formatters.formatWholeRupees(budget.monthlyLimit),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = Ink
+                        )
+                    }
+                }
+                if (suggestion.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(Space.s))
+                    PwDivider()
+                    Spacer(modifier = Modifier.height(Space.s))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text("Total budgeted", style = MaterialTheme.typography.bodyMedium, color = Ink, modifier = Modifier.weight(1f))
+                        Text(Formatters.formatWholeRupees(total), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = Ink)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text("Left to save", style = MaterialTheme.typography.bodyMedium, color = PositiveText, modifier = Modifier.weight(1f))
+                        Text(
+                            Formatters.formatWholeRupees(monthlyIncome - total),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = PositiveText
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(Space.s))
+                    Text(
+                        "Existing budgets for these categories are replaced; others are kept.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = InkSecondary
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onApply, enabled = suggestion.isNotEmpty(), modifier = Modifier.testTag("apply_budget_suggestion_button")) {
+                Text("Set these budgets", color = Accent, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }

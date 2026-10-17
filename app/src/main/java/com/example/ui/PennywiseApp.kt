@@ -214,6 +214,9 @@ fun PennywiseApp(
     val quickChips by viewModel.quickChips.collectAsStateWithLifecycle()
     val payCycle by viewModel.payCycle.collectAsStateWithLifecycle()
     val planning by viewModel.planning.collectAsStateWithLifecycle()
+    val safeToSpend by viewModel.safeToSpend.collectAsStateWithLifecycle()
+    val budgetSuggestion by viewModel.budgetSuggestion.collectAsStateWithLifecycle()
+    val canSuggestBudgets by viewModel.canSuggestBudgets.collectAsStateWithLifecycle()
     val undoQuickAdd by viewModel.undoQuickAdd.collectAsStateWithLifecycle()
     var showPayDialog by rememberSaveable { mutableStateOf(false) }
     // Quick add: a snackbar with Undo for every one-tap expense.
@@ -394,7 +397,8 @@ fun PennywiseApp(
                                     onAddSalary = { viewModel.addSalary() },
                                     onSalaryOtherAmount = { viewModel.addSalaryWithChanges() },
                                     onDismissSalary = { viewModel.dismissSalaryCard() },
-                                    onEditPay = { showPayDialog = true }
+                                    onEditPay = { showPayDialog = true },
+                                    safeToSpend = safeToSpend
                                 )
 
                                 1 -> TransactionsScreen(
@@ -418,7 +422,12 @@ fun PennywiseApp(
                                     topVendors = topVendors,
                                     transactions = allTransactions,
                                     onSaveBudget = viewModel::saveBudget,
-                                    onRemoveBudget = { viewModel.removeBudget(it) }
+                                    onRemoveBudget = { viewModel.removeBudget(it) },
+                                    onSuggestBudgets = if (canSuggestBudgets) { { viewModel.openBudgetSuggestion() } } else null,
+                                    budgetSuggestion = budgetSuggestion,
+                                    monthlyIncome = planning.pay.monthlyIncome,
+                                    onApplyBudgetSuggestion = { viewModel.applyBudgetSuggestion() },
+                                    onDismissBudgetSuggestion = { viewModel.closeBudgetSuggestion() }
                                 )
 
                                 SETTINGS_SCREEN -> SettingsScreen(

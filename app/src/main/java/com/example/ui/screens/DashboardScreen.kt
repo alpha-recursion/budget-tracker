@@ -65,6 +65,7 @@ import com.example.domain.GoalProgress
 import com.example.domain.Goals
 import com.example.domain.HomeSpend
 import com.example.domain.PayCycleStatus
+import com.example.domain.SafeToSpend
 import com.example.domain.PersonBalance
 import com.example.domain.QuickChip
 import com.example.domain.ReportCard
@@ -150,7 +151,9 @@ fun DashboardScreen(
     onAddSalary: () -> Unit = {},
     onSalaryOtherAmount: () -> Unit = {},
     onDismissSalary: () -> Unit = {},
-    onEditPay: () -> Unit = {}
+    onEditPay: () -> Unit = {},
+    /** What is safe to spend today; null without income or budgets. */
+    safeToSpend: SafeToSpend? = null
 ) {
     var periodIndex by rememberSaveable { mutableIntStateOf(SpendPeriod.MONTH.ordinal) }
     val period = SpendPeriod.entries[periodIndex]
@@ -183,7 +186,7 @@ fun DashboardScreen(
         }
         item(key = "daily_review") {
             Spacer(modifier = Modifier.height(Space.m))
-            DailyReviewCard(dailyReview, onConfirmDailyReview)
+            TodayCard(review = dailyReview, safe = safeToSpend, onConfirm = onConfirmDailyReview, onSetIncome = onEditPay)
         }
 
         item(key = "budget") {
