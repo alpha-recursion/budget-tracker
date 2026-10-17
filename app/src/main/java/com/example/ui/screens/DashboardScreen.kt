@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -386,7 +387,7 @@ private fun HeroBars(kpi: SpendKpi) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp),
+            .height(80.dp), // dot 14 + gap 5 + bar 42 + gap 5 + label ~14
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.Bottom
     ) {
@@ -401,10 +402,16 @@ private fun HeroBars(kpi: SpendKpi) {
                 verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.Bottom)
             ) {
                 if (bar.current) {
-                    Box(contentAlignment = Alignment.Center) {
+                    // Fixed-size slot: the pulse is a scale, so it never changes the layout.
+                    Box(modifier = Modifier.size(14.dp), contentAlignment = Alignment.Center) {
                         Box(
                             modifier = Modifier
-                                .size((6 + 8 * pulse).dp)
+                                .size(14.dp)
+                                .graphicsLayer {
+                                    val s = (6 + 8 * pulse) / 14f
+                                    scaleX = s
+                                    scaleY = s
+                                }
                                 .clip(CircleShape)
                                 .background(SurfaceWhite.copy(alpha = 0.6f * (1f - pulse)))
                         )
