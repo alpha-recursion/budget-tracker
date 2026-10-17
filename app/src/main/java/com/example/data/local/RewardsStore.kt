@@ -45,6 +45,11 @@ class RewardsStore(context: Context) {
         prefs.edit().putInt(KEY_LAST_LEVEL, level).apply()
     }
 
+    /** Replaces the celebration history (backup restore or erase); the sound switch is kept. */
+    fun replaceProgress(seenBadges: Set<String>, lastLevel: Int) {
+        prefs.edit().putStringSet(KEY_SEEN_BADGES, seenBadges).putInt(KEY_LAST_LEVEL, lastLevel).apply()
+    }
+
     private companion object {
         const val KEY_FEEDBACK = "celebration_feedback"
         const val KEY_SEEN_BADGES = "seen_badges"

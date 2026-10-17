@@ -5,6 +5,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.data.backup.BackupData
 import com.example.data.backup.BackupSerializer
 import com.example.data.backup.InvalidBackupException
+import com.example.data.backup.PhoneSettings
+import com.example.data.backup.PhoneSettingsBackup
+import com.example.data.local.CategoryStyle
+import com.example.data.local.PlanningPrefs
+import com.example.domain.PaySettings
+import com.example.domain.QuickPin
+import com.example.domain.RoundUpSettings
 import com.example.data.local.BudgetEntity
 import com.example.data.local.ChallengeEntity
 import com.example.data.local.DebtEntryEntity
@@ -23,6 +30,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -107,6 +115,36 @@ class BackupTest {
         val restored = BackupSerializer.fromJson(oldFormat)
         assertEquals(emptyList<SmsImportEntity>(), restored.smsImports)
         assertEquals(sample.transactions, restored.transactions)
+    }
+
+    private val settings = PhoneSettings(
+        checkInDays = setOf(20_000L, 20_001L),
+        planning = PlanningPrefs(
+            pins = listOf(QuickPin("Chai", 20.0, "Food & Dining")),
+            hidden = setOf("zepto"),
+            pay = PaySettings(monthlyIncome = 30_000.0, payday = 1),
+            salaryDismissedCycle = 5L
+        ),
+        roundUps = RoundUpSettings(enabled = true, unit = 50, startedAt = 7L, banked = 120.5, moved = 40.0),
+        seenBadges = setOf("First step", "Saver"),
+        lastLevel = 3,
+        categoryStyles = mapOf("Food & Dining" to CategoryStyle("restaurant", 0xFFDC2626))
+    )
+
+    @Test
+    fun `phone settings round trip and are absent from older backups`() {
+        val withSettings = sample.copy(phoneSettings = settings)
+        assertEquals(withSettings, BackupSerializer.fromJson(BackupSerializer.toJson(withSettings)))
+        assertNull(BackupSerializer.fromJson(BackupSerializer.toJson(sample)).phoneSettings)
+    }
+
+    @Test
+    fun `phone settings are applied on restore and cleared on erase`() {
+        val store = PhoneSettingsBackup(ApplicationProvider.getApplicationContext<Application>())
+        store.apply(settings)
+        assertEquals(settings, store.read())
+        store.clear()
+        assertEquals(PhoneSettings(), store.read())
     }
 
     @Test

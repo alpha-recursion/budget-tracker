@@ -424,6 +424,7 @@ fun PennywiseApp(
                                     categories = categories,
                                     onCreateCategory = viewModel::addCustomCategory,
                                     onDeleteCategory = { viewModel.deleteCustomCategory(it) },
+                                    onUpdateCategoryStyle = viewModel::updateCategoryStyle,
                                     pendingRestore = pendingRestore,
                                     onExportBackup = { viewModel.exportBackup(it) },
                                     onPickBackup = { viewModel.readBackup(it) },

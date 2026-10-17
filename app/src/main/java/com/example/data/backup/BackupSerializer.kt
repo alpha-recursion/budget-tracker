@@ -17,6 +17,11 @@ import com.example.data.local.SmsTemplateEntity
 import com.example.data.sms.toDomainOrNull
 import com.example.data.local.SmsImportStatus
 import com.example.data.local.TransactionEntity
+import com.example.data.local.PlanningPrefs
+import com.example.data.local.CategoryStyle
+import com.example.domain.PaySettings
+import com.example.domain.QuickPin
+import com.example.domain.RoundUpSettings
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -34,7 +39,24 @@ data class BackupData(
     val goalMilestones: List<GoalMilestoneEntity> = emptyList(),
     val challenges: List<ChallengeEntity> = emptyList(),
     val recurring: List<RecurringEntity> = emptyList(),
+    /** Null for backups made before settings were included: the phone's own are then kept. */
+    val phoneSettings: PhoneSettings? = null,
     val exportedAt: Long = 0L
+)
+
+/**
+ * What the app keeps in SharedPreferences rather than the database. Reminder switches are not
+ * included: they belong to the phone (they schedule its alerts).
+ */
+data class PhoneSettings(
+    val checkInDays: Set<Long> = emptySet(),
+    val planning: PlanningPrefs = PlanningPrefs(),
+    val roundUps: RoundUpSettings = RoundUpSettings(),
+    /** Badges already celebrated, so a restore does not celebrate them all again. */
+    val seenBadges: Set<String> = emptySet(),
+    val lastLevel: Int = 1,
+    /** Icon / colour picked for built-in categories, by name. */
+    val categoryStyles: Map<String, CategoryStyle> = emptyMap()
 )
 
 /** Thrown when a file is not a readable Pennywise backup. The message is user-facing. */
@@ -211,7 +233,63 @@ object BackupSerializer {
                     )
                 }
             })
+        data.phoneSettings?.let { root.put("phoneSettings", settingsToJson(it)) }
         return root.toString(2)
+    }
+
+    private fun settingsToJson(s: PhoneSettings): JSONObject = JSONObject()
+        .put("checkInDays", JSONArray(s.checkInDays.sorted()))
+        .put("quickPins", JSONArray().apply {
+            s.planning.pins.forEach { put(JSONObject().put("title", it.title).put("amount", it.amount).put("category", it.category)) }
+        })
+        .put("quickHidden", JSONArray(s.planning.hidden.sorted()))
+        .put("monthlyIncome", s.planning.pay.monthlyIncome)
+        .put("payday", s.planning.pay.payday)
+        .put("salaryDismissedCycle", s.planning.salaryDismissedCycle)
+        .put("roundUps", JSONObject()
+            .put("enabled", s.roundUps.enabled)
+            .put("unit", s.roundUps.unit)
+            .put("startedAt", s.roundUps.startedAt)
+            .put("banked", s.roundUps.banked)
+            .put("moved", s.roundUps.moved))
+        .put("seenBadges", JSONArray(s.seenBadges.sorted()))
+        .put("lastLevel", s.lastLevel)
+        .put("categoryStyles", JSONArray().apply {
+            s.categoryStyles.toSortedMap().forEach { (name, style) ->
+                put(JSONObject().put("name", name).put("iconKey", style.iconKey).put("colorHex", style.colorHex))
+            }
+        })
+
+    private fun settingsFromJson(o: JSONObject): PhoneSettings {
+        val round = o.optJSONObject("roundUps")
+        val defaults = RoundUpSettings()
+        return PhoneSettings(
+            checkInDays = o.optJSONArray("checkInDays")?.let { a -> (0 until a.length()).map { a.getLong(it) } }.orEmpty().toSet(),
+            planning = PlanningPrefs(
+                pins = o.optJSONArray("quickPins")?.objects()?.mapNotNull { p ->
+                    QuickPin(p.getString("title"), p.getDouble("amount"), p.getString("category"))
+                        .takeIf { it.title.isNotBlank() && it.amount > 0 }
+                }.orEmpty(),
+                hidden = o.optJSONArray("quickHidden")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet(),
+                pay = PaySettings(
+                    monthlyIncome = o.optDouble("monthlyIncome", 0.0).takeIf { it >= 0 } ?: 0.0,
+                    payday = o.optInt("payday", 0).takeIf { it in 0..31 } ?: 0
+                ),
+                salaryDismissedCycle = o.optLong("salaryDismissedCycle", 0L)
+            ),
+            roundUps = if (round == null) defaults else RoundUpSettings(
+                enabled = round.optBoolean("enabled", defaults.enabled),
+                unit = round.optInt("unit", defaults.unit),
+                startedAt = round.optLong("startedAt", defaults.startedAt),
+                banked = round.optDouble("banked", defaults.banked),
+                moved = round.optDouble("moved", defaults.moved)
+            ),
+            seenBadges = o.optJSONArray("seenBadges")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet(),
+            lastLevel = o.optInt("lastLevel", 1).coerceAtLeast(1),
+            categoryStyles = o.optJSONArray("categoryStyles")?.objects()?.associate { c ->
+                c.getString("name") to CategoryStyle(c.getString("iconKey"), c.getLong("colorHex"))
+            }.orEmpty()
+        )
     }
 
     fun fromJson(json: String): BackupData {
@@ -384,6 +462,7 @@ object BackupSerializer {
                 goalMilestones = goalMilestones,
                 challenges = challenges,
                 recurring = recurring,
+                phoneSettings = root.optJSONObject("phoneSettings")?.let { settingsFromJson(it) },
                 exportedAt = root.optLong("exportedAt", 0L)
             )
         } catch (e: JSONException) {

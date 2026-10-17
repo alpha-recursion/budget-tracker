@@ -112,6 +112,7 @@ import com.example.ui.theme.SurfaceMuted
 import com.example.ui.theme.SurfaceWhite
 import com.example.ui.theme.WarningText
 import com.example.ui.util.CategoryColorChoices
+import com.example.ui.util.DefaultGoalColor
 import com.example.ui.util.DateConversions
 import com.example.ui.util.Formatters
 import com.example.ui.util.getCategoryIcon
@@ -1155,7 +1156,7 @@ private fun GoalEditorDialog(
     var targetText by rememberSaveable { mutableStateOf(goal?.target?.let { plainNumber(it) }.orEmpty()) }
     var savedText by rememberSaveable { mutableStateOf("") }
     var iconKey by rememberSaveable { mutableStateOf(goal?.iconKey ?: GoalIconChoices.first()) }
-    var colorHex by rememberSaveable { mutableLongStateOf(goal?.colorHex ?: CategoryColorChoices[5]) }
+    var colorHex by rememberSaveable { mutableLongStateOf(goal?.colorHex ?: DefaultGoalColor) }
     var targetDate by rememberSaveable { mutableStateOf(goal?.targetDate) }
     var touched by rememberSaveable { mutableStateOf(false) }
     var pickDate by remember { mutableStateOf(false) }
@@ -1223,7 +1224,7 @@ private fun GoalEditorDialog(
         }
 
         Text("Colour", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
-        CategoryColorChoices.chunked(5).forEach { row ->
+        CategoryColorChoices.chunked(6).forEach { row ->
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 row.forEach { hex ->
                     Box(

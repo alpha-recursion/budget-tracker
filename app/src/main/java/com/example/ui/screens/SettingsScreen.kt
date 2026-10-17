@@ -6,6 +6,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Repeat
 import com.example.domain.Recurring
 import androidx.compose.material.icons.filled.NotificationsActive
@@ -121,9 +122,13 @@ fun SettingsScreen(
     celebrationFeedback: Boolean = true,
     onCelebrationFeedbackChange: (Boolean) -> Unit = {},
     paySummary: String? = null,
-    onEditPay: () -> Unit = {}
+    onEditPay: () -> Unit = {},
+    onUpdateCategoryStyle: (category: CategoryInfo, iconKey: String, colorHex: Long) -> Unit = { _, _, _ -> }
 ) {
     var showEditor by rememberSaveable { mutableStateOf(false) }
+    var showPalette by rememberSaveable { mutableStateOf(false) }
+    // Name of the category whose icon / colour is being changed.
+    var stylingName by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmErase by rememberSaveable { mutableStateOf(false) }
     val customCategories = categories.filter { it.isCustom }
@@ -238,7 +243,8 @@ fun SettingsScreen(
                     PwListRow(
                         title = category.name,
                         subtitle = category.type.displayName(),
-                        leading = { PwIconBadge(getCategoryIcon(category.iconKey), Color(category.colorHex), size = 32.dp) }
+                        leading = { PwIconBadge(getCategoryIcon(category.iconKey), Color(category.colorHex), size = 32.dp) },
+                        onClick = { stylingName = category.name }
                     ) {
                         IconButton(onClick = { pendingDelete = category.name }) {
                             Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete ${category.name}", tint = InkSecondary)
@@ -254,6 +260,15 @@ fun SettingsScreen(
                     onClick = { showEditor = true },
                     showChevron = false,
                     modifier = Modifier.testTag("add_category_button")
+                )
+                PwDivider()
+                SettingsRow(
+                    icon = Icons.Default.Palette,
+                    tint = Accent,
+                    title = "Colours & icons",
+                    subtitle = "Change how any category looks",
+                    onClick = { showPalette = true },
+                    modifier = Modifier.testTag("category_palette_button")
                 )
             }
         }
@@ -347,6 +362,27 @@ fun SettingsScreen(
                 error
             },
             onDismiss = { showEditor = false }
+        )
+    }
+
+    if (showPalette) {
+        CategoryPaletteDialog(
+            categories = categories,
+            onPick = { stylingName = it.name },
+            onDismiss = { showPalette = false }
+        )
+    }
+
+    stylingName?.let { name -> categories.firstOrNull { it.name == name } }?.let { category ->
+        CategoryEditorDialog(
+            initialType = category.type,
+            editing = category,
+            onSave = { _, _, iconKey, colorHex ->
+                onUpdateCategoryStyle(category, iconKey, colorHex)
+                stylingName = null
+                null
+            },
+            onDismiss = { stylingName = null }
         )
     }
 

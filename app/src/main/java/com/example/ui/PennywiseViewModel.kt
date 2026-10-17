@@ -9,7 +9,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.backup.BackupData
 import com.example.data.backup.BackupSerializer
 import com.example.data.backup.InvalidBackupException
+import com.example.data.backup.PhoneSettingsBackup
 import com.example.data.local.BudgetEntity
+import com.example.data.local.CategoryStyle
+import com.example.data.local.CategoryStyleStore
 import com.example.data.local.CustomCategoryEntity
 import com.example.data.local.MerchantRuleEntity
 import com.example.data.local.PennywiseDatabase
@@ -134,20 +137,27 @@ class PennywiseViewModel @JvmOverloads constructor(
     private val _overlay = MutableStateFlow<Overlay?>(null)
     val overlay: StateFlow<Overlay?> = _overlay
 
-    // Built-in categories followed by the user's own. Eager so the list is ready for the form
-    // the first time it opens.
-    val categories: StateFlow<List<CategoryInfo>> = repository.customCategories
-        .map { custom ->
-            CategoryInfo.builtIns + custom.map { entity ->
-                CategoryInfo(
-                    name = entity.name,
-                    iconKey = entity.iconKey,
-                    colorHex = entity.colorHex,
-                    type = if (entity.type == TransactionType.INCOME.name) TransactionType.INCOME else TransactionType.EXPENSE,
-                    isCustom = true
-                )
-            }
+    // Declared before [categories], which reads it while initialising.
+    private val categoryStyleStore = CategoryStyleStore(application)
+
+    // Built-in categories (with any icon / colour the owner picked) followed by the user's own.
+    // Eager so the list is ready for the form the first time it opens.
+    val categories: StateFlow<List<CategoryInfo>> = combine(
+        repository.customCategories,
+        categoryStyleStore.styles
+    ) { custom, styles ->
+        CategoryInfo.builtIns.map { builtIn ->
+            styles[builtIn.name]?.let { builtIn.copy(iconKey = it.iconKey, colorHex = it.colorHex) } ?: builtIn
+        } + custom.map { entity ->
+            CategoryInfo(
+                name = entity.name,
+                iconKey = entity.iconKey,
+                colorHex = entity.colorHex,
+                type = if (entity.type == TransactionType.INCOME.name) TransactionType.INCOME else TransactionType.EXPENSE,
+                isCustom = true
+            )
         }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
@@ -1030,6 +1040,24 @@ class PennywiseViewModel @JvmOverloads constructor(
     }
 
     /**
+     * Changes the icon and colour of an existing category. Custom categories are updated in the
+     * database; built-ins store an override, removed again when set back to their default.
+     */
+    fun updateCategoryStyle(category: CategoryInfo, iconKey: String, colorHex: Long) {
+        if (category.isCustom) {
+            viewModelScope.launch {
+                repository.saveCustomCategory(
+                    CustomCategoryEntity(name = category.name, iconKey = iconKey, colorHex = colorHex, type = category.type.name)
+                )
+            }
+        } else {
+            val default = CategoryInfo.builtIns.firstOrNull { it.name == category.name } ?: return
+            val isDefault = default.iconKey == iconKey && default.colorHex == colorHex
+            categoryStyleStore.set(category.name, if (isDefault) null else CategoryStyle(iconKey, colorHex))
+        }
+    }
+
+    /**
      * Sets the monthly limit for [category]. Returns an error message for the user, or null
      * when the budget was accepted.
      */
@@ -1098,10 +1126,12 @@ class PennywiseViewModel @JvmOverloads constructor(
         _userMessage.value = null
     }
 
+    private val phoneSettings = PhoneSettingsBackup(application)
+
     fun exportBackup(uri: Uri) {
         viewModelScope.launch {
             _userMessage.value = try {
-                val data = repository.exportBackup()
+                val data = repository.exportBackup().copy(phoneSettings = phoneSettings.read())
                 val json = BackupSerializer.toJson(data)
                 withContext(Dispatchers.IO) {
                     val stream = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
@@ -1138,6 +1168,8 @@ class PennywiseViewModel @JvmOverloads constructor(
         viewModelScope.launch {
             _userMessage.value = try {
                 repository.restoreBackup(data)
+                // Older backups have no settings: keep the phone's own rather than wiping them.
+                data.phoneSettings?.let { phoneSettings.apply(it) }
                 "Restored ${data.transactions.size} transactions"
             } catch (e: Exception) {
                 "Restore failed, your data was not changed"
@@ -1152,6 +1184,7 @@ class PennywiseViewModel @JvmOverloads constructor(
     fun eraseAllData() {
         viewModelScope.launch {
             repository.eraseAllData()
+            phoneSettings.clear()
             _userMessage.value = "All data erased"
         }
     }

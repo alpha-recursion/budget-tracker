@@ -16,10 +16,17 @@ val CategoryIconChoices: List<String> = listOf(
 )
 
 /** Colours offered when creating a category. */
+/**
+ * v4 category palette: 12 hues deep enough to read as icon tints on white and as 12% chip
+ * backgrounds, in rows of 6 around the colour wheel, ending with the v4 purple, pink and slate.
+ */
 val CategoryColorChoices: List<Long> = listOf(
-    0xFFFF7675, 0xFFE17055, 0xFFFDCB6E, 0xFF00B894, 0xFF00CEC9,
-    0xFF0984E3, 0xFF6C5CE7, 0xFFA29BFE, 0xFFE84393, 0xFF636E72
+    0xFFDC2626, 0xFFEA580C, 0xFFD97706, 0xFF65A30D, 0xFF1F7A3D, 0xFF0F766E,
+    0xFF0284C7, 0xFF2563EB, 0xFF4F46E5, 0xFF6D28D9, 0xFFDB2777, 0xFF475569
 )
+
+/** Default for a new savings goal: the palette's blue. */
+val DefaultGoalColor: Long = 0xFF2563EB
 
 /** How many transactions use each category; pickers show the most-used first. */
 val LocalCategoryUsage = compositionLocalOf { emptyMap<String, Int>() }

@@ -31,6 +31,11 @@ class DailyReviewStore(context: Context) {
         prefs.edit().putStringSet(KEY_DAYS, updated).apply()
     }
 
+    /** Replaces every check-in day (backup restore; an empty set erases them). */
+    fun replaceAll(days: Set<Long>) {
+        prefs.edit().putStringSet(KEY_DAYS, days.map { it.toString() }.toSet()).apply()
+    }
+
     private companion object {
         const val KEY_DAYS = "reviewed_days"
     }
