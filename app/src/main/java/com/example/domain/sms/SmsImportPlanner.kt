@@ -32,9 +32,17 @@ data class ImportCandidate(
     /** A transaction with the same type and amount already exists on that day (likely entered by hand). */
     val possibleDuplicate: Boolean,
     /** A debit and a credit with the same UPI reference: money moved between the owner's own accounts. */
-    val looksLikeSelfTransfer: Boolean
+    val looksLikeSelfTransfer: Boolean,
+    /**
+     * A reversal whose original payment was already recorded: importing it removes that payment
+     * (this is its dedupe key) instead of adding income.
+     */
+    val cancelsKey: String? = null
 ) {
     val selectedByDefault: Boolean get() = !needsReview && !possibleDuplicate
+
+    /** A reversal whose original payment was not found; the owner decides whether it is income. */
+    val isUnmatchedReversal: Boolean get() = parsed.isReversal && cancelsKey == null
 }
 
 /** The transaction an imported SMS becomes; shared by the review screen and live capture. */
@@ -68,7 +76,10 @@ data class ImportGroup(
     val nameVariants: List<String> = emptyList(),
     /** The owner already chose a (still existing) category or "self transfer" for this payee. */
     val hasRememberedChoice: Boolean = false
-)
+) {
+    /** A reversal that cancels an earlier payment: no category or lending choice applies. */
+    val cancelsPayment: Boolean get() = items.all { it.cancelsKey != null }
+}
 
 /** What a scan saw, so the user can tell why messages were or were not found. */
 data class ScanStats(
@@ -134,6 +145,13 @@ object SmsImportPlanner {
         return "sms:" + digest.take(16).joinToString("") { "%02x".format(it) }
     }
 
+    /** Dedupe key of the payment a reversal gives back (same bank and UPI reference, as a debit). */
+    fun reversedPaymentKey(parsed: ParsedBankSms): String? {
+        if (!parsed.isReversal) return null
+        val ref = parsed.upiRef ?: return null
+        return "ref:${parsed.bank.name}:${TransactionType.EXPENSE.name}:$ref"
+    }
+
     /** Remembered-choice key: direction + normalised payee, e.g. "expense:swaraj poli bhaji kendra". */
     fun ruleKey(type: TransactionType, counterparty: String): String? {
         val normalised = counterparty.lowercase(Locale.US).replace(Regex("""\s+"""), " ").trim()
@@ -161,7 +179,7 @@ object SmsImportPlanner {
         var recognised = 0
         val unrecognised = ArrayList<RawSms>()
 
-        val found = messages
+        val allFound = messages
             .sortedByDescending { it.receivedAt }
             .mapNotNull { sms ->
                 if (!isBankSender(sms.sender)) return@mapNotNull null
@@ -188,9 +206,18 @@ object SmsImportPlanner {
                 }
             }
 
+        // A failed payment and its reversal in the same scan cancel out: neither is offered.
+        val foundKeys = allFound.map { it.key }.toHashSet()
+        val cancelledInScan = allFound
+            .mapNotNull { f -> reversedPaymentKey(f.parsed)?.takeIf { it in foundKeys }?.let { listOf(f.key, it) } }
+            .flatten()
+            .toHashSet()
+        val found = allFound.filterNot { it.key in cancelledInScan }
+
         // UPI refs that appear as both a debit and a credit of the same amount in this scan.
+        // A reversal shares its payment's ref but is not a transfer.
         val selfTransferRefs = found
-            .filter { it.parsed.upiRef != null }
+            .filter { it.parsed.upiRef != null && !it.parsed.isReversal }
             .groupBy { it.parsed.upiRef }
             .filterValues { sides ->
                 sides.any { it.parsed.type == TransactionType.EXPENSE } &&
@@ -201,14 +228,17 @@ object SmsImportPlanner {
 
         val candidates = found.map { f ->
             val dateMs = transactionTime(f.parsed.dayMs, f.sms.receivedAt, timeZone)
+            val cancelsKey = reversedPaymentKey(f.parsed)?.takeIf { it in alreadyImportedKeys }
             ImportCandidate(
                 dedupeKey = f.key,
                 parsed = f.parsed,
                 receivedAt = f.sms.receivedAt,
                 dateMs = dateMs,
                 title = f.parsed.counterparty ?: fallbackTitle(f.parsed),
-                needsReview = !f.parsed.isConfident,
-                possibleDuplicate = existingTransactions.any { tx ->
+                // A reversal without its payment may still be a real refund: the owner decides.
+                needsReview = !f.parsed.isConfident || (f.parsed.isReversal && cancelsKey == null),
+                cancelsKey = cancelsKey,
+                possibleDuplicate = cancelsKey == null && existingTransactions.any { tx ->
                     tx.type == f.parsed.type.name &&
                         abs(tx.amount - f.parsed.amount) < 0.005 &&
                         sameLocalDay(tx.date, dateMs, timeZone)
@@ -297,7 +327,11 @@ object SmsImportPlanner {
             SmsBank.BOI -> "BOI"
             SmsBank.UNKNOWN -> "bank"
         }
-        return if (parsed.type == TransactionType.INCOME) "Money received ($bank)" else "Payment ($bank)"
+        return when {
+            parsed.isReversal -> "Payment reversed ($bank)"
+            parsed.type == TransactionType.INCOME -> "Money received ($bank)"
+            else -> "Payment ($bank)"
+        }
     }
 
     /** Use the SMS arrival time when it is on the date the SMS states; otherwise trust the stated date. */

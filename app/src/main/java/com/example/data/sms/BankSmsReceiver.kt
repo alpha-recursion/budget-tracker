@@ -65,10 +65,12 @@ class BankSmsReceiver : BroadcastReceiver() {
         if (decision.autoAdd.isNotEmpty()) {
             repository.importFromSms(
                 items = decision.autoAdd.map {
+                    val cancelsKey = it.candidate.cancelsKey
                     SmsImportItem(
                         dedupeKey = it.candidate.dedupeKey,
                         receivedAt = it.candidate.receivedAt,
-                        transaction = if (it.isSelfTransfer) null else it.candidate.toTransaction(it.category)
+                        transaction = if (it.isSelfTransfer || cancelsKey != null) null else it.candidate.toTransaction(it.category),
+                        cancelsKey = cancelsKey
                     )
                 },
                 rules = emptyList()

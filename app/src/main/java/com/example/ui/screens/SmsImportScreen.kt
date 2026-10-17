@@ -511,8 +511,8 @@ private fun GroupCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        (if (isIncome) "Received" else "Paid") + " · ${group.items.size} message" +
-                            if (group.items.size == 1) "" else "s",
+                        (if (group.cancelsPayment) "Refunded" else if (isIncome) "Received" else "Paid") +
+                            " · ${group.items.size} message" + if (group.items.size == 1) "" else "s",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -529,82 +529,93 @@ private fun GroupCard(
                 }
             }
 
-            // What this money was: normal spending/income (with a category), lending, or a
-            // transfer between the owner's own accounts.
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Space.s),
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .horizontalScroll(rememberScrollState())
-            ) {
-                PwChip(
-                    text = if (isIncome) "Income" else "Spending",
-                    selected = !isSelfTransfer && lending == null,
-                    onClick = {
-                        if (!enabled) return@PwChip
-                        onSetLending(null)
-                        onSetSelfTransfer(false)
-                    }
-                )
-                PwChip(
-                    text = "Lending",
-                    selected = lending != null,
-                    onClick = { if (enabled) askPerson = true },
-                    modifier = Modifier.testTag("sms_lending_chip_${group.key}")
-                )
-                PwChip(
-                    text = "Self transfer",
-                    selected = isSelfTransfer,
-                    onClick = { if (enabled) onSetSelfTransfer(true) }
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            when {
-                lending != null -> Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                ) {
-                    Text(
-                        "${lending.kind.label} · ${Lending.displayName(lending.person)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Ink,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { askPerson = true }, enabled = enabled) {
-                        Text("Change", color = Accent, style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-                isSelfTransfer -> Text(
-                    "Not counted as spending or income.",
+            if (group.cancelsPayment) {
+                // The bank gave a recorded payment back: nothing to categorise.
+                Text(
+                    "The bank reversed a payment you already imported. Importing this removes " +
+                        "that payment; nothing is added as income.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
-                else -> CategoryButton(
-                    title = group.title,
-                    current = category,
-                    options = CategoryInfo.forType(categories, group.type),
-                    enabled = enabled,
-                    onSelect = onSetCategory,
+            } else {
+                // What this money was: normal spending/income (with a category), lending, or a
+                // transfer between the owner's own accounts.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Space.s),
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
-                        .fillMaxWidth()
-                )
-            }
-            if (askPerson) {
-                LendingPersonDialog(
-                    type = group.type,
-                    payee = group.title,
-                    people = people,
-                    amount = group.items.filter { it.dedupeKey in selected }.sumOf { it.parsed.amount }.takeIf { it > 0 },
-                    initialPerson = lending?.person,
-                    initialKind = lending?.kind,
-                    onConfirm = { person, kind ->
-                        onSetLending(LendingChoice(person, kind))
-                        askPerson = false
-                    },
-                    onDismiss = { askPerson = false }
-                )
+                        .horizontalScroll(rememberScrollState())
+                ) {
+                    PwChip(
+                        text = if (isIncome) "Income" else "Spending",
+                        selected = !isSelfTransfer && lending == null,
+                        onClick = {
+                            if (!enabled) return@PwChip
+                            onSetLending(null)
+                            onSetSelfTransfer(false)
+                        }
+                    )
+                    PwChip(
+                        text = "Lending",
+                        selected = lending != null,
+                        onClick = { if (enabled) askPerson = true },
+                        modifier = Modifier.testTag("sms_lending_chip_${group.key}")
+                    )
+                    PwChip(
+                        text = "Self transfer",
+                        selected = isSelfTransfer,
+                        onClick = { if (enabled) onSetSelfTransfer(true) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                when {
+                    lending != null -> Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            "${lending.kind.label} · ${Lending.displayName(lending.person)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Ink,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { askPerson = true }, enabled = enabled) {
+                            Text("Change", color = Accent, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                    isSelfTransfer -> Text(
+                        "Not counted as spending or income.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    else -> CategoryButton(
+                        title = group.title,
+                        current = category,
+                        options = CategoryInfo.forType(categories, group.type),
+                        enabled = enabled,
+                        onSelect = onSetCategory,
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .fillMaxWidth()
+                    )
+                }
+                if (askPerson) {
+                    LendingPersonDialog(
+                        type = group.type,
+                        payee = group.title,
+                        people = people,
+                        amount = group.items.filter { it.dedupeKey in selected }.sumOf { it.parsed.amount }.takeIf { it > 0 },
+                        initialPerson = lending?.person,
+                        initialKind = lending?.kind,
+                        onConfirm = { person, kind ->
+                            onSetLending(LendingChoice(person, kind))
+                            askPerson = false
+                        },
+                        onDismiss = { askPerson = false }
+                    )
+                }
             }
 
             HorizontalDivider(
@@ -642,7 +653,9 @@ private fun CandidateRow(item: ImportCandidate, checked: Boolean, enabled: Boole
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(Formatters.formatDate(item.dateMs), style = MaterialTheme.typography.bodyMedium)
-            if (item.needsReview) {
+            if (item.isUnmatchedReversal) {
+                Badge(text = "Reversal: original payment not found", color = Warning)
+            } else if (item.needsReview) {
                 Badge(text = "Check: unverified format", color = Warning)
             }
             if (item.possibleDuplicate) {

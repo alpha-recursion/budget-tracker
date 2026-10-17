@@ -87,6 +87,68 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun parsesKotakUpiCredit() {
+        val parsed = BankSmsParser.parse(
+            "Received Rs.57000.00 in your Kotak Bank AC 0271 from OM MADHUKAR PATIL on 21-08-26.UPI Ref:623396914412",
+            ist
+        )!!
+        assertEquals(57000.0, parsed.amount, 0.001)
+        assertEquals(TransactionType.INCOME, parsed.type)
+        assertEquals("Om Madhukar Patil", parsed.counterparty)
+        assertEquals(day(2026, 8, 21), parsed.dayMs)
+        assertEquals("623396914412", parsed.upiRef)
+        assertEquals(SmsBank.KOTAK, parsed.bank)
+        assertTrue(parsed.isConfident)
+        assertFalse(parsed.isReversal)
+
+        val truncated = BankSmsParser.parse(
+            "Received Rs.100.00 in your Kotak Bank AC 4880 from GAYATRI HARISHCHANDR on 24-08-26.UPI Ref:623610319810",
+            ist
+        )!!
+        assertEquals("Gayatri Harishchandr", truncated.counterparty)
+        assertEquals("623610319810", truncated.upiRef)
+    }
+
+    @Test
+    fun parsesBoiUpiCredit() {
+        val parsed = BankSmsParser.parse(
+            "BOI -  Rs.5000.00 Credited to your Ac XX5781 on 12-10-26 by UPI ref No.628583071397.Avl Bal 10469.82",
+            ist
+        )!!
+        assertEquals(5000.0, parsed.amount, 0.001)
+        assertEquals(TransactionType.INCOME, parsed.type)
+        assertNull(parsed.counterparty)
+        assertEquals(day(2026, 10, 12), parsed.dayMs)
+        assertEquals("628583071397", parsed.upiRef)
+        assertEquals(SmsBank.BOI, parsed.bank)
+        assertTrue(parsed.isConfident)
+    }
+
+    @Test
+    fun parsesKotakReversal() {
+        val parsed = BankSmsParser.parse(
+            "Rs.64.00 is credited to Kotak Bank a/c no. 4880 on 19-07-26 as a reversal of debit transaction " +
+                "(UPI Ref no 620002690546).",
+            ist
+        )!!
+        assertEquals(64.0, parsed.amount, 0.001)
+        assertEquals(TransactionType.INCOME, parsed.type)
+        assertTrue(parsed.isReversal)
+        assertEquals("620002690546", parsed.upiRef)
+        assertEquals(day(2026, 7, 19), parsed.dayMs)
+        assertEquals(SmsBank.KOTAK, parsed.bank)
+    }
+
+    @Test
+    fun ignoresCreditCardBillPayments() {
+        val card = "Payment of INR 2375.65 is credited to your Kotak Bank Credit Card x4867 on 21-AUG-2026. " +
+            "Available Credit limit is INR 66000."
+        assertNull(BankSmsParser.parse(card, ist))
+        // Not offered as an "unrecognised" example to teach either.
+        assertFalse(BankSmsParser.looksLikeTransaction(card))
+    }
+
+    @Test
     fun ignoresMessagesThatDidNotMoveMoney() {
         assertNull(BankSmsParser.parse("123456 is your OTP for UPI transaction of Rs.500.00. Do not share.", ist))
         assertNull(BankSmsParser.parse("Rahul has requested Rs.200.00 from you on UPI. Pay or decline.", ist))

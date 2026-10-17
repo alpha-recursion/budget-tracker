@@ -44,6 +44,53 @@ class SmsImportPlannerTest {
         rules: List<MerchantRuleEntity> = emptyList()
     ) = SmsImportPlanner.plan(messages, imported, existing, rules, categories, ist)
 
+    private val kotakFailedPayment = RawSms(
+        id = 30,
+        sender = "JD-KOTAKB-S",
+        body = "Sent Rs.64.00 from Kotak Bank A/c X4880 to SOME SHOP on 19-07-26. UPI Ref 620002690546.",
+        receivedAt = at(19, 10)
+    )
+    private val kotakReversal = RawSms(
+        id = 31,
+        sender = "JD-KOTAKB-S",
+        body = "Rs.64.00 is credited to Kotak Bank a/c no. 4880 on 19-07-26 as a reversal of debit transaction " +
+            "(UPI Ref no 620002690546).",
+        receivedAt = at(19, 11)
+    )
+    private val paymentKey = "ref:KOTAK:EXPENSE:620002690546"
+
+    @Test
+    fun verifiedCreditIsSelectedByDefault() {
+        val credit = RawSms(32, "JD-KOTAKB-S", "Received Rs.100.00 in your Kotak Bank AC 4880 from GAYATRI HARISHCHANDR on 24-08-26.UPI Ref:623610319810", at(24, 9))
+        val item = plan(listOf(credit)).groups.single().items.single()
+        assertEquals(TransactionType.INCOME, item.parsed.type)
+        assertTrue(item.selectedByDefault)
+    }
+
+    @Test
+    fun reversalOfImportedPaymentCancelsIt() {
+        val group = plan(listOf(kotakReversal), imported = setOf(paymentKey)).groups.single()
+        val item = group.items.single()
+        assertEquals(paymentKey, item.cancelsKey)
+        assertTrue(group.cancelsPayment)
+        assertTrue(item.selectedByDefault)
+        assertFalse(item.looksLikeSelfTransfer)
+    }
+
+    @Test
+    fun paymentAndReversalInOneScanAreBothSkipped() {
+        val result = plan(listOf(kotakFailedPayment, kotakReversal, kotakPerson))
+        assertEquals(listOf("Yogesh Bban Supekar"), result.groups.map { it.title })
+    }
+
+    @Test
+    fun reversalWithoutItsPaymentWaitsUnticked() {
+        val item = plan(listOf(kotakReversal)).groups.single().items.single()
+        assertEquals(null, item.cancelsKey)
+        assertTrue(item.isUnmatchedReversal)
+        assertFalse(item.selectedByDefault)
+    }
+
     @Test
     fun findsRealKotakAndBoiPayments() {
         val result = plan(listOf(boiFood, kotakPerson))

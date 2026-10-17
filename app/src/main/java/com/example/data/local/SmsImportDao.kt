@@ -13,6 +13,9 @@ interface SmsImportDao {
     @Query("SELECT * FROM sms_imports")
     suspend fun getAllOnce(): List<SmsImportEntity>
 
+    @Query("SELECT * FROM sms_imports WHERE dedupeKey = :dedupeKey")
+    suspend fun getByKey(dedupeKey: String): SmsImportEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(records: List<SmsImportEntity>)
 

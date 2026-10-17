@@ -42,9 +42,9 @@ data class CaptureState(
 
     val hasNews: Boolean get() = pendingKeys.isNotEmpty() || addedCount > 0
 
-    /** Adds what one incoming SMS produced; self transfers are recorded silently. */
+    /** Adds what one incoming SMS produced; self transfers and reversals are recorded silently. */
     fun record(decision: CaptureDecision, arrivedAtMs: Long, scanFromMs: Long): CaptureState {
-        val added = decision.autoAdd.filterNot { it.isSelfTransfer }
+        val added = decision.autoAdd.filterNot { it.isSelfTransfer || it.candidate.cancelsKey != null }
         val newPending = decision.toReview.map { it.dedupeKey }.filterNot { it in pendingKeys }
         val latestPayment = decision.toReview.maxByOrNull { it.receivedAt }?.let {
             CapturedPayment(it.title, it.parsed.amount, it.parsed.type, addedAs = null)
@@ -95,9 +95,9 @@ object AutoCapture {
     const val SCAN_MARGIN_MS = 10 * 60 * 1000L
 
     /**
-     * Owner's rule: a payment to a payee whose category was already chosen is added straight
-     * away; everything else waits for review. Only clean debits with a UPI reference qualify:
-     * credits use a format that is not verified yet, possible duplicates of a hand-entered
+     * Owner's rule: money to or from a payee whose category was already chosen is added straight
+     * away, and a reversal of a recorded payment cancels it; everything else waits for review.
+     * Only clean messages with a UPI reference qualify: possible duplicates of a hand-entered
      * payment need a human, and without a reference the dedupe key depends on the arrival time,
      * which the inbox may record slightly differently - a later scan could import it twice.
      */
@@ -106,11 +106,12 @@ object AutoCapture {
         val toReview = ArrayList<ImportCandidate>()
         for (group in plan.groups) {
             for (item in group.items) {
-                val automatic = group.hasRememberedChoice &&
-                    item.parsed.type == TransactionType.EXPENSE &&
-                    item.parsed.upiRef != null &&
-                    item.selectedByDefault &&
-                    !item.looksLikeSelfTransfer
+                val automatic = item.cancelsKey != null || (
+                    group.hasRememberedChoice &&
+                        item.parsed.upiRef != null &&
+                        item.selectedByDefault &&
+                        !item.looksLikeSelfTransfer
+                    )
                 if (automatic) {
                     autoAdd += AutoCaptured(item, group.suggestedCategory, group.suggestedSelfTransfer)
                 } else {

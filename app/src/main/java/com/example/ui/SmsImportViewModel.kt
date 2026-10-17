@@ -53,7 +53,8 @@ data class SmsImportState(
 
     val selectedCount: Int get() = selected.size
 
-    private fun ImportGroup.isCounted(): Boolean = key !in selfTransferGroups && key !in lendingByGroup
+    private fun ImportGroup.isCounted(): Boolean =
+        key !in selfTransferGroups && key !in lendingByGroup && !cancelsPayment
 
     /** Totals of what will actually be counted (self transfers and lending excluded). */
     val selectedSpent: Double
@@ -206,6 +207,17 @@ class SmsImportViewModel(
         for (group in plan.groups) {
             val chosen = group.items.filter { it.dedupeKey in current.selected }
             if (chosen.isEmpty()) continue
+            if (group.cancelsPayment) {
+                chosen.forEach { item ->
+                    items += SmsImportItem(
+                        dedupeKey = item.dedupeKey,
+                        receivedAt = item.receivedAt,
+                        transaction = null,
+                        cancelsKey = item.cancelsKey
+                    )
+                }
+                continue
+            }
             val lending = current.lendingByGroup[group.key]
             if (lending != null) {
                 // Lending is a one-off decision: the payee's remembered category is left as is.
@@ -242,8 +254,9 @@ class SmsImportViewModel(
         viewModelScope.launch {
             try {
                 val created = repository.importFromSms(items, rules)
-                val selfTransfers = items.count { it.transaction == null && it.debt == null }
+                val selfTransfers = items.count { it.transaction == null && it.debt == null && it.cancelsKey == null }
                 val lent = items.count { it.debt != null }
+                val reversed = items.count { it.cancelsKey != null }
                 val from = current.lastSinceMs
                 val at = current.scannedAtMs
                 if (from != null && at != null) captureStore.update { it.afterReview(from, at) }
@@ -253,6 +266,7 @@ class SmsImportViewModel(
                         append("Imported $created transaction${if (created == 1) "" else "s"}")
                         if (lent > 0) append(", $lent to money lent")
                         if (selfTransfers > 0) append(", $selfTransfers self transfer${if (selfTransfers == 1) "" else "s"} skipped")
+                        if (reversed > 0) append(", $reversed reversed payment${if (reversed == 1) "" else "s"} removed")
                     }
                 )
             } catch (e: Exception) {

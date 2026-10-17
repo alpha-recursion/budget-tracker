@@ -340,9 +340,9 @@ class PennywiseRepository(
     }
 
     /**
-     * Writes an SMS import all-or-nothing: new transactions, the handled-SMS records that stop
-     * them being imported again, and the remembered payee choices. Returns how many
-     * transactions were created.
+     * Writes an SMS import all-or-nothing: new transactions, payments removed by their
+     * reversal, the handled-SMS records that stop them being imported again, and the remembered
+     * payee choices. Returns how many transactions were created.
      */
     suspend fun importFromSms(items: List<SmsImportItem>, rules: List<MerchantRuleEntity>): Int =
         withContext(Dispatchers.IO) {
@@ -352,12 +352,14 @@ class PennywiseRepository(
                 val recorded = smsImportDao.getAllKeys().toHashSet()
                 var created = 0
                 val records = items.filter { recorded.add(it.dedupeKey) }.map { item ->
+                    item.cancelsKey?.let { cancelPayment(it) }
                     val transactionId = item.transaction?.let {
                         created++
                         transactionDao.insert(it)
                     }
                     item.debt?.let { debtDao.insert(it.copy(smsKey = item.dedupeKey)) }
                     val status = when {
+                        item.cancelsKey != null -> SmsImportStatus.REVERSAL
                         transactionId != null -> SmsImportStatus.IMPORTED
                         item.debt != null -> SmsImportStatus.LENDING
                         else -> SmsImportStatus.SELF_TRANSFER
@@ -374,18 +376,30 @@ class PennywiseRepository(
                 created
             }
         }
+
+    /**
+     * The bank gave a payment back: removes the transaction or lending entry its SMS became (if
+     * still there) and marks that SMS as reversed, so a later scan does not import it again.
+     */
+    private suspend fun cancelPayment(paymentKey: String) {
+        val original = smsImportDao.getByKey(paymentKey) ?: return
+        original.transactionId?.let { transactionDao.deleteById(it) }
+        debtDao.deleteBySmsKey(paymentKey)
+        smsImportDao.insertAll(listOf(original.copy(status = SmsImportStatus.REVERSED.name, transactionId = null)))
+    }
 }
 
 /** What a deposit reached: a new percentage milestone and/or named checkpoints. */
 data class GoalReached(val milestone: Int? = null, val checkpoints: List<String> = emptyList())
 
 /**
- * One SMS to record: a [transaction], a lending [debt], or neither for a self transfer
- * (recorded, but not counted).
+ * One SMS to record: a [transaction], a lending [debt], a reversal that cancels the payment
+ * recorded under [cancelsKey], or none of these for a self transfer (recorded, but not counted).
  */
 data class SmsImportItem(
     val dedupeKey: String,
     val receivedAt: Long,
     val transaction: TransactionEntity?,
-    val debt: DebtEntryEntity? = null
+    val debt: DebtEntryEntity? = null,
+    val cancelsKey: String? = null
 )

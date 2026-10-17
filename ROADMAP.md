@@ -22,7 +22,12 @@ lent to others, and use light game mechanics so it gets opened every day.
   PhonePe/Paytm PDF, and manual quick-add
 - **Priorities after Phase 0:** SMS scanning first, then lending tracker, then goals &
   gamification (subscriptions and vehicle tracking follow later)
-- **SMS samples received:** Kotak UPI debit and BOI UPI debit (credit samples still needed)
+- **SMS samples received:** Kotak UPI debit and BOI UPI debit; Kotak UPI credit, Kotak
+  reversal, BOI UPI credit and Kotak credit card bill payment (Oct 2026)
+- **Credits (1.8):** verified credits are ticked in review, and live capture adds them for
+  payers with a remembered choice; credit card bill payments are ignored (the bank debit that
+  paid the bill already counts); a reversal cancels the original payment (found by UPI ref), or
+  waits unticked as a refund when the original is not found
 - **SMS scan rules:** only Kotak & BOI messages; credits included but flagged and unticked
   until confirmed; self transfers can be marked and are excluded from totals; categories
   are chosen once per payee and remembered
@@ -44,7 +49,7 @@ lent to others, and use light game mechanics so it gets opened every day.
 | 2. Auto-capture | **SMS history scan built** — permission, 7/14/30-day or since-date scan, grouped review, de-duplication, payee memory, self transfers (DB v3). **Live capture built** (1.5): known payees added automatically, the rest wait for review. Verified credit formats (1.8) pending. Needs on-device check. |
 | 3. Money features | **Lending tracker built** (2.1–2.3): people, lent / got back / borrowed / paid back, balances, due dates and overdue, settle up; SMS and existing transactions can be marked as lending (DB v5). Needs on-device check. |
 | 4. Gamification | **Savings goals built** (3.1): money set aside (not spending), 25/50/75/100% milestones with a confetti celebration, optional date with weekly plan and on-track / behind (DB v6). Needs on-device check. |
-| 1 | Credit SMS formats (1.8) on hold until samples arrive |
+| 1 | Credit SMS formats (1.8) built: Kotak/BOI credits, reversals, card bill payments ignored. Needs on-device check. |
 | 5 | Recurring payments built (5.1); bike costs (5.2) not started |
 
 ## To-do list
@@ -61,7 +66,11 @@ lent to others, and use light game mechanics so it gets opened every day.
       notification; Home card "N bank payments to review"
 - [x] 1.6 Payee memory: category (or "self transfer") remembered per payee
 - [x] 1.7 Database v3: `sms_imports` and `merchant_rules` tables (+ backup/restore/erase)
-- [ ] 1.8 Exact credit formats once Kotak/BOI "money received" samples arrive
+- [x] 1.8 Credit formats: Kotak "Received … in your Kotak Bank AC", BOI "BOI - Rs… Credited to
+      your Ac", Kotak "reversal of debit transaction" (removes the original payment: same scan →
+      both skipped; already recorded → its transaction or lending entry is deleted, statuses
+      REVERSED / REVERSAL); "credited to your … Credit Card" bill payments ignored. Needs
+      on-device check.
 - [x] 1.9 Scan details: what was read / recognised, unrecognised examples, and
       "Scan since <date>" when the latest bank SMS is older than the period
 - [x] 1.10 Teach by example: save a new SMS format from one sample (DB v4)

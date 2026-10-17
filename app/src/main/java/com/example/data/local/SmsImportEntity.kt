@@ -24,5 +24,11 @@ enum class SmsImportStatus {
     SELF_TRANSFER,
 
     /** Money lent, borrowed or repaid; recorded in `debts`, not as a transaction. */
-    LENDING
+    LENDING,
+
+    /** A payment the bank later gave back; its transaction was removed. */
+    REVERSED,
+
+    /** The bank's "reversal of debit" alert that cancelled a [REVERSED] payment. */
+    REVERSAL
 }

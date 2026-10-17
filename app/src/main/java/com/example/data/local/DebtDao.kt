@@ -23,6 +23,10 @@ interface DebtDao {
     @Query("DELETE FROM debts WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    /** Removes the lending entry an SMS created (e.g. the bank reversed that payment). */
+    @Query("DELETE FROM debts WHERE smsKey = :smsKey")
+    suspend fun deleteBySmsKey(smsKey: String)
+
     @Query("DELETE FROM debts WHERE personKey = :personKey")
     suspend fun deletePerson(personKey: String)
 
