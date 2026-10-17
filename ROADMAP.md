@@ -231,6 +231,48 @@ built-in categories; people are marked, not guessed; existing "Other" payments f
 - [x] 10.6 Settings → Categories → "Sort out “Other” payments": suggestions per payee, change or
       untick, apply; each choice is remembered for future imports.
 
+### 11. Firebase & AI options (proposed, not started)
+Discussed Oct 2026; nothing here is built. The build already lists Firebase libraries from the
+AI Studio template (`firebase-ai`, App Check), but there is no `google-services.json` and no code
+uses them, so nothing is sent anywhere today. Pennywise's promise is "everything stays on this
+phone": anything that sends data off the phone must be opt-in and say what it sends.
+
+**What Firebase is:** Google's ready-made backend services. The app adds a library; Google runs
+the servers. Free ("Spark") plan for small use; pay-as-you-go ("Blaze") for server functions and
+heavy use. Check current limits on the Firebase pricing page before relying on them.
+
+| Service | What it gives Pennywise | Sends personal data? |
+|---|---|---|
+| Crashlytics | Automatic crash reports with file and line (would have found the edit-screen crash) | No, if logs never include transactions |
+| Remote Config | New bank SMS formats and category keywords without an app update | No |
+| App Distribution | Install test builds on the phone without AI Studio reinstall problems | No |
+| AI Logic (Gemini) | Categorise payees the offline rules can't place; "Ask your money" questions; receipt photos; unfamiliar statement PDFs; monthly summary in words | Yes: send business names only, opt-in |
+| Authentication | "Sign in with Google", the basis for anything per-user in the cloud | Account identity |
+| Firestore | Cloud backup, restore on a new phone, two devices, shared / family budgets | Yes: needs encryption and strict rules |
+| Cloud Messaging + Functions | Server-sent reminders and weekly summaries; shared features | Depends |
+
+**Using a normal ChatGPT / Gemini account (no API key):** an app may not sign in with a consumer
+account or automate the chat website (against OpenAI's and Google's terms, unsafe to store the
+password, breaks on site changes). Allowed alternatives:
+- "Ask ChatGPT / Gemini": open the owner's app with a ready prompt (business names still needing
+  a category + the category list, no amounts or people), the owner copies the reply back and
+  Pennywise applies it. Free, uses their own account, a few extra taps.
+- On-device Gemini Nano (newer Pixel / Galaxy phones): free, offline, nothing leaves the phone;
+  only on supported phones.
+- Gemini via Firebase AI Logic: seamless and invisible to users; the developer sets it up once.
+
+**Wider risks if Pennywise is ever published for other people:** India's DPDP Act obligations for
+financial data; Google Play restricts READ_SMS / RECEIVE_SMS to approved uses (check the policy
+before relying on SMS import in a public release); cloud security and costs.
+
+Recommended phases:
+- [ ] 11.1 Crashlytics + Remote Config (no personal data; Remote Config serves SMS formats and
+      category keywords)
+- [ ] 11.2 Opt-in AI fallback for payees the offline categoriser can't place: "Ask ChatGPT /
+      Gemini" copy-paste first, Gemini via Firebase AI Logic if the extra taps get annoying
+- [ ] 11.3 Only for multiple devices or other users: Google sign-in + Firestore sync, opt-in and
+      encrypted from the start
+
 ## SMS import design
 
 ```
@@ -646,6 +688,7 @@ not practical for a personal app).
  [Owner]  2. Import a Google Pay statement on the phone (6.1a) and check the review
  [Owner]  3. Share a Kotak / BOI CSV or Excel statement, or a PhonePe / Paytm PDF, for 6.1b
  [Later]  4. 6.2 widget, insights, dark mode
+ [Later]  5. 11.1 Crashlytics + Remote Config (needs a free Firebase project and google-services.json)
 ```
 
 ---
