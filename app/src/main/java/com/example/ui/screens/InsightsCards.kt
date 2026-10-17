@@ -205,7 +205,7 @@ internal fun MonthTrendCard(transactions: List<TransactionEntity>, nowMs: Long) 
             Column(horizontalAlignment = Alignment.End) {
                 Text("On pace for", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
                 Text(
-                    Formatters.formatCurrency(Math.round(projection).toDouble()),
+                    Formatters.formatWholeRupees(projection),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = Accent
                 )

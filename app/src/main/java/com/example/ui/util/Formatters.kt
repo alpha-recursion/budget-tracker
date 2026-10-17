@@ -58,6 +58,17 @@ object Formatters {
         }
     }
 
+    // Same grouping without paise, for rounded figures and short labels ("₹1,000", "₹45/day").
+    private val wholeRupeeFormat: NumberFormat = NumberFormat.getNumberInstance(Locale("en", "IN")).apply {
+        maximumFractionDigits = 0
+    }
+
+    /** Rounded to the nearest rupee, no paise: "₹1,000". */
+    fun formatWholeRupees(amount: Double): String {
+        val rounded = Math.round(amount).toDouble()
+        return if (rounded < 0) "-₹" + wholeRupeeFormat.format(-rounded) else "₹" + wholeRupeeFormat.format(rounded)
+    }
+
     fun formatSignedCurrency(amount: Double, type: String): String {
         val formatted = formatCurrency(amount)
         return if (type.equals("INCOME", ignoreCase = true)) {

@@ -348,7 +348,7 @@ private fun heroText(kpi: SpendKpi): HeroText {
             val below = kpi.spent <= kpi.averagePerDay
             HeroText(
                 label = "Spent today",
-                sub = "${payments(kpi.payments)} · avg ${Formatters.formatCurrency(Math.round(kpi.averagePerDay).toDouble())}/day",
+                sub = "${payments(kpi.payments)} · avg ${Formatters.formatWholeRupees(kpi.averagePerDay)}/day",
                 tag = when {
                     kpi.spent == 0.0 -> "No spend yet"
                     below -> "Below your average"
@@ -363,7 +363,7 @@ private fun heroText(kpi: SpendKpi): HeroText {
             HeroText(
                 label = "Spent this week",
                 sub = "$from – $to · ${payments(kpi.payments)}",
-                tag = "${Formatters.formatCurrency(Math.round(kpi.perDayThisWeek).toDouble())} / day",
+                tag = "${Formatters.formatWholeRupees(kpi.perDayThisWeek)} / day",
                 tagColors = ToneNeutral
             )
         }

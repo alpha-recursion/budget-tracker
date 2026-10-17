@@ -287,14 +287,20 @@ fun AddEditTransactionDialog(
                             )
                         }
                     }
-                    // Quick amounts add to what is there: +₹100 twice is ₹200.
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    // Quick amounts add to what is there: +₹100 twice is ₹200. Equal-width pills
+                    // with whole rupees, so all four always fit on one line.
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Space.s),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                    ) {
                         listOf(100, 500, 1000, 2000).forEach { step ->
-                            Text(
-                                "+" + Formatters.formatCurrency(step.toDouble()),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Accent,
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp)
                                     .clip(PillShape)
                                     .background(SurfaceWhite)
                                     .border(1.dp, Color(0xFFE4DCF3), PillShape)
@@ -303,9 +309,15 @@ fun AddEditTransactionDialog(
                                         val text = if (total % 1.0 == 0.0) total.toLong().toString() else String.format(java.util.Locale.US, "%.2f", total)
                                         onAmountChange(InputGuard.amount(text))
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
                                     .testTag("quick_amount_$step")
-                            )
+                            ) {
+                                Text(
+                                    "+" + Formatters.formatWholeRupees(step.toDouble()),
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Accent,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                     if (amountError != null) {
