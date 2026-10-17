@@ -372,7 +372,12 @@ private fun heroText(kpi: SpendKpi): HeroText {
             HeroText(
                 label = "Spent in " + SimpleDateFormat("MMMM", Locale.US).format(Date(kpi.monthStart)),
                 sub = "Income ${Formatters.formatCurrency(kpi.monthIncome)} · ${kpi.daysLeftInMonth} day${if (kpi.daysLeftInMonth == 1) "" else "s"} left",
-                tag = if (rate == null) "No income yet" else "Saving ${Math.round(rate)}%",
+                tag = when {
+                    rate == null -> "No income yet"
+                    // A negative percentage of a small income reads as nonsense ("-2483%").
+                    rate < 0 -> "Overspent ${Formatters.formatCurrency(kpi.spent - kpi.monthIncome)}"
+                    else -> "Saving ${Math.round(rate)}%"
+                },
                 tagColors = if (rate != null && rate >= 20.0) ToneGood else ToneWarn
             )
         }

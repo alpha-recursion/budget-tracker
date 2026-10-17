@@ -62,6 +62,7 @@ import com.example.ui.theme.Ink
 import com.example.ui.theme.InkSecondary
 import com.example.ui.theme.InkTertiary
 import com.example.ui.theme.Navy
+import com.example.ui.theme.Negative
 import com.example.ui.theme.Positive
 import com.example.ui.theme.PositiveSoft
 import com.example.ui.theme.PositiveText
@@ -111,6 +112,8 @@ internal fun InsightsHeader(title: String, note: String? = null) {
 internal fun SavingsRateCard(month: FinancialSummary) {
     val income = month.totalIncome
     val rate = if (income > 0) (income - month.totalExpense) / income * 100 else 0.0
+    // Spending above income: show the amount, not a meaningless "-2483%".
+    val overspent = income > 0 && rate < 0
     val (tag, good) = when {
         income <= 0 -> "Add income to see this" to false
         rate >= 20 -> "Above the 20% target" to true
@@ -120,8 +123,13 @@ internal fun SavingsRateCard(month: FinancialSummary) {
     PwCard(modifier = Modifier.testTag("savings_rate_card")) {
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Savings rate", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
-                Text(String.format(Locale.US, "%.1f%%", rate), style = MaterialTheme.typography.displaySmall, color = Ink)
+                Text(if (overspent) "Overspent" else "Savings rate", style = MaterialTheme.typography.bodySmall, color = InkSecondary)
+                Text(
+                    if (overspent) Formatters.formatCurrency(month.totalExpense - income) else String.format(Locale.US, "%.1f%%", rate),
+                    style = MaterialTheme.typography.displaySmall,
+                    color = if (overspent) Negative else Ink,
+                    maxLines = 1
+                )
             }
             Text(
                 tag,
