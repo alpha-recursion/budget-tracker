@@ -298,29 +298,46 @@ private fun SpendHero(
             height = 30.dp,
             modifier = Modifier.testTag("hero_period")
         )
-        Row(verticalAlignment = Alignment.Bottom) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-                Text(text.label, style = MaterialTheme.typography.labelMedium, color = SurfaceWhite.copy(alpha = 0.72f))
+        // The tag sits beside the small label, so the big amount and the line under it get the
+        // full width (a long tag like "Overspent ₹3,868" used to cut them off).
+        Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    Formatters.formatCurrency(Math.round(animatedAmount(kpi.spent)).toDouble()),
-                    style = MaterialTheme.typography.displayMedium,
-                    color = SurfaceWhite,
+                    text.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SurfaceWhite.copy(alpha = 0.72f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("net_balance_text")
+                    modifier = Modifier.weight(1f)
                 )
-                Text(text.sub, style = MaterialTheme.typography.bodySmall, color = SurfaceWhite.copy(alpha = 0.72f), maxLines = 1)
+                Spacer(modifier = Modifier.width(Space.s))
+                Text(
+                    text.tag,
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp),
+                    color = text.tagColors.second,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(PillShape)
+                        .background(text.tagColors.first)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .testTag("hero_tag")
+                )
             }
-            Spacer(modifier = Modifier.width(Space.m))
             Text(
-                text.tag,
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp),
-                color = text.tagColors.second,
+                // Rounded to the rupee, so no ".00".
+                Formatters.formatWholeRupees(animatedAmount(kpi.spent)),
+                style = MaterialTheme.typography.displayMedium,
+                color = SurfaceWhite,
                 maxLines = 1,
-                modifier = Modifier
-                    .clip(PillShape)
-                    .background(text.tagColors.first)
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("net_balance_text")
+            )
+            Text(
+                text.sub,
+                style = MaterialTheme.typography.bodySmall,
+                color = SurfaceWhite.copy(alpha = 0.72f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         HeroBars(kpi)
@@ -378,7 +395,7 @@ private fun heroText(kpi: SpendKpi): HeroText {
                 tag = when {
                     rate == null -> "No income yet"
                     // A negative percentage of a small income reads as nonsense ("-2483%").
-                    rate < 0 -> "Overspent ${Formatters.formatCurrency(kpi.spent - kpi.monthIncome)}"
+                    rate < 0 -> "Overspent ${Formatters.formatWholeRupees(kpi.spent - kpi.monthIncome)}"
                     else -> "Saving ${Math.round(rate)}%"
                 },
                 tagColors = if (rate != null && rate >= 20.0) ToneGood else ToneWarn
@@ -433,8 +450,9 @@ private fun HeroBars(kpi: SpendKpi) {
                 }
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        // Cap first: after fillMaxWidth the cap could not shrink the bar.
                         .widthIn(max = 26.dp)
+                        .fillMaxWidth()
                         .height((42 * (bar.amount / max) * g).toFloat().coerceAtLeast(3f).dp)
                         .clip(RoundedCornerShape(5.dp))
                         .background(color)
