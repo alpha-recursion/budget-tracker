@@ -8,6 +8,7 @@
         android:pivotX="54"
         android:pivotY="54">
         <!-- Coin outer circle -->
+        
         <path
             android:fillColor="#8B5CF6"
             android:pathData="M54,26 C38.54,26 26,38.54 26,54 C26,69.46 38.54,82 54,82 C69.46,82 82,69.46 82,54 C82,38.54 69.46,26 54,26 Z" />
