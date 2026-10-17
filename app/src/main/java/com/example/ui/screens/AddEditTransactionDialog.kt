@@ -35,6 +35,16 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.border
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -45,7 +55,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,7 +69,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -88,12 +96,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.local.TransactionEntity
 import com.example.data.model.CategoryInfo
@@ -156,11 +161,13 @@ fun AddEditTransactionDialog(
     val availableCategories = CategoryInfo.forType(categories, type)
     var showDatePicker by remember { mutableStateOf(false) }
     var showCategoryEditor by remember { mutableStateOf(false) }
-    val amountFocus = remember { FocusRequester() }
+    // The amount uses the app's own keypad, not the phone keyboard; new entries start on it.
+    var keypadOpen by remember { mutableStateOf(!isEditing) }
+    val focusManager = LocalFocusManager.current
 
     BackHandler(onBack = onDismiss)
-    // New entry: put the cursor in the amount straight away.
-    LaunchedEffect(Unit) { if (!isEditing) amountFocus.requestFocus() }
+    // Registered later, so Back closes the keypad before it closes the sheet.
+    BackHandler(enabled = keypadOpen) { keypadOpen = false }
 
     // Sheet slides up over a navy scrim (v4); the host fades the whole thing in and out.
     val reduceMotion = LocalReduceMotion.current
@@ -248,30 +255,37 @@ fun AddEditTransactionDialog(
                     verticalArrangement = Arrangement.spacedBy(Space.xs)
                 ) {
                     Text("Amount", style = MaterialTheme.typography.labelMedium, color = InkSecondary)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable {
+                                // Hide the phone keyboard (payee / note) and show the keypad.
+                                focusManager.clearFocus()
+                                keypadOpen = true
+                            }
+                            .padding(horizontal = Space.s)
+                            .semantics { contentDescription = "Amount ${amount.ifEmpty { "0" }} rupees, tap to edit" }
+                            .testTag("amount_input")
+                    ) {
                         Text("₹", style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold), color = if (amount.isEmpty()) InkTertiary else Ink)
                         Spacer(modifier = Modifier.width(Space.xs))
-                        BasicTextField(
-                            value = amount,
-                            onValueChange = { onAmountChange(InputGuard.amount(it)) },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.displayLarge.copy(color = Ink),
-                            cursorBrush = SolidColor(Accent),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            modifier = Modifier
-                                .width(IntrinsicSize.Min)
-                                .widthIn(min = 40.dp)
-                                .focusRequester(amountFocus)
-                                .testTag("amount_input"),
-                            decorationBox = { inner ->
-                                Box {
-                                    if (amount.isEmpty()) {
-                                        Text("0", style = MaterialTheme.typography.displayLarge, color = InkTertiary)
-                                    }
-                                    inner()
-                                }
-                            }
+                        Text(
+                            amount.ifEmpty { "0" },
+                            style = MaterialTheme.typography.displayLarge,
+                            color = if (amount.isEmpty()) InkTertiary else Ink,
+                            maxLines = 1
                         )
+                        if (keypadOpen) {
+                            // Caret: shows where the keypad types.
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 2.dp)
+                                    .size(width = 3.dp, height = 40.dp)
+                                    .clip(PillShape)
+                                    .background(Accent)
+                            )
+                        }
                     }
                     // Quick amounts add to what is there: +₹100 twice is ₹200.
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
@@ -314,7 +328,9 @@ fun AddEditTransactionDialog(
                                 onValueChange = { onTitleChange(InputGuard.payee(it)) },
                                 placeholder = if (isExpense) "e.g. Zepto, Rent, Chai" else "e.g. Salary, Rahul",
                                 capitalization = KeyboardCapitalization.Words,
-                                modifier = Modifier.testTag("title_input")
+                                modifier = Modifier
+                                    .onFocusChanged { if (it.isFocused) keypadOpen = false }
+                                    .testTag("title_input")
                             )
                         }
                     }
@@ -350,6 +366,7 @@ fun AddEditTransactionDialog(
                             capitalization = KeyboardCapitalization.Sentences,
                             modifier = Modifier
                                 .padding(vertical = 14.dp)
+                                .onFocusChanged { if (it.isFocused) keypadOpen = false }
                                 .testTag("note_input")
                         )
                     }
@@ -402,6 +419,14 @@ fun AddEditTransactionDialog(
                     .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
                     .padding(horizontal = Space.screen, vertical = Space.m)
             ) {
+                if (keypadOpen) {
+                    AmountKeypad(
+                        onKey = { key -> onAmountChange(InputGuard.amount(amount + key)) },
+                        onBackspace = { onAmountChange(amount.dropLast(1)) },
+                        onClear = { onAmountChange("") },
+                        modifier = Modifier.padding(bottom = Space.m)
+                    )
+                }
                 PwPrimaryButton(
                     text = when {
                         isEditing -> "Update"
@@ -483,6 +508,67 @@ private fun SheetFieldRow(icon: ImageVector, content: @Composable () -> Unit) {
         Icon(icon, contentDescription = null, tint = InkSecondary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(Space.m))
         Box(modifier = Modifier.weight(1f)) { content() }
+    }
+}
+
+/**
+ * Number pad for the amount (v4): 1-9, ".", 0 and backspace; holding backspace clears. Keys go
+ * through [InputGuard.amount] at the call site, so the same rules apply as when typing.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AmountKeypad(
+    onKey: (Char) -> Unit,
+    onBackspace: () -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptics = LocalHapticFeedback.current
+    val rows = listOf("123", "456", "789", ".0<")
+    Column(modifier = modifier.testTag("amount_keypad"), verticalArrangement = Arrangement.spacedBy(Space.s)) {
+        rows.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                row.forEach { key ->
+                    val isBackspace = key == '<'
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(SurfaceWhite)
+                            .border(1.dp, Hairline, RoundedCornerShape(14.dp))
+                            .combinedClickable(
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    if (isBackspace) onBackspace() else onKey(key)
+                                },
+                                onLongClick = if (isBackspace) {
+                                    {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onClear()
+                                    }
+                                } else {
+                                    null
+                                },
+                                onLongClickLabel = if (isBackspace) "Clear amount" else null
+                            )
+                            .testTag(if (isBackspace) "keypad_backspace" else "keypad_$key"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isBackspace) {
+                            Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "Delete digit", tint = Ink, modifier = Modifier.size(22.dp))
+                        } else {
+                            Text(
+                                key.toString(),
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = Ink,
+                                modifier = Modifier.semantics { if (key == '.') contentDescription = "Decimal point" }
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
