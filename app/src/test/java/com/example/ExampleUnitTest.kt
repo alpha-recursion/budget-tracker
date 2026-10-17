@@ -208,7 +208,7 @@ class ExampleUnitTest {
                 tx(2, "Some Other T C", 25.0),
                 tx(3, "Some Other T Cen", 30.0),
                 tx(4, "Zepto", 453.0),
-                tx(5, "Dev Tea", 53.0),
+                tx(5, "Morning Tea", 53.0),
                 tx(6, "Salary", 50000.0, type = "INCOME") // income is not spending
             ),
             limit = 2

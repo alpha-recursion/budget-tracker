@@ -21,10 +21,10 @@ class SmsTemplateBuilderTest {
 
     private val ist = TimeZone.getTimeZone("Asia/Kolkata")
 
-    private val zepto = "Sent Rs.453.00 from Kotak Bank A/c X0271 to Zepto on 31-08-26. UPI Ref 128822061819. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud"
-    private val panshop = "Sent Rs.30.00 from Kotak Bank A/c X0271 to PAILWAN PANSHOP on 31-08-26. UPI Ref 128768974416. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud"
-    private val devTea = "Sent Rs.53.00 from Kotak Bank A/c X0271 to DEV TEA on 29-08-26. UPI Ref 660773555755. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud"
-    private val boi = "Rs.250.00 debited A/cXX5781 and credited to NEW MINAL KHANAWAL via UPI Ref No 659106464444 on 13Aug26. Call 18001031906, if not done by you. -BOI"
+    private val zepto = "Sent Rs.453.00 from Kotak Bank A/c X6789 to Zepto on 31-08-26. UPI Ref 900000000008. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud"
+    private val panshop = "Sent Rs.30.00 from Kotak Bank A/c X6789 to CORNER PANSHOP on 31-08-26. UPI Ref 900000000009. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud"
+    private val devTea = "Sent Rs.53.00 from Kotak Bank A/c X6789 to MORNING TEA on 29-08-26. UPI Ref 900000000010. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud"
+    private val boi = "Rs.250.00 debited A/cXX2468 and credited to NEW ASHA KHANAWAL via UPI Ref No 900000000004 on 13Aug26. Call 18001031906, if not done by you. -BOI"
 
     private fun day(y: Int, m: Int, d: Int) = Calendar.getInstance(ist).apply { clear(); set(y, m - 1, d) }.timeInMillis
 
@@ -49,10 +49,10 @@ class SmsTemplateBuilderTest {
     fun suggestionsForKotakSample() {
         val s = SmsTemplateBuilder.suggest(zepto)
         assertEquals("453.00", s.amounts.single().value)
-        assertEquals("Zepto", s.payee?.value) // not "Kotak Bank A/c X0271 to Zepto"
+        assertEquals("Zepto", s.payee?.value) // not "Kotak Bank A/c X6789 to Zepto"
         assertEquals("31-08-26", s.dates.single().span.value)
         assertEquals(SmsDateFormat.DAY_MONTH_YEAR_NUMERIC, s.dates.single().format)
-        assertEquals("128822061819", s.refs.single().value)
+        assertEquals("900000000008", s.refs.single().value)
         assertEquals(TransactionType.EXPENSE, s.type)
         assertEquals(SmsBank.KOTAK, s.bank)
     }
@@ -61,10 +61,10 @@ class SmsTemplateBuilderTest {
     fun suggestionsForBoiSample() {
         val s = SmsTemplateBuilder.suggest(boi)
         assertEquals("250.00", s.amounts.single().value)
-        assertEquals("NEW MINAL KHANAWAL", s.payee?.value)
+        assertEquals("NEW ASHA KHANAWAL", s.payee?.value)
         assertEquals("13Aug26", s.dates.single().span.value)
         assertEquals(SmsDateFormat.DAY_MONTH_NAME_YEAR, s.dates.single().format)
-        assertEquals("659106464444", s.refs.single().value)
+        assertEquals("900000000004", s.refs.single().value)
         assertEquals(TransactionType.EXPENSE, s.type) // "debited" comes before "credited to"
         assertEquals(SmsBank.BOI, s.bank)
     }
@@ -76,13 +76,13 @@ class SmsTemplateBuilderTest {
         val p = template.match(BankSmsParser.normalize(panshop), ist)
         assertNotNull(p)
         assertEquals(30.0, p!!.amount, 0.001)
-        assertEquals("Pailwan Panshop", p.counterparty)
+        assertEquals("Corner Panshop", p.counterparty)
         assertEquals(day(2026, 8, 31), p.dayMs)
-        assertEquals("128768974416", p.upiRef)
+        assertEquals("900000000009", p.upiRef)
 
         val d = template.match(BankSmsParser.normalize(devTea), ist)
         assertEquals(53.0, d!!.amount, 0.001)
-        assertEquals("Dev Tea", d.counterparty)
+        assertEquals("Morning Tea", d.counterparty)
         assertEquals(day(2026, 8, 29), d.dayMs)
 
         // A different bank's format is not matched.
@@ -92,11 +92,11 @@ class SmsTemplateBuilderTest {
     @Test
     fun boiFormatCanBeTaughtToo() {
         val template = teach(boi)
-        val other = boi.replace("250.00", "1,200.50").replace("NEW MINAL KHANAWAL", "SWARAJ POLI BHAJI KENDRA")
-            .replace("659106464444", "659909850362").replace("13Aug26", "21Aug26").replace("XX5781", "XX1234")
+        val other = boi.replace("250.00", "1,200.50").replace("NEW ASHA KHANAWAL", "ANNAPURNA POLI BHAJI KENDRA")
+            .replace("900000000004", "900000000001").replace("13Aug26", "21Aug26").replace("XX2468", "XX1234")
         val p = template.match(BankSmsParser.normalize(other), ist)!!
         assertEquals(1200.5, p.amount, 0.001)
-        assertEquals("Swaraj Poli Bhaji Kendra", p.counterparty)
+        assertEquals("Annapurna Poli Bhaji Kendra", p.counterparty)
         assertEquals(day(2026, 8, 21), p.dayMs)
     }
 

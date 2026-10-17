@@ -189,7 +189,7 @@ object SmsImportPlanner {
         return "ref:${parsed.bank.name}:${TransactionType.EXPENSE.name}:$ref"
     }
 
-    /** Remembered-choice key: direction + normalised payee, e.g. "expense:swaraj poli bhaji kendra". */
+    /** Remembered-choice key: direction + normalised payee, e.g. "expense:annapurna poli bhaji kendra". */
     fun ruleKey(type: TransactionType, counterparty: String): String? {
         val normalised = counterparty.lowercase(Locale.US).replace(Regex("""\s+"""), " ").trim()
         if (normalised.isEmpty()) return null

@@ -17,7 +17,7 @@ sealed interface AutoSuggestion {
 }
 
 /**
- * What the owner's own categorised payees say about words in payee names: after "Rk pan shop"
+ * What the owner's own categorised payees say about words in payee names: after "Ak pan shop"
  * is filed under Tea & Snacks, "pan shop" points there for any new pan shop. Built from the
  * transactions, so every correction teaches it without a separate store.
  */
@@ -115,7 +115,7 @@ object AutoCategorizer {
         rule("""dividend|\binterest\b|mutual ?fund|zerodha|groww""", "Investments", type = TransactionType.INCOME)
     )
 
-    // Words that mark a business, so a name like "Ravi Enterprises" is not taken for a person.
+    // Words that mark a business, so a name like "Mohan Enterprises" is not taken for a person.
     private val BUSINESS = Regex(
         """\b(?:shop|store|stores|enterprises?|traders?|industr\w*|limited|ltd|pvt|private|services?|centre|center|agency|agencies|corporation|company|bank|india|kendra|bhandar|mandir|ventures?|group|solutions|technologies|tech|online|digital|associates|brothers|bros|sons|wines?|liquor|bar|beer|x?press|express|studio|works|world|point|house|care|plaza|palace)\b"""
     )
@@ -138,7 +138,7 @@ object AutoCategorizer {
         val text = normalize(payee)
         if (text.isEmpty()) return null
         keywordMatch(text, type, validCategories)?.let { return it }
-        // A shop with a plain name ("Samarth Stola Corner") would look like a person; a strong
+        // A shop with a plain name ("Narayan Stola Corner") would look like a person; a strong
         // learned match decides first. Weak single-word matches never override a person.
         model.predict(text, type, validCategories, strongOnly = true)?.let { return it }
         if (looksLikePerson(text)) return AutoSuggestion.Person
@@ -160,7 +160,7 @@ object AutoCategorizer {
         return null
     }
 
-    /** "Mr Satish Gawade", "Sanika Chinchole": two to four plain words, or an honorific, and no business word. */
+    /** "Mr Rohan Mehta", "Priya Nair": two to four plain words, or an honorific, and no business word. */
     fun looksLikePerson(payee: String): Boolean {
         val text = normalize(payee)
         if (text.any { it.isDigit() } || BUSINESS.containsMatchIn(text)) return false

@@ -28,7 +28,7 @@ class AutoCaptureTest {
     private val zepto = RawSms(
         id = 0,
         sender = "JD-KOTAKB-S",
-        body = "Sent Rs.453.00 from Kotak Bank A/c X0271 to Zepto on 10-10-26. UPI Ref 528311470110. " +
+        body = "Sent Rs.453.00 from Kotak Bank A/c X6789 to Zepto on 10-10-26. UPI Ref 900000000003. " +
             "Not you, https://kotak.com/KBANKT/Fraud",
         receivedAt = at(10, 11)
     )
@@ -73,7 +73,7 @@ class AutoCaptureTest {
     fun withoutUpiReferenceWaitsForReview() {
         // The fallback dedupe key includes the arrival time, which the inbox may record
         // differently from the broadcast: auto-adding could lead to a double import later.
-        val noRef = zepto.copy(body = zepto.body.replace(" UPI Ref 528311470110.", ""))
+        val noRef = zepto.copy(body = zepto.body.replace(" UPI Ref 900000000003.", ""))
         val decision = decide(noRef)
         assertTrue(decision.autoAdd.isEmpty())
         assertEquals(1, decision.toReview.size)
@@ -88,8 +88,8 @@ class AutoCaptureTest {
 
     @Test
     fun verifiedCreditFromRememberedPayerIsAdded() {
-        val credit = RawSms(0, "JD-KOTAKB-S", "Received Rs.57000.00 in your Kotak Bank AC 0271 from OM MADHUKAR PATIL on 10-10-26.UPI Ref:623396914412", at(10, 12))
-        val rule = MerchantRuleEntity("income:om madhukar patil", "Other", isSelfTransfer = true)
+        val credit = RawSms(0, "JD-KOTAKB-S", "Received Rs.57000.00 in your Kotak Bank AC 6789 from ARJUN MAHESH KULKARNI on 10-10-26.UPI Ref:900000000007", at(10, 12))
+        val rule = MerchantRuleEntity("income:arjun mahesh kulkarni", "Other", isSelfTransfer = true)
         val decision = decide(credit, rules = listOf(rule))
         assertTrue(decision.autoAdd.single().isSelfTransfer)
         assertTrue(decide(credit, rules = emptyList()).autoAdd.isEmpty())
@@ -97,11 +97,11 @@ class AutoCaptureTest {
 
     @Test
     fun reversalOfRecordedPaymentCancelsItSilently() {
-        val reversal = RawSms(0, "JD-KOTAKB-S", "Rs.453.00 is credited to Kotak Bank a/c no. 0271 on 10-10-26 as a reversal of debit transaction (UPI Ref no 528311470110).", at(10, 12))
+        val reversal = RawSms(0, "JD-KOTAKB-S", "Rs.453.00 is credited to Kotak Bank a/c no. 6789 on 10-10-26 as a reversal of debit transaction (UPI Ref no 900000000003).", at(10, 12))
         val decision = AutoCapture.decide(
-            SmsImportPlanner.plan(listOf(reversal), setOf("ref:KOTAK:EXPENSE:528311470110"), emptyList(), emptyList(), categories, ist)
+            SmsImportPlanner.plan(listOf(reversal), setOf("ref:KOTAK:EXPENSE:900000000003"), emptyList(), emptyList(), categories, ist)
         )
-        assertEquals("ref:KOTAK:EXPENSE:528311470110", decision.autoAdd.single().candidate.cancelsKey)
+        assertEquals("ref:KOTAK:EXPENSE:900000000003", decision.autoAdd.single().candidate.cancelsKey)
         val state = CaptureState().record(decision, reversal.receivedAt, reversal.receivedAt - AutoCapture.SCAN_MARGIN_MS)
         assertEquals(0, state.addedCount)
     }

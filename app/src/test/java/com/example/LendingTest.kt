@@ -118,17 +118,17 @@ class LendingTest {
     @Test
     fun bankPayeeMatchesAnExistingPerson() {
         val people = Lending.balances(
-            listOf(entry("Yogesh", DebtKind.LENT, 100.0, today), entry("Om", DebtKind.LENT, 50.0, today)),
+            listOf(entry("Nikhil", DebtKind.LENT, 100.0, today), entry("Arjun", DebtKind.LENT, 50.0, today)),
             today
         )
-        assertEquals("Yogesh", Lending.matchPerson("YOGESH BBAN SUPEKAR", people)?.name)
-        assertEquals("Om", Lending.matchPerson("OM PATIL", people)?.name)
+        assertEquals("Nikhil", Lending.matchPerson("NIKHIL ANAND JOSHI", people)?.name)
+        assertEquals("Arjun", Lending.matchPerson("ARJUN KULKARNI", people)?.name)
         assertNull(Lending.matchPerson("ZEPTO", people))
     }
 
     @Test
     fun displayNameTidiesBankCapitals() {
-        assertEquals("Yogesh Bban Supekar", Lending.displayName("  YOGESH   BBAN SUPEKAR "))
+        assertEquals("Nikhil Anand Joshi", Lending.displayName("  NIKHIL   ANAND JOSHI "))
         assertEquals("McDonald", Lending.displayName("McDonald"))
     }
 }

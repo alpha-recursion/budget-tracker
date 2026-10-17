@@ -45,7 +45,7 @@ class BackupTest {
         transactions = listOf(
             TransactionEntity(
                 id = 5L,
-                title = "Swaraj Poli Bhaji Kendra",
+                title = "Annapurna Poli Bhaji Kendra",
                 amount = 100.0,
                 type = "EXPENSE",
                 category = "Food & Dining",
@@ -56,12 +56,12 @@ class BackupTest {
         budgets = listOf(BudgetEntity(category = "Bike & Fuel", monthlyLimit = 2500.0)),
         categories = listOf(CustomCategoryEntity("Bike & Fuel", "two_wheeler", 0xFF0984E3, "EXPENSE")),
         smsImports = listOf(
-            SmsImportEntity("ref:BOI:EXPENSE:659909850362", "IMPORTED", 5L, 1_787_000_000_000L),
+            SmsImportEntity("ref:BOI:EXPENSE:900000000001", "IMPORTED", 5L, 1_787_000_000_000L),
             SmsImportEntity("ref:KOTAK:EXPENSE:123", "SELF_TRANSFER", null, 1_787_000_100_000L)
         ),
         merchantRules = listOf(
-            MerchantRuleEntity("swaraj poli bhaji kendra", "Food & Dining", false),
-            MerchantRuleEntity("om patil", "Other", true)
+            MerchantRuleEntity("annapurna poli bhaji kendra", "Food & Dining", false),
+            MerchantRuleEntity("arjun kulkarni", "Other", true)
         ),
         smsTemplates = listOf(
             SmsTemplateEntity(

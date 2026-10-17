@@ -31,25 +31,25 @@ class AutoCategorizerTest {
 
     @Test
     fun keywordsPlaceCommonIndianPayees() {
-        assertEquals("Healthcare", category("Lifeline Pharmacy"))
+        assertEquals("Healthcare", category("Wellcare Pharmacy"))
         assertEquals("Healthcare", category("City Multispeciality Hospital"))
-        assertEquals("Tea & Snacks", category("Rk pan shop"))
-        assertEquals("Tea & Snacks", category("PAILWAN PANSHOP"))
+        assertEquals("Tea & Snacks", category("Ak pan shop"))
+        assertEquals("Tea & Snacks", category("CORNER PANSHOP"))
         assertEquals("Tea & Snacks", category("Corner Tea Stall"))
-        assertEquals("Food & Dining", category("Hotel Sagar"))
+        assertEquals("Food & Dining", category("Hotel Sunrise"))
         assertEquals("Food & Dining", category("Zomato"))
-        assertEquals("Groceries", category("Balaji Super Market"))
+        assertEquals("Groceries", category("Sunrise Super Market"))
         assertEquals("Groceries", category("ZEPTO MARKETPLACE PRIVATE LIMITED"))
-        assertEquals("Fuel & Vehicle", category("KOTHRUD PETROLCIRCLE"))
+        assertEquals("Fuel & Vehicle", category("RIVERSIDE PETROLCIRCLE"))
         assertEquals("Mobile & Recharge", category("Jio Prepaid"))
-        assertEquals("Transportation", category("ONE PUNE NCMC CARD"))
+        assertEquals("Transportation", category("ONE CITY NCMC CARD"))
         // A medical store is healthcare, not groceries.
-        assertEquals("Healthcare", category("Sai Medical and General Stores"))
+        assertEquals("Healthcare", category("Sample Medical and General Stores"))
     }
 
     @Test
     fun matchedWordIsShownWhole() {
-        val s = suggest("Mai Mangeshkar PharmacyIpd") as AutoSuggestion.Category
+        val s = suggest("Green Cross PharmacyIpd") as AutoSuggestion.Category
         assertEquals(GuessSource.KEYWORD, s.source)
         assertEquals("pharmacyipd", s.matched)
     }
@@ -58,48 +58,48 @@ class AutoCategorizerTest {
     fun fallsBackToABroaderCategoryWhenTheFinerOneIsGone() {
         val withoutNew = all - setOf("Tea & Snacks", "Groceries", "Fuel & Vehicle", "Mobile & Recharge")
         assertEquals("Utilities & Bills", category("Airtel Prepaid", withoutNew))
-        assertEquals("Food & Dining", category("Shree Ram Tea Stall", withoutNew))
+        assertEquals("Food & Dining", category("Shree Krishna Tea Stall", withoutNew))
         assertEquals("Shopping", category("Daily Mart", withoutNew))
     }
 
     @Test
     fun peopleAreMarkedNotGuessed() {
-        assertEquals(AutoSuggestion.Person, suggest("Mr Satish Gawade"))
-        assertEquals(AutoSuggestion.Person, suggest("Sanika Patil"))
-        assertFalse(AutoCategorizer.looksLikePerson("Ravi Enterprises"))
-        assertFalse(AutoCategorizer.looksLikePerson("Lucky One Wines"))
-        assertFalse(AutoCategorizer.looksLikePerson("AWFIS")) // one word: could be a brand
-        assertFalse(AutoCategorizer.looksLikePerson("Khandeshi MH 18"))
+        assertEquals(AutoSuggestion.Person, suggest("Mr Rohan Mehta"))
+        assertEquals(AutoSuggestion.Person, suggest("Priya Nair"))
+        assertFalse(AutoCategorizer.looksLikePerson("Mohan Enterprises"))
+        assertFalse(AutoCategorizer.looksLikePerson("Lucky Star Wines"))
+        assertFalse(AutoCategorizer.looksLikePerson("ZENTRO")) // one word: could be a brand
+        assertFalse(AutoCategorizer.looksLikePerson("Sample MH 18"))
     }
 
     @Test
     fun learnsFromTheOwnersOwnChoices() {
         val model = CategoryModel.learn(
             listOf(
-                tx("Shri Swami Samarth T Stola", "Tea & Snacks", 1),
+                tx("Shri Laxmi Narayan T Stola", "Tea & Snacks", 1),
                 tx("Ganesh Enterprises", "Groceries", 2),
                 tx("Ganesh Tailoring Works", "Shopping", 3),
-                tx("Sanika Patil", "Shopping", 4), // a person: not learned from
+                tx("Priya Nair", "Shopping", 4), // a person: not learned from
                 tx("Unknown Payee", "Other", 5) // Other teaches nothing
             )
         )
-        val s = suggest("Samarth Stola Corner", model = model) as AutoSuggestion.Category
+        val s = suggest("Narayan Stola Corner", model = model) as AutoSuggestion.Category
         assertEquals("Tea & Snacks", s.name)
         assertEquals(GuessSource.LEARNED, s.source)
-        assertEquals("samarth stola", s.matched)
+        assertEquals("narayan stola", s.matched)
         // "ganesh" points two ways: no guess.
         assertNull(suggest("Ganesh Store Point", model = model))
         // Learning never overrides a person.
-        assertEquals(AutoSuggestion.Person, suggest("Sanika Kulkarni", model = model))
+        assertEquals(AutoSuggestion.Person, suggest("Priya Menon", model = model))
     }
 
     @Test
     fun sortOutOtherSuggestsPerPayee() {
         val txs = listOf(
-            tx("Lifeline Pharmacy", "Other", 1),
-            tx("LIFELINE PHARMACY", "Other", 2),
-            tx("Sanika Patil", "Other", 3),
-            tx("Hotel Sagar", "Food & Dining", 4)
+            tx("Wellcare Pharmacy", "Other", 1),
+            tx("WELLCARE PHARMACY", "Other", 2),
+            tx("Priya Nair", "Other", 3),
+            tx("Hotel Sunrise", "Food & Dining", 4)
         )
         val fixes = AutoCategorizer.suggestForOther(txs, all, CategoryModel.learn(txs))
         val fix = fixes.single()
@@ -115,13 +115,13 @@ class AutoCategorizerTest {
             1_000_000L * id
         )
         val plan = SmsImportPlanner.plan(
-            messages = listOf(kotak(1, "LIFELINE PHARMACY", "100000000101"), kotak(2, "AWFIS", "100000000102"), kotak(3, "SANIKA PATIL", "100000000103")),
+            messages = listOf(kotak(1, "WELLCARE PHARMACY", "100000000101"), kotak(2, "ZENTRO", "100000000102"), kotak(3, "PRIYA NAIR", "100000000103")),
             alreadyImportedKeys = emptySet(),
             existingTransactions = emptyList(),
             rules = emptyList(),
             validCategories = all
         )
-        assertEquals(listOf("Awfis", "Sanika Patil", "Lifeline Pharmacy"), plan.groups.map { it.title })
+        assertEquals(listOf("Zentro", "Priya Nair", "Wellcare Pharmacy"), plan.groups.map { it.title })
         val pharmacy = plan.groups.last()
         assertEquals("Healthcare", pharmacy.suggestedCategory)
         assertEquals("pharmacy", pharmacy.autoCategory?.matched)

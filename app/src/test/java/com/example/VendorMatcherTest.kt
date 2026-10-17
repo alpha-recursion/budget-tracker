@@ -19,7 +19,7 @@ class VendorMatcherTest {
 
     @Test
     fun caseSpacesAndSymbolsAreIgnored() {
-        val canonical = VendorMatcher.canonicalNames(listOf("DEV TEA", "Dev Tea", "Devtea.", "zepto@ybl", "ZEPTO"))
+        val canonical = VendorMatcher.canonicalNames(listOf("MORNING TEA", "Morning Tea", "Devtea.", "zepto@ybl", "ZEPTO"))
         assertEquals(1, canonical.filterKeys { it.contains("tea", ignoreCase = true) }.values.toSet().size)
         assertEquals(VendorMatcher.compact(canonical.getValue("zepto@ybl")), VendorMatcher.compact(canonical.getValue("ZEPTO")))
     }
@@ -34,8 +34,8 @@ class VendorMatcherTest {
 
     @Test
     fun veryShortNamesNeverMerge() {
-        // "Dev" (3 letters) must not swallow "Dev Tea".
-        val canonical = VendorMatcher.canonicalNames(listOf("Dev", "Dev Tea"))
+        // "Dev" (3 letters) must not swallow "Morning Tea".
+        val canonical = VendorMatcher.canonicalNames(listOf("Dev", "Morning Tea"))
         assertEquals("Dev", canonical["Dev"])
     }
 

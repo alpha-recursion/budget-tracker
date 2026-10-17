@@ -25,14 +25,14 @@ class SmsImportPlannerTest {
     private val boiFood = RawSms(
         id = 1,
         sender = "VM-BOIIND",
-        body = "Rs.100.00 debited A/cXX5XXX and credited to SWARAJ POLI BHAJI KENDRA via UPI Ref No " +
-            "659909850362 on 21Aug26. Call 18001031906, if not done by you. -BOI",
+        body = "Rs.100.00 debited A/cXX5XXX and credited to ANNAPURNA POLI BHAJI KENDRA via UPI Ref No " +
+            "900000000001 on 21Aug26. Call 18001031906, if not done by you. -BOI",
         receivedAt = at(21, 13)
     )
     private val kotakPerson = RawSms(
         id = 2,
         sender = "JD-KOTAKB-S",
-        body = "Sent Rs.45.00 from Kotak Bank A/c XXXXX to YOGESH BBAN SUPEKAR on 27-08-26. " +
+        body = "Sent Rs.45.00 from Kotak Bank A/c XXXXX to NIKHIL ANAND JOSHI on 27-08-26. " +
             "UPI Ref 512345678901. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud",
         receivedAt = at(27, 9)
     )
@@ -47,21 +47,21 @@ class SmsImportPlannerTest {
     private val kotakFailedPayment = RawSms(
         id = 30,
         sender = "JD-KOTAKB-S",
-        body = "Sent Rs.64.00 from Kotak Bank A/c X4880 to SOME SHOP on 19-07-26. UPI Ref 620002690546.",
+        body = "Sent Rs.64.00 from Kotak Bank A/c X3456 to SOME SHOP on 19-07-26. UPI Ref 900000000002.",
         receivedAt = at(19, 10)
     )
     private val kotakReversal = RawSms(
         id = 31,
         sender = "JD-KOTAKB-S",
-        body = "Rs.64.00 is credited to Kotak Bank a/c no. 4880 on 19-07-26 as a reversal of debit transaction " +
-            "(UPI Ref no 620002690546).",
+        body = "Rs.64.00 is credited to Kotak Bank a/c no. 3456 on 19-07-26 as a reversal of debit transaction " +
+            "(UPI Ref no 900000000002).",
         receivedAt = at(19, 11)
     )
-    private val paymentKey = "ref:KOTAK:EXPENSE:620002690546"
+    private val paymentKey = "ref:KOTAK:EXPENSE:900000000002"
 
     @Test
     fun verifiedCreditIsSelectedByDefault() {
-        val credit = RawSms(32, "JD-KOTAKB-S", "Received Rs.100.00 in your Kotak Bank AC 4880 from GAYATRI HARISHCHANDR on 24-08-26.UPI Ref:623610319810", at(24, 9))
+        val credit = RawSms(32, "JD-KOTAKB-S", "Received Rs.100.00 in your Kotak Bank AC 3456 from MEERA VISHWANATHAN on 24-08-26.UPI Ref:900000000005", at(24, 9))
         val item = plan(listOf(credit)).groups.single().items.single()
         assertEquals(TransactionType.INCOME, item.parsed.type)
         assertTrue(item.selectedByDefault)
@@ -80,7 +80,7 @@ class SmsImportPlannerTest {
     @Test
     fun paymentAndReversalInOneScanAreBothSkipped() {
         val result = plan(listOf(kotakFailedPayment, kotakReversal, kotakPerson))
-        assertEquals(listOf("Yogesh Bban Supekar"), result.groups.map { it.title })
+        assertEquals(listOf("Nikhil Anand Joshi"), result.groups.map { it.title })
     }
 
     @Test
@@ -96,7 +96,7 @@ class SmsImportPlannerTest {
         val result = plan(listOf(boiFood, kotakPerson))
         assertEquals(2, result.candidateCount)
         // Newest first.
-        assertEquals(listOf("Yogesh Bban Supekar", "Swaraj Poli Bhaji Kendra"), result.groups.map { it.title })
+        assertEquals(listOf("Nikhil Anand Joshi", "Annapurna Poli Bhaji Kendra"), result.groups.map { it.title })
         val food = result.groups.last().items.single()
         assertEquals(100.0, food.parsed.amount, 0.001)
         assertEquals(boiFood.receivedAt, food.dateMs) // same day as the SMS states -> exact arrival time
@@ -156,7 +156,7 @@ class SmsImportPlannerTest {
 
     @Test
     fun matchingDebitAndCreditAreSuggestedAsSelfTransfer() {
-        val debit = kotakPerson.copy(body = kotakPerson.body.replace("YOGESH BBAN SUPEKAR", "OM PATIL"))
+        val debit = kotakPerson.copy(body = kotakPerson.body.replace("NIKHIL ANAND JOSHI", "ARJUN KULKARNI"))
         val credit = RawSms(6, "VM-BOIIND", "Your A/c XX5XXX is credited with Rs.45.00 by UPI Ref No 512345678901. -BOI", at(27, 9))
         val groups = plan(listOf(debit, credit)).groups
         assertEquals(2, groups.size) // both sides are kept (different bank + direction)
@@ -166,21 +166,21 @@ class SmsImportPlannerTest {
     @Test
     fun rememberedChoicesArePrefilledPerDirection() {
         val rules = listOf(
-            MerchantRuleEntity("expense:swaraj poli bhaji kendra", "Food & Dining", false),
-            MerchantRuleEntity("expense:yogesh bban supekar", "Deleted Category", false)
+            MerchantRuleEntity("expense:annapurna poli bhaji kendra", "Food & Dining", false),
+            MerchantRuleEntity("expense:nikhil anand joshi", "Deleted Category", false)
         )
         val groups = plan(listOf(boiFood, kotakPerson), rules = rules).groups.associateBy { it.title }
-        assertEquals("Food & Dining", groups.getValue("Swaraj Poli Bhaji Kendra").suggestedCategory)
+        assertEquals("Food & Dining", groups.getValue("Annapurna Poli Bhaji Kendra").suggestedCategory)
         // A rule pointing at a category that no longer exists falls back to Other.
-        assertEquals("Other", groups.getValue("Yogesh Bban Supekar").suggestedCategory)
-        assertEquals("expense:swaraj poli bhaji kendra", groups.getValue("Swaraj Poli Bhaji Kendra").ruleKey)
+        assertEquals("Other", groups.getValue("Nikhil Anand Joshi").suggestedCategory)
+        assertEquals("expense:annapurna poli bhaji kendra", groups.getValue("Annapurna Poli Bhaji Kendra").ruleKey)
     }
 
     @Test
     fun paymentsToSamePayeeAreGrouped() {
         val again = boiFood.copy(
             id = 7,
-            body = boiFood.body.replace("659909850362", "659909850999").replace("21Aug26", "22Aug26"),
+            body = boiFood.body.replace("900000000001", "900000000011").replace("21Aug26", "22Aug26"),
             receivedAt = at(22, 13)
         )
         val group = plan(listOf(boiFood, again)).groups.single()
@@ -189,17 +189,17 @@ class SmsImportPlannerTest {
 
     // Real messages from the owner's phone (Aug 2026).
     private val ownerSamples = listOf(
-        RawSms(11, "JD-KOTAKB-S", "Sent Rs.453.00 from Kotak Bank A/c X0271 to Zepto on 31-08-26. UPI Ref 128822061819. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(31, 20)),
-        RawSms(12, "JD-KOTAKB-S", "Sent Rs.30.00 from Kotak Bank A/c X0271 to PAILWAN PANSHOP on 31-08-26. UPI Ref 128768974416. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(31, 18)),
-        RawSms(13, "JD-KOTAKB-S", "Sent Rs.53.00 from Kotak Bank A/c X0271 to DEV TEA on 29-08-26. UPI Ref 660773555755. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(29, 8)),
-        RawSms(14, "VM-BOIIND", "Rs.250.00 debited A/cXX5781 and credited to NEW MINAL KHANAWAL via UPI Ref No 659106464444 on 13Aug26. Call 18001031906, if not done by you. -BOI", at(13, 13))
+        RawSms(11, "JD-KOTAKB-S", "Sent Rs.453.00 from Kotak Bank A/c X6789 to Zepto on 31-08-26. UPI Ref 900000000008. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(31, 20)),
+        RawSms(12, "JD-KOTAKB-S", "Sent Rs.30.00 from Kotak Bank A/c X6789 to CORNER PANSHOP on 31-08-26. UPI Ref 900000000009. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(31, 18)),
+        RawSms(13, "JD-KOTAKB-S", "Sent Rs.53.00 from Kotak Bank A/c X6789 to MORNING TEA on 29-08-26. UPI Ref 900000000010. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud", at(29, 8)),
+        RawSms(14, "VM-BOIIND", "Rs.250.00 debited A/cXX2468 and credited to NEW ASHA KHANAWAL via UPI Ref No 900000000004 on 13Aug26. Call 18001031906, if not done by you. -BOI", at(13, 13))
     )
 
     @Test
     fun ownerSamplesAreAllRecognised() {
         val result = plan(ownerSamples)
         assertEquals(4, result.candidateCount)
-        assertEquals(setOf("Zepto", "Pailwan Panshop", "Dev Tea", "New Minal Khanawal"), result.groups.map { it.title }.toSet())
+        assertEquals(setOf("Zepto", "Corner Panshop", "Morning Tea", "New Asha Khanawal"), result.groups.map { it.title }.toSet())
         assertEquals(453.0 + 30.0 + 53.0 + 250.0, result.groups.sumOf { g -> g.items.sumOf { it.parsed.amount } }, 0.001)
         assertTrue(ownerSamples.all { SmsImportPlanner.isSupportedTransaction(it, ist) })
     }
@@ -221,7 +221,7 @@ class SmsImportPlannerTest {
     fun truncatedPayeeNamesAreOneGroupWithRememberedCategory() {
         fun kotak(id: Long, payee: String, amount: String, ref: String) = RawSms(
             id, "JD-KOTAKB-S",
-            "Sent Rs.$amount from Kotak Bank A/c X0271 to $payee on 30-08-26. UPI Ref $ref. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud",
+            "Sent Rs.$amount from Kotak Bank A/c X6789 to $payee on 30-08-26. UPI Ref $ref. Not done by you? Tap https://kotak.bank.in/KBANKT/Fraud",
             at(30, id.toInt() % 20)
         )
         val messages = listOf(

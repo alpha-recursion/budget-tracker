@@ -42,18 +42,18 @@ data class ParsedBankSms(
  * fallback for other formats. Pure Kotlin so it can be unit tested without a device.
  *
  * Formats are taken from real messages:
- * - Kotak: "Sent Rs.45.00 from Kotak Bank A/c XXXXX to YOGESH BBAN SUPEKAR on 27-08-26. UPI Ref ..."
- * - BOI:   "Rs.100.00 debited A/cXX5XXX and credited to SWARAJ POLI BHAJI KENDRA via UPI Ref No
- *           659909850362 on 21Aug26. ... -BOI"
- * - Kotak credit: "Received Rs.100.00 in your Kotak Bank AC 4880 from GAYATRI HARISHCHANDR on
- *           24-08-26.UPI Ref:623610319810"
- * - Kotak reversal: "Rs.64.00 is credited to Kotak Bank a/c no. 4880 on 19-07-26 as a reversal
- *           of debit transaction (UPI Ref no 620002690546)."
- * - BOI credit: "BOI - Rs.5000.00 Credited to your Ac XX5781 on 12-10-26 by UPI ref
- *           No.628583071397.Avl Bal 10469.82"
+ * - Kotak: "Sent Rs.45.00 from Kotak Bank A/c XXXXX to NIKHIL ANAND JOSHI on 27-08-26. UPI Ref ..."
+ * - BOI:   "Rs.100.00 debited A/cXX5XXX and credited to ANNAPURNA POLI BHAJI KENDRA via UPI Ref No
+ *           900000000001 on 21Aug26. ... -BOI"
+ * - Kotak credit: "Received Rs.100.00 in your Kotak Bank AC 3456 from MEERA VISHWANATHAN on
+ *           24-08-26.UPI Ref:900000000005"
+ * - Kotak reversal: "Rs.64.00 is credited to Kotak Bank a/c no. 3456 on 19-07-26 as a reversal
+ *           of debit transaction (UPI Ref no 900000000002)."
+ * - BOI credit: "BOI - Rs.5000.00 Credited to your Ac XX2468 on 12-10-26 by UPI ref
+ *           No.900000000006.Avl Bal 12345.67"
  *
  * Credit card bill payments ("Payment of INR 2375.65 is credited to your Kotak Bank Credit Card
- * x4867 ...") are ignored: the money already left a bank account as its own debit alert.
+ * x1234 ...") are ignored: the money already left a bank account as its own debit alert.
  */
 object BankSmsParser {
 
@@ -64,7 +64,7 @@ object BankSmsParser {
         RegexOption.IGNORE_CASE
     )
 
-    // Real messages write "AC 4880"; "A/c" is accepted too.
+    // Real messages write "AC 3456"; "A/c" is accepted too.
     private val KOTAK_RECEIVED = Regex(
         """Received\s+Rs\.?\s*$AMOUNT\s+in\s+your\s+Kotak\s+Bank\s+A/?c\s*\S+\s+from\s+(.+?)\s+on\s+(\d{1,2}-\d{1,2}-\d{2,4})\.?\s*(?:UPI\s+Ref(?:\s+No)?[:.]?\s*([A-Za-z0-9]+))?""",
         RegexOption.IGNORE_CASE
@@ -225,7 +225,7 @@ object BankSmsParser {
 
     private fun String.toAmount(): Double? = replace(",", "").toDoubleOrNull()?.takeIf { it > 0.0 }
 
-    /** "YOGESH  BBAN SUPEKAR." -> "Yogesh Bban Supekar"; VPAs like "swiggy@icici" are kept as-is. */
+    /** "NIKHIL  ANAND JOSHI." -> "Nikhil Anand Joshi"; VPAs like "swiggy@icici" are kept as-is. */
     internal fun cleanCounterparty(raw: String): String? {
         val trimmed = raw.trim().trimEnd('.', ',').replace(Regex("""\s+"""), " ")
         if (trimmed.isEmpty()) return null

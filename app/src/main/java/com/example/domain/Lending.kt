@@ -113,7 +113,7 @@ object Lending {
     }
 
     /**
-     * The existing person a bank payee most likely is, e.g. "YOGESH BBAN SUPEKAR" -> "Yogesh".
+     * The existing person a bank payee most likely is, e.g. "NIKHIL ANAND JOSHI" -> "Nikhil".
      * Null when nobody matches or the match is ambiguous.
      */
     fun matchPerson(payee: String, people: List<PersonBalance>): PersonBalance? {
@@ -122,7 +122,7 @@ object Lending {
         val byCompact = people.associateBy { VendorMatcher.compact(it.name) }
         val match = VendorMatcher.bestMatch(payee, byCompact.keys)
         if (match != null) return byCompact[match]
-        // A first name alone ("Yogesh") is too short for the vendor rule; accept it when it is
+        // A first name alone ("Nikhil") is too short for the vendor rule; accept it when it is
         // exactly the payee's first word and no one else shares it.
         val firstWord = key.substringBefore(' ')
         val sameFirst = people.filter { personKey(it.name) == firstWord }

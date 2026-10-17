@@ -186,7 +186,7 @@ class ExampleRobolectricTest {
     @Test
     fun `sms import writes transactions, records and rules atomically`() = runBlocking {
         val tx = TransactionEntity(
-            title = "Swaraj Poli Bhaji Kendra",
+            title = "Annapurna Poli Bhaji Kendra",
             amount = 100.0,
             type = TransactionType.EXPENSE.name,
             category = Category.FOOD_DINING.displayName,
@@ -197,7 +197,7 @@ class ExampleRobolectricTest {
                 com.example.data.repository.SmsImportItem("ref:BOI:EXPENSE:1", 1000L, tx),
                 com.example.data.repository.SmsImportItem("ref:KOTAK:EXPENSE:2", 2000L, null)
             ),
-            rules = listOf(com.example.data.local.MerchantRuleEntity("swaraj poli bhaji kendra", Category.FOOD_DINING.displayName, false))
+            rules = listOf(com.example.data.local.MerchantRuleEntity("annapurna poli bhaji kendra", Category.FOOD_DINING.displayName, false))
         )
 
         assertEquals(1, created)
